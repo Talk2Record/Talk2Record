@@ -1,0 +1,125 @@
+{
+  "common": {
+    "appName": "Talk2Record",
+    "selectLanguage": "Select language",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save changes",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "reset": "Reset",
+    "noData": "No data available",
+    "toggleTheme": "Toggle theme",
+    "currency": "Currency",
+    "language": "Language"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "navigation": {
+    "home": "Home",
+    "features": "Features",
+    "pricing": "Pricing",
+    "docs": "Docs",
+    "dashboard": "Dashboard",
+    "records": "Records",
+    "analytics": "Analytics",
+    "integrations": "Integrations",
+    "billing": "Billing",
+    "settings": "Settings",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "forgotPassword": "Forgot password"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "email": "Work email",
+      "password": "Password",
+      "emailPlaceholder": "team@company.com",
+      "passwordPlaceholder": "Enter your password",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "New to Talk2Record?",
+      "signUp": "Create an account",
+      "invalidCredentials": "Unable to sign in with those details.",
+      "fillAllFields": "Please fill in all fields.",
+      "signInWithGoogle": "Continue with Google",
+      "orContinueWith": "Or continue with"
+    },
+    "register": {
+      "title": "Create your account",
+      "submit": "Create workspace",
+      "company": "Company name"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "submit": "Send reset link"
+    },
+    "onboarding": {
+      "title": "Finish onboarding",
+      "step1": "Connect WhatsApp",
+      "step2": "Send your first voice note",
+      "step3": "Set up company details"
+    }
+  },
+  "marketing": {
+    "hero": {
+      "eyebrow": "AI operations for WhatsApp-first teams",
+      "title": "Turn WhatsApp voice notes into clean business records",
+      "subtitle": "Capture sales, inventory, and field updates from voice notes, then review them in one dashboard with analytics, billing, and integrations.",
+      "primaryCta": "Start free trial",
+      "secondaryCta": "View dashboard preview"
+    },
+    "demo": {
+      "title": "From voice note to dashboard in minutes",
+      "description": "Talk2Record extracts customers, products, totals, payment methods, and transcripts so teams stop retyping updates by hand."
+    },
+    "pricing": {
+      "title": "Plans for growing operations"
+    },
+    "faq": {
+      "title": "Frequently asked questions"
+    },
+    "testimonials": {
+      "title": "Built for distributed operators"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "searchPlaceholder": "Search records, customers, or products",
+      "notifications": "Notifications"
+    },
+    "overview": {
+      "title": "Operations overview",
+      "subtitle": "Track recent processing, recovered revenue, and onboarding progress from one place."
+    }
+  },
+  "sidebar": {
+    "workspace": "Workspace",
+    "menu": "Menu",
+    "theme": "Theme",
+    "language": "Language",
+    "currency": "Currency"
+  },
+  "errors": {
+    "404": "Page not found",
+    "401": "Unauthorized",
+    "403": "Forbidden",
+    "500": "Internal server error",
+    "generic": "Something went wrong. Please try again."
+  }
+}

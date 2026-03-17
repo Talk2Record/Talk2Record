@@ -1,0 +1,125 @@
+{
+  "common": {
+    "appName": "Talk2Record",
+    "selectLanguage": "Choisir la langue",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "save": "Enregistrer les modifications",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "submit": "Envoyer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "reset": "Réinitialiser",
+    "noData": "Aucune donnée disponible",
+    "toggleTheme": "Changer le thème",
+    "currency": "Devise",
+    "language": "Langue"
+  },
+  "theme": {
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "navigation": {
+    "home": "Accueil",
+    "features": "Fonctionnalités",
+    "pricing": "Tarifs",
+    "docs": "Documentation",
+    "dashboard": "Tableau de bord",
+    "records": "Enregistrements",
+    "analytics": "Analyses",
+    "integrations": "Intégrations",
+    "billing": "Facturation",
+    "settings": "Paramètres",
+    "logout": "Se déconnecter",
+    "login": "Se connecter",
+    "register": "S'inscrire",
+    "forgotPassword": "Mot de passe oublié"
+  },
+  "auth": {
+    "login": {
+      "title": "Bon retour",
+      "email": "E-mail professionnel",
+      "password": "Mot de passe",
+      "emailPlaceholder": "equipe@entreprise.com",
+      "passwordPlaceholder": "Saisissez votre mot de passe",
+      "submit": "Se connecter",
+      "forgotPassword": "Mot de passe oublié ?",
+      "noAccount": "Nouveau sur Talk2Record ?",
+      "signUp": "Créer un compte",
+      "invalidCredentials": "Impossible de se connecter avec ces informations.",
+      "fillAllFields": "Veuillez remplir tous les champs.",
+      "signInWithGoogle": "Continuer avec Google",
+      "orContinueWith": "Ou continuer avec"
+    },
+    "register": {
+      "title": "Créez votre compte",
+      "submit": "Créer l'espace de travail",
+      "company": "Nom de l'entreprise"
+    },
+    "forgot": {
+      "title": "Réinitialisez votre mot de passe",
+      "submit": "Envoyer le lien"
+    },
+    "onboarding": {
+      "title": "Terminer l'onboarding",
+      "step1": "Connecter WhatsApp",
+      "step2": "Envoyer votre première note vocale",
+      "step3": "Configurer l'entreprise"
+    }
+  },
+  "marketing": {
+    "hero": {
+      "eyebrow": "Des opérations IA pour les équipes WhatsApp-first",
+      "title": "Transformez les notes vocales WhatsApp en dossiers métier structurés",
+      "subtitle": "Capturez les ventes, le stock et les mises à jour terrain à partir de notes vocales, puis suivez tout dans un tableau de bord avec analyses, facturation et intégrations.",
+      "primaryCta": "Commencer l'essai gratuit",
+      "secondaryCta": "Voir l'aperçu du tableau de bord"
+    },
+    "demo": {
+      "title": "De la note vocale au tableau de bord en quelques minutes",
+      "description": "Talk2Record extrait les clients, produits, montants, moyens de paiement et transcriptions pour éviter la ressaisie manuelle."
+    },
+    "pricing": {
+      "title": "Des offres pour des opérations en croissance"
+    },
+    "faq": {
+      "title": "Questions fréquentes"
+    },
+    "testimonials": {
+      "title": "Conçu pour les équipes opérationnelles distribuées"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "searchPlaceholder": "Rechercher des enregistrements, clients ou produits",
+      "notifications": "Notifications"
+    },
+    "overview": {
+      "title": "Vue d'ensemble des opérations",
+      "subtitle": "Suivez l'activité récente, les revenus récupérés et la progression de l'onboarding depuis un seul endroit."
+    }
+  },
+  "sidebar": {
+    "workspace": "Espace de travail",
+    "menu": "Menu",
+    "theme": "Thème",
+    "language": "Langue",
+    "currency": "Devise"
+  },
+  "errors": {
+    "404": "Page introuvable",
+    "401": "Non autorisé",
+    "403": "Interdit",
+    "500": "Erreur interne du serveur",
+    "generic": "Une erreur est survenue. Veuillez réessayer."
+  }
+}

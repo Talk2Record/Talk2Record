@@ -1,0 +1,107 @@
+{
+  "appName": "Talk2Record",
+  "appType": "AI Operations SaaS",
+  "applicationCategory": "BusinessApplication",
+  "audience": "Small businesses, operations teams, field sales teams",
+  "canonicalPath": "/",
+  "contact": {
+    "phoneNumber": "",
+    "salesEmail": "alphanganga@gmail.com",
+    "supportEmail": "alphanganga@gmail.com"
+  },
+  "description": "Talk2Record turns WhatsApp voice notes into structured business records, analytics, and billing-ready workflows for fast-moving teams.",
+  "domain": "https://talk2record.app",
+  "features": [
+    "WhatsApp voice note capture",
+    "Structured record extraction",
+    "Localized pricing",
+    "Subscription billing",
+    "Operational analytics"
+  ],
+  "icons": {
+    "appleTouchIcon": "/apple-touch-icon.png",
+    "favicon": "/favicon.ico",
+    "svg": "/icon.svg"
+  },
+  "images": {
+    "logo": "/logo.svg",
+    "og": "/og-image.webp",
+    "ogHeight": 630,
+    "ogWidth": 1200
+  },
+  "keywords": [
+    "talk2record",
+    "whatsapp automation",
+    "voice note transcription",
+    "structured records",
+    "saas analytics"
+  ],
+  "language": "en-US",
+  "languages": {
+    "default": "en",
+    "locales": {
+      "en": {
+        "code": "en",
+        "direction": "ltr",
+        "locale": "en_US",
+        "name": "English",
+        "nativeName": "English"
+      },
+      "es": {
+        "code": "es",
+        "direction": "ltr",
+        "locale": "es_ES",
+        "name": "Spanish",
+        "nativeName": "Español"
+      },
+      "fr": {
+        "code": "fr",
+        "direction": "ltr",
+        "locale": "fr_FR",
+        "name": "French",
+        "nativeName": "Français"
+      }
+    },
+    "supported": ["en", "es", "fr"]
+  },
+  "locale": "en_US",
+  "manifest": "/manifest.webmanifest",
+  "organization": {
+    "address": {
+      "city": "Nairobi",
+      "country": "Kenya",
+      "countryCode": "KE",
+      "postalCode": "00100",
+      "region": "Nairobi County",
+      "street": "Westlands"
+    },
+    "description": "Talk2Record helps operators convert unstructured voice notes into reliable business records and insights.",
+    "email": "alphanganga@gmail.com",
+    "foundingDate": "2026-01-01",
+    "legalName": "Talk2Record",
+    "logo": "/logo.svg",
+    "name": "Talk2Record",
+    "phone": "",
+    "url": "https://talk2record.app"
+  },
+  "pricing": {
+    "currency": "USD",
+    "maxPrice": "99",
+    "minPrice": "19",
+    "model": "subscription"
+  },
+  "social": {
+    "facebook": "",
+    "github": "",
+    "instagram": "",
+    "linkedin": "",
+    "twitter": "",
+    "youtube": ""
+  },
+  "tagline": "Turn WhatsApp voice notes into structured business records",
+  "theme": {
+    "dark": "#09090b",
+    "light": "#ffffff"
+  },
+  "title": "Talk2Record | Voice notes into business records"
+}

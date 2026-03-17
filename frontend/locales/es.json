@@ -1,0 +1,125 @@
+{
+  "common": {
+    "appName": "Talk2Record",
+    "selectLanguage": "Seleccionar idioma",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar cambios",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "submit": "Enviar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "reset": "Restablecer",
+    "noData": "No hay datos disponibles",
+    "toggleTheme": "Cambiar tema",
+    "currency": "Moneda",
+    "language": "Idioma"
+  },
+  "theme": {
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "features": "Funciones",
+    "pricing": "Precios",
+    "docs": "Documentación",
+    "dashboard": "Panel",
+    "records": "Registros",
+    "analytics": "Analítica",
+    "integrations": "Integraciones",
+    "billing": "Facturación",
+    "settings": "Configuración",
+    "logout": "Cerrar sesión",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "forgotPassword": "Olvidé mi contraseña"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenido de nuevo",
+      "email": "Correo de trabajo",
+      "password": "Contraseña",
+      "emailPlaceholder": "equipo@empresa.com",
+      "passwordPlaceholder": "Introduce tu contraseña",
+      "submit": "Entrar",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "noAccount": "¿Nuevo en Talk2Record?",
+      "signUp": "Crear una cuenta",
+      "invalidCredentials": "No fue posible iniciar sesión con esos datos.",
+      "fillAllFields": "Completa todos los campos.",
+      "signInWithGoogle": "Continuar con Google",
+      "orContinueWith": "O continúa con"
+    },
+    "register": {
+      "title": "Crea tu cuenta",
+      "submit": "Crear espacio de trabajo",
+      "company": "Nombre de la empresa"
+    },
+    "forgot": {
+      "title": "Restablece tu contraseña",
+      "submit": "Enviar enlace"
+    },
+    "onboarding": {
+      "title": "Completa la incorporación",
+      "step1": "Conecta WhatsApp",
+      "step2": "Envía tu primera nota de voz",
+      "step3": "Configura los datos de la empresa"
+    }
+  },
+  "marketing": {
+    "hero": {
+      "eyebrow": "Operaciones con IA para equipos que usan WhatsApp",
+      "title": "Convierte notas de voz de WhatsApp en registros de negocio limpios",
+      "subtitle": "Captura ventas, inventario y actualizaciones de campo desde notas de voz y revísalas en un solo panel con analítica, facturación e integraciones.",
+      "primaryCta": "Iniciar prueba gratuita",
+      "secondaryCta": "Ver vista previa"
+    },
+    "demo": {
+      "title": "De nota de voz a panel en minutos",
+      "description": "Talk2Record extrae clientes, productos, totales, métodos de pago y transcripciones para que el equipo deje de reescribir actualizaciones manualmente."
+    },
+    "pricing": {
+      "title": "Planes para operaciones en crecimiento"
+    },
+    "faq": {
+      "title": "Preguntas frecuentes"
+    },
+    "testimonials": {
+      "title": "Creado para operadores distribuidos"
+    }
+  },
+  "dashboard": {
+    "topbar": {
+      "searchPlaceholder": "Buscar registros, clientes o productos",
+      "notifications": "Notificaciones"
+    },
+    "overview": {
+      "title": "Resumen operativo",
+      "subtitle": "Sigue el procesamiento reciente, los ingresos recuperados y el progreso de incorporación desde un solo lugar."
+    }
+  },
+  "sidebar": {
+    "workspace": "Espacio de trabajo",
+    "menu": "Menú",
+    "theme": "Tema",
+    "language": "Idioma",
+    "currency": "Moneda"
+  },
+  "errors": {
+    "404": "Página no encontrada",
+    "401": "No autorizado",
+    "403": "Prohibido",
+    "500": "Error interno del servidor",
+    "generic": "Algo salió mal. Inténtalo de nuevo."
+  }
+}
