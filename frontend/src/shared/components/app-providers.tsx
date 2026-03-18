@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/shared/components/theme-provider";
 import { AuthProvider } from "@/shared/lib/auth/auth-context";
 import { LanguageProvider } from "@/shared/lib/i18n/language-context";
 import { initAnalytics } from "@/lib/analytics";
+import { Toaster } from "@/shared/components/toaster";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
@@ -25,7 +26,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <LanguageProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
         </LanguageProvider>
       </QueryClientProvider>
     </ThemeProvider>

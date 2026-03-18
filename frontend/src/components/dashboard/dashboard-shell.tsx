@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/shared/layout/sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { useAuth } from "@/shared/lib/auth/auth-context";
+import { useNotifications } from "@/shared/hooks/use-notifications";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
+
+  useNotifications();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
