@@ -25,10 +25,15 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
       <CardHeader>
+        <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
+          Account recovery
+        </div>
         <CardTitle>{t("auth.forgot.title")}</CardTitle>
-        <CardDescription>We will queue a mock reset email so the UI flow matches production later.</CardDescription>
+        <CardDescription>
+          Reset access to your workspace and get back to your records, analytics, and billing controls.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -42,7 +47,7 @@ export default function ForgotPasswordPage() {
               required
             />
           </div>
-          <Button className="w-full" disabled={isLoading} type="submit">
+          <Button className="w-full rounded-xl" disabled={isLoading} type="submit">
             {t("auth.forgot.submit")}
           </Button>
         </form>

@@ -30,12 +30,20 @@ const Header = () => {
   ];
 
   return (
-    <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
+    <header className="border-border/80 bg-background/88 supports-backdrop-filter:bg-background/70 sticky top-0 z-50 w-full border-b backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           <div className="z-10 flex items-center">
-            <Link href="/" className="text-primary flex items-center" aria-label={t("common.appName")}>
-              <Logo size={32} className="h-8 w-auto" />
+            <Link href="/" className="flex items-center gap-3" aria-label={t("common.appName")}>
+              <div className="bg-brand-gradient rounded-2xl p-px shadow-sm">
+                <div className="bg-background rounded-[15px] px-2 py-1.5">
+                  <Logo size={28} className="h-7 w-auto" />
+                </div>
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-sm font-semibold tracking-tight">{t("common.appName")}</p>
+                <p className="text-muted-foreground text-xs">Voice to business intelligence</p>
+              </div>
             </Link>
           </div>
 
@@ -45,10 +53,10 @@ const Header = () => {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "rounded-full px-4 py-2 text-sm font-medium transition-all",
                   pathname === item.href
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    ? "bg-primary/10 text-primary shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
                 {item.label}
@@ -57,7 +65,7 @@ const Header = () => {
           </nav>
 
           <div className="z-10 hidden items-center gap-2 md:flex">
-            <div className="border-border mr-2 flex items-center gap-1 border-r pr-2">
+            <div className="border-border/80 mr-2 flex items-center gap-1 border-r pr-2">
               <ThemeToggle />
               <LanguageSwitcher />
               <CurrencySwitcher />
@@ -65,19 +73,19 @@ const Header = () => {
 
             {user ? (
               <Link href="/dashboard">
-                <Button size="sm" className="h-9 text-xs">
+                <Button size="sm" className="h-9 rounded-full px-4 text-xs">
                   {t("navigation.dashboard")}
                 </Button>
               </Link>
             ) : (
               <div className="flex items-center gap-2">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm" className="h-9 text-xs">
+                  <Button variant="ghost" size="sm" className="h-9 rounded-full px-4 text-xs">
                     {t("navigation.login")}
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="h-9 text-xs">
+                  <Button size="sm" className="h-9 rounded-full px-4 text-xs shadow-md">
                     {t("navigation.register")}
                   </Button>
                 </Link>
@@ -92,7 +100,7 @@ const Header = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0"
+              className="h-9 w-9 rounded-full p-0"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -102,8 +110,8 @@ const Header = () => {
       </div>
 
       {mobileMenuOpen && (
-        <div className="border-border bg-background border-t md:hidden">
-          <div className="mx-auto max-w-7xl space-y-3 px-4 py-4">
+        <div className="border-border/80 bg-background/96 border-t md:hidden">
+          <div className="mx-auto max-w-7xl space-y-4 px-4 py-4">
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => (
                 <Link
@@ -111,10 +119,10 @@ const Header = () => {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                     pathname === item.href
-                      ? "text-primary bg-primary/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
                   {item.label}
@@ -122,22 +130,22 @@ const Header = () => {
               ))}
             </nav>
 
-            <div className="border-border border-t pt-3">
+            <div className="border-border/80 border-t pt-3">
               {user ? (
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button size="sm" className="w-full">
+                  <Button size="sm" className="w-full rounded-xl">
                     {t("navigation.dashboard")}
                   </Button>
                 </Link>
               ) : (
                 <div className="grid gap-2">
                   <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="sm" className="w-full">
+                    <Button variant="outline" size="sm" className="w-full rounded-xl">
                       {t("navigation.login")}
                     </Button>
                   </Link>
                   <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                    <Button size="sm" className="w-full">
+                    <Button size="sm" className="w-full rounded-xl">
                       {t("navigation.register")}
                     </Button>
                   </Link>

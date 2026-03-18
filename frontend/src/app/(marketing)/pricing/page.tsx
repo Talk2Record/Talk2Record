@@ -27,18 +27,31 @@ export default function PricingPage() {
   const currency = usePreferencesStore((state) => state.currency);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="max-w-3xl space-y-3">
-        <h1>Pricing built for international SaaS teams</h1>
-        <p className="text-muted-foreground">
-          Localized pricing, usage-aware billing, and upgrade paths that can map directly to Stripe or Paddle later.
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <div className="max-w-3xl space-y-4">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-sm font-medium">
+          Simple plans
+        </div>
+        <h1>Pricing built for calm operations, not pricing confusion</h1>
+        <p className="text-muted-foreground text-lg">
+          Start with a lightweight team workflow, then scale into analytics, integrations, and higher processing volume as your business grows.
         </p>
       </div>
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
         {plans.map((plan) => (
-          <Card key={plan.name}>
+          <Card
+            key={plan.name}
+            className={plan.name === "Growth" ? "border-primary/30 shadow-(--shadow-md)" : "border-primary/10"}
+          >
             <CardHeader>
-              <CardTitle>{plan.name}</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>{plan.name}</CardTitle>
+                {plan.name === "Growth" ? (
+                  <span className="bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-medium">
+                    Best for growing teams
+                  </span>
+                ) : null}
+              </div>
               <CardDescription>{formatCurrency(plan.price, currency)} monthly base</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -47,7 +60,9 @@ export default function PricingPage() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <Button className="w-full">{plan.name === "Growth" ? "Most popular" : "Choose plan"}</Button>
+              <Button className="w-full rounded-xl" variant={plan.name === "Growth" ? "default" : "outline"}>
+                {plan.name === "Growth" ? "Start with Growth" : "Choose plan"}
+              </Button>
             </CardContent>
           </Card>
         ))}

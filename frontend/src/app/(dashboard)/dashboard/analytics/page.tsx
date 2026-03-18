@@ -5,7 +5,7 @@ import { BarChart, Bar, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, Res
 import { analyticsService } from "@/services/platform-service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
-const COLORS = ["#18181b", "#52525b", "#71717a", "#a1a1aa"];
+const COLORS = ["#2563eb", "#7c3aed", "#06b6d4", "#22c55e"];
 
 export default function AnalyticsPage() {
   const { data, isLoading } = useQuery({
@@ -14,12 +14,15 @@ export default function AnalyticsPage() {
   });
 
   if (isLoading || !data) {
-    return <div>Loading analytics...</div>;
+    return <div className="text-muted-foreground">Loading analytics...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
+          Business intelligence
+        </div>
         <h1>Analytics</h1>
         <p className="text-muted-foreground">
           Review sales per day, product mix, revenue trends, and voice processing performance.
@@ -27,7 +30,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Sales per day</CardTitle>
           </CardHeader>
@@ -38,13 +41,13 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#18181b" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Revenue trends</CardTitle>
           </CardHeader>
@@ -55,13 +58,13 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="label" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#18181b" strokeWidth={3} />
+                <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={3} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Sales by product</CardTitle>
           </CardHeader>
@@ -79,19 +82,19 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Processing stats</CardTitle>
             <CardDescription>Heatmap and product analytics remain abstracted behind feature-safe adapters.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {data.processingStats.map((stat) => (
-              <div key={stat.label} className="rounded-xl border p-4">
+              <div key={stat.label} className="rounded-2xl border border-primary/10 bg-background/80 p-4">
                 <p className="font-medium">{stat.label}</p>
                 <p className="text-2xl font-semibold">{stat.value}%</p>
               </div>
             ))}
-            <div className="rounded-xl border p-4">
+            <div className="rounded-2xl border border-primary/10 bg-background/80 p-4">
               <p className="font-medium">Heatmap summary</p>
               <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
                 {data.heatmapSummary.map((item) => (

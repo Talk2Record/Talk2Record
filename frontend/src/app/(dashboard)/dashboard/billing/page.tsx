@@ -24,7 +24,7 @@ export default function BillingPage() {
   }
 
   if (isLoading || !data) {
-    return <div>Loading billing...</div>;
+    return <div className="text-muted-foreground">Loading billing...</div>;
   }
 
   const usage = Math.round(
@@ -33,7 +33,10 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
+          Revenue and billing
+        </div>
         <h1>Billing</h1>
         <p className="text-muted-foreground">
           Subscription, invoices, usage, and upgrade flows are scaffolded against the future billing endpoints.
@@ -41,7 +44,7 @@ export default function BillingPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>{data.subscription.plan}</CardTitle>
             <CardDescription>Current subscription plan</CardDescription>
@@ -51,7 +54,7 @@ export default function BillingPage() {
             <p className="text-sm text-muted-foreground">Renews on {formatDate(data.subscription.renewalDate)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Usage</CardTitle>
             <CardDescription>Voice notes processed this cycle</CardDescription>
@@ -63,7 +66,7 @@ export default function BillingPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Seats</CardTitle>
             <CardDescription>Active team members</CardDescription>
@@ -74,30 +77,32 @@ export default function BillingPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Upgrade or downgrade</CardTitle>
           <CardDescription>Mock checkout flow for Stripe/Paddle handoff.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button onClick={() => checkout("Starter")} variant="outline">
+          <Button className="rounded-xl" onClick={() => checkout("Starter")} variant="outline">
             Move to Starter
           </Button>
-          <Button onClick={() => checkout("Growth")}>Move to Growth</Button>
-          <Button onClick={() => checkout("Scale")} variant="outline">
+          <Button className="rounded-xl" onClick={() => checkout("Growth")}>
+            Move to Growth
+          </Button>
+          <Button className="rounded-xl" onClick={() => checkout("Scale")} variant="outline">
             Move to Scale
           </Button>
           {status ? <p className="w-full text-sm text-muted-foreground">{status}</p> : null}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {data.invoices.map((invoice) => (
-            <div key={invoice.id} className="flex items-center justify-between rounded-xl border p-4">
+            <div key={invoice.id} className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background/80 p-4">
               <div>
                 <p className="font-medium">{invoice.id}</p>
                 <p className="text-sm text-muted-foreground">{formatDate(invoice.issuedAt)}</p>

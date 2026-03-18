@@ -51,7 +51,7 @@
       "password": "Contraseña",
       "emailPlaceholder": "equipo@empresa.com",
       "passwordPlaceholder": "Introduce tu contraseña",
-      "submit": "Entrar",
+      "submit": "Entrar al espacio de trabajo",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "noAccount": "¿Nuevo en Talk2Record?",
       "signUp": "Crear una cuenta",
@@ -62,7 +62,7 @@
     },
     "register": {
       "title": "Crea tu cuenta",
-      "submit": "Crear espacio de trabajo",
+      "submit": "Iniciar espacio de trabajo",
       "company": "Nombre de la empresa"
     },
     "forgot": {
@@ -78,11 +78,11 @@
   },
   "marketing": {
     "hero": {
-      "eyebrow": "Operaciones con IA para equipos que usan WhatsApp",
-      "title": "Convierte notas de voz de WhatsApp en registros de negocio limpios",
-      "subtitle": "Captura ventas, inventario y actualizaciones de campo desde notas de voz y revísalas en un solo panel con analítica, facturación e integraciones.",
+      "eyebrow": "Operaciones con IA confiable para equipos que usan WhatsApp",
+      "title": "Convierte conversaciones en inteligencia de negocio estructurada",
+      "subtitle": "Captura notas de voz, estructura automáticamente los datos del negocio y revisa todo en un solo panel con analítica, facturación e integraciones.",
       "primaryCta": "Iniciar prueba gratuita",
-      "secondaryCta": "Ver vista previa"
+      "secondaryCta": "Ver vista del producto"
     },
     "demo": {
       "title": "De nota de voz a panel en minutos",

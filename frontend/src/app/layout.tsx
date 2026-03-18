@@ -1,11 +1,18 @@
 import type React from "react";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { Inter } from "next/font/google";
 import { siteConfig, baseUrl } from "@/shared/lib/config/site";
 import { AppProviders } from "@/shared/components/app-providers";
 
 import Script from "next/script";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: siteConfig.appName ? siteConfig.appName : siteConfig.title,
   description: siteConfig.description,
@@ -107,7 +114,7 @@ const RootLayout = ({
         {siteConfig.description && <meta name="description" content={siteConfig.description} />}
         {baseUrl && <link rel="canonical" href={`${baseUrl}${siteConfig.canonicalPath}`} />}
       </head>
-      <body className="font-sans antialiased">
+      <body className={`${inter.className} font-sans antialiased`}>
         <AppProviders>
           <div className="flex min-h-screen flex-col">{children}</div>
         </AppProviders>

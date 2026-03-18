@@ -38,10 +38,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
       <CardHeader>
+        <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
+          Start your workspace
+        </div>
         <CardTitle>{t("auth.register.title")}</CardTitle>
-        <CardDescription>Create a workspace for your operators and finance team.</CardDescription>
+        <CardDescription>
+          Set up Talk2Record for your operators, finance team, and field staff in one place.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -78,7 +83,7 @@ export default function RegisterPage() {
             />
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <Button className="w-full" disabled={isLoading} type="submit">
+          <Button className="w-full rounded-xl" disabled={isLoading} type="submit">
             {t("auth.register.submit")}
           </Button>
         </form>

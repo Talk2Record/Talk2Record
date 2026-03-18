@@ -28,19 +28,22 @@ export default function IntegrationsPage() {
   }
 
   if (isLoading) {
-    return <div>Loading integrations...</div>;
+    return <div className="text-muted-foreground">Loading integrations...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
+          Connected workflows
+        </div>
         <h1>Integrations</h1>
         <p className="text-muted-foreground">
           Enable WhatsApp, billing, Sheets, automation, and webhook workflows without persisting raw secrets in the browser.
         </p>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Test connection</CardTitle>
           <CardDescription>Secrets stay in local form state only and are masked in responses.</CardDescription>
@@ -54,7 +57,7 @@ export default function IntegrationsPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {data.map((integration) => (
-          <Card key={integration.id}>
+          <Card key={integration.id} className="border-primary/10">
             <CardHeader>
               <CardTitle>{integration.name}</CardTitle>
               <CardDescription>{integration.description}</CardDescription>
@@ -66,7 +69,9 @@ export default function IntegrationsPage() {
                 {integration.endpoint ? <p>Endpoint: {integration.endpoint}</p> : null}
                 {integration.maskedSecret ? <p>Stored secret: {integration.maskedSecret}</p> : null}
               </div>
-              <Button onClick={() => testIntegration(integration.id)}>Test connection</Button>
+              <Button className="rounded-xl" onClick={() => testIntegration(integration.id)}>
+                Test connection
+              </Button>
             </CardContent>
           </Card>
         ))}

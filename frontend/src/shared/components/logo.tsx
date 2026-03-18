@@ -22,8 +22,9 @@ export const Logo = ({ className, size = 28 }: LogoProps) => {
         alt={alt}
         width={width}
         height={size}
+        sizes={`${width}px`}
         className={cn("h-auto shrink-0 object-contain", className)}
-        priority
+        priority={size >= 32}
       />
     );
   }

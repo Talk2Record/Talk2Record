@@ -1,19 +1,20 @@
 {
   "appName": "Talk2Record",
-  "appType": "AI Operations SaaS",
+  "appType": "AI Business Operations SaaS",
   "applicationCategory": "BusinessApplication",
-  "audience": "Small businesses, operations teams, field sales teams",
+  "audience": "Operations teams, distributors, field sales teams, and service-led businesses",
   "canonicalPath": "/",
   "contact": {
     "phoneNumber": "",
     "salesEmail": "alphanganga@gmail.com",
     "supportEmail": "alphanganga@gmail.com"
   },
-  "description": "Talk2Record turns WhatsApp voice notes into structured business records, analytics, and billing-ready workflows for fast-moving teams.",
+  "description": "Talk2Record turns conversations into structured business intelligence by converting WhatsApp voice notes into reliable records, analytics, and action-ready workflows.",
   "domain": "https://talk2record.app",
   "features": [
     "WhatsApp voice note capture",
     "Structured record extraction",
+    "Business intelligence dashboards",
     "Localized pricing",
     "Subscription billing",
     "Operational analytics"
@@ -31,8 +32,9 @@
   "keywords": [
     "talk2record",
     "whatsapp automation",
-    "voice note transcription",
+    "voice note intelligence",
     "structured records",
+    "business intelligence",
     "saas analytics"
   ],
   "language": "en-US",
@@ -74,7 +76,7 @@
       "region": "Nairobi County",
       "street": "Westlands"
     },
-    "description": "Talk2Record helps operators convert unstructured voice notes into reliable business records and insights.",
+    "description": "Talk2Record helps teams turn conversations into reliable records, operating visibility, and structured business intelligence.",
     "email": "alphanganga@gmail.com",
     "foundingDate": "2026-01-01",
     "legalName": "Talk2Record",
@@ -97,10 +99,10 @@
     "twitter": "",
     "youtube": ""
   },
-  "tagline": "Turn WhatsApp voice notes into structured business records",
+  "tagline": "Turn conversations into structured business intelligence",
   "theme": {
-    "dark": "#09090b",
-    "light": "#ffffff"
+    "dark": "#020617",
+    "light": "#F8FAFC"
   },
-  "title": "Talk2Record | Voice notes into business records"
+  "title": "Talk2Record | From voice notes to business intelligence"
 }

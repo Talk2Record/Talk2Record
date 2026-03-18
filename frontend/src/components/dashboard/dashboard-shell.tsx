@@ -18,7 +18,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [isAuthenticated, isLoading, router]);
 
   if (!isAuthenticated) {
-    return <div className="flex min-h-screen items-center justify-center">Loading workspace...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <div className="brand-panel rounded-3xl border border-primary/10 px-6 py-5 text-center">
+          <p className="text-lg font-semibold">Loading workspace...</p>
+          <p className="text-muted-foreground mt-1 text-sm">Preparing your Talk2Record intelligence workspace.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

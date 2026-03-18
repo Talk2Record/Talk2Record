@@ -19,17 +19,20 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   if (isLoading || !data) {
-    return <div>Loading settings...</div>;
+    return <div className="text-muted-foreground">Loading settings...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
+          Workspace controls
+        </div>
         <h1>Settings</h1>
         <p className="text-muted-foreground">Manage workspace details, locale defaults, and account preferences.</p>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Company profile</CardTitle>
           <CardDescription>These fields can map directly to future Django profile endpoints.</CardDescription>
@@ -56,7 +59,7 @@ export default function SettingsPage() {
             />
           </div>
           <Button
-            className="md:col-span-2 md:w-fit"
+            className="rounded-xl md:col-span-2 md:w-fit"
             onClick={() => {
               setSaved(true);
             }}

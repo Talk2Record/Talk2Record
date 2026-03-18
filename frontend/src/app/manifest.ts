@@ -17,7 +17,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait-primary",
     background_color: siteConfig.theme.light,
     theme_color: siteConfig.theme.light,
-    categories: ["productivity", "developer-tools"],
+    categories: ["business", "productivity", "utilities"],
     icons: [
       {
         src: siteConfig.icons.favicon,
@@ -36,13 +36,13 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Login",
         short_name: "Login",
-        description: "Sign in to your account",
+        description: "Sign in to your Talk2Record workspace",
         url: "/login",
       },
       {
         name: "Dashboard",
         short_name: "Dashboard",
-        description: "Open the operations dashboard",
+        description: "Open your business intelligence dashboard",
         url: "/dashboard",
       },
     ],

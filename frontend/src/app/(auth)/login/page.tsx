@@ -41,11 +41,14 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
       <CardHeader>
+        <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
+          Welcome back
+        </div>
         <CardTitle>{t("auth.login.title")}</CardTitle>
         <CardDescription>
-          Use a valid email and any password with 6 or more characters.
+          Sign in to review extracted records, analytics, and billing activity from one calm workspace.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -72,12 +75,12 @@ export default function LoginPage() {
             />
           </div>
           {error ? <p className="text-destructive text-sm">{error}</p> : null}
-          <Button className="w-full" disabled={isLoading} type="submit">
+          <Button className="w-full rounded-xl" disabled={isLoading} type="submit">
             {t("auth.login.submit")}
           </Button>
         </form>
 
-        <Button className="w-full" variant="outline" onClick={() => signInWithGoogle()}>
+        <Button className="w-full rounded-xl" variant="outline" onClick={() => signInWithGoogle()}>
           {t("auth.login.signInWithGoogle")}
         </Button>
 

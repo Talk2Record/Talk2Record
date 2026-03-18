@@ -51,7 +51,7 @@
       "password": "Password",
       "emailPlaceholder": "team@company.com",
       "passwordPlaceholder": "Enter your password",
-      "submit": "Sign in",
+      "submit": "Enter workspace",
       "forgotPassword": "Forgot password?",
       "noAccount": "New to Talk2Record?",
       "signUp": "Create an account",
@@ -62,7 +62,7 @@
     },
     "register": {
       "title": "Create your account",
-      "submit": "Create workspace",
+      "submit": "Start workspace",
       "company": "Company name"
     },
     "forgot": {
@@ -78,11 +78,11 @@
   },
   "marketing": {
     "hero": {
-      "eyebrow": "AI operations for WhatsApp-first teams",
-      "title": "Turn WhatsApp voice notes into clean business records",
-      "subtitle": "Capture sales, inventory, and field updates from voice notes, then review them in one dashboard with analytics, billing, and integrations.",
+      "eyebrow": "Reliable AI operations for WhatsApp-first teams",
+      "title": "Turn conversations into structured business intelligence",
+      "subtitle": "Capture voice notes, structure the business details automatically, and review everything in one dashboard with analytics, billing, and integrations.",
       "primaryCta": "Start free trial",
-      "secondaryCta": "View dashboard preview"
+      "secondaryCta": "See product preview"
     },
     "demo": {
       "title": "From voice note to dashboard in minutes",

@@ -50,18 +50,30 @@ const SidebarContent = ({
   userEmail,
   logoutLabel,
 }: SidebarContentProps) => (
-  <div className="bg-background flex h-full flex-col">
-    <div className="border-border flex min-h-20 flex-col justify-center gap-1 border-b px-4 py-4">
-      <Logo size={34} className="h-9 w-auto" />
-      <p className="text-muted-foreground text-xs">{workspaceLabel}</p>
+  <div className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
+    <div className="border-sidebar-border flex min-h-24 flex-col justify-center gap-3 border-b px-5 py-5">
+      <div className="flex items-center gap-3">
+        <div className="bg-brand-gradient rounded-2xl p-px shadow-sm">
+          <div className="bg-sidebar rounded-[15px] px-2 py-1.5">
+            <Logo size={28} className="h-7 w-auto" />
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-semibold tracking-tight">Talk2Record</p>
+          <p className="text-sidebar-foreground/70 text-xs">{workspaceLabel}</p>
+        </div>
+      </div>
+      <div className="bg-sidebar-accent text-sidebar-accent-foreground inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
+        Structured business intelligence
+      </div>
     </div>
 
-    <div className="border-border border-b px-4 py-3">
+    <div className="border-sidebar-border border-b px-5 py-4">
       <p className="text-xs font-medium">{userEmail}</p>
-      <p className="text-muted-foreground text-xs">Operations workspace</p>
+      <p className="text-sidebar-foreground/65 text-xs">Operations workspace</p>
     </div>
 
-    <nav className="flex-1 space-y-1 px-3 py-4">
+    <nav className="flex-1 space-y-1.5 px-4 py-5">
       {menuItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
@@ -72,8 +84,10 @@ const SidebarContent = ({
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              "flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                : "text-sidebar-foreground/72 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
           >
             <Icon className="h-4 w-4" />
@@ -83,13 +97,13 @@ const SidebarContent = ({
       })}
     </nav>
 
-    <div className="border-border bg-muted/30 space-y-2 border-t p-3">
+    <div className="border-sidebar-border bg-sidebar/95 space-y-3 border-t p-4">
       <div className="grid grid-cols-3 gap-2">
         <ThemeToggle />
         <LanguageSwitcher />
         <CurrencySwitcher />
       </div>
-      <Button variant="outline" className="w-full justify-start gap-2" onClick={logout}>
+      <Button variant="outline" className="w-full justify-start gap-2 rounded-xl" onClick={logout}>
         <LogOut className="h-4 w-4" />
         {logoutLabel}
       </Button>
@@ -116,11 +130,11 @@ export const Sidebar = () => {
 
   return (
     <>
-      <div className="bg-background border-border fixed top-0 right-0 left-0 z-40 flex h-14 items-center border-b px-4 md:hidden">
+      <div className="bg-background/92 border-border/80 fixed top-0 right-0 left-0 z-40 flex h-14 items-center border-b px-4 backdrop-blur-xl md:hidden">
         <div className="flex flex-1 items-center justify-start gap-3">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="-ml-1 h-8 w-8">
+              <Button variant="ghost" size="icon" className="-ml-1 h-8 w-8 rounded-full">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">{t("sidebar.menu")}</span>
               </Button>
@@ -137,11 +151,14 @@ export const Sidebar = () => {
               />
             </SheetContent>
           </Sheet>
-          <h1 className="truncate text-lg font-semibold">Talk2Record</h1>
+          <div>
+            <h1 className="truncate text-lg font-semibold">Talk2Record</h1>
+            <p className="text-muted-foreground text-xs">Business intelligence from voice</p>
+          </div>
         </div>
       </div>
 
-      <aside className="bg-background border-border hidden h-screen w-72 shrink-0 border-r md:flex">
+      <aside className="border-sidebar-border hidden h-screen w-80 shrink-0 border-r md:flex">
         <SidebarContent
           pathname={pathname}
           menuItems={menuItems}

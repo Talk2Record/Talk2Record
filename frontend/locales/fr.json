@@ -51,7 +51,7 @@
       "password": "Mot de passe",
       "emailPlaceholder": "equipe@entreprise.com",
       "passwordPlaceholder": "Saisissez votre mot de passe",
-      "submit": "Se connecter",
+      "submit": "Entrer dans l'espace de travail",
       "forgotPassword": "Mot de passe oublié ?",
       "noAccount": "Nouveau sur Talk2Record ?",
       "signUp": "Créer un compte",
@@ -62,7 +62,7 @@
     },
     "register": {
       "title": "Créez votre compte",
-      "submit": "Créer l'espace de travail",
+      "submit": "Démarrer l'espace de travail",
       "company": "Nom de l'entreprise"
     },
     "forgot": {
@@ -78,11 +78,11 @@
   },
   "marketing": {
     "hero": {
-      "eyebrow": "Des opérations IA pour les équipes WhatsApp-first",
-      "title": "Transformez les notes vocales WhatsApp en dossiers métier structurés",
-      "subtitle": "Capturez les ventes, le stock et les mises à jour terrain à partir de notes vocales, puis suivez tout dans un tableau de bord avec analyses, facturation et intégrations.",
+      "eyebrow": "Une IA fiable pour les équipes WhatsApp-first",
+      "title": "Transformez les conversations en intelligence métier structurée",
+      "subtitle": "Capturez les notes vocales, structurez automatiquement les données métier, puis pilotez le tout dans un tableau de bord avec analyses, facturation et intégrations.",
       "primaryCta": "Commencer l'essai gratuit",
-      "secondaryCta": "Voir l'aperçu du tableau de bord"
+      "secondaryCta": "Voir l'aperçu du produit"
     },
     "demo": {
       "title": "De la note vocale au tableau de bord en quelques minutes",

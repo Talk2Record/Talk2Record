@@ -28,17 +28,22 @@ export default function RecordsPage() {
   );
 
   if (isLoading) {
-    return <div>Loading records...</div>;
+    return <div className="text-muted-foreground">Loading records...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
+        <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
+          Record review
+        </div>
         <h1>Records</h1>
-        <p className="text-muted-foreground">Filter extracted records by customer or product before export.</p>
+        <p className="text-muted-foreground">
+          Filter extracted records by customer or product before export or downstream automation.
+        </p>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>Date, product, amount, and customer filters can map to backend params later.</CardDescription>
@@ -49,14 +54,14 @@ export default function RecordsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Extracted records</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="text-muted-foreground">
-              <tr className="border-b">
+              <tr className="border-b border-primary/10">
                 <th className="py-3 pr-4">Date</th>
                 <th className="py-3 pr-4">Customer</th>
                 <th className="py-3 pr-4">Product</th>
@@ -69,7 +74,7 @@ export default function RecordsPage() {
             </thead>
             <tbody>
               {filtered.map((item) => (
-                <tr key={item.id} className="border-b align-top">
+                <tr key={item.id} className="border-b border-primary/10 align-top">
                   <td className="py-4 pr-4">{formatDate(item.date)}</td>
                   <td className="py-4 pr-4 font-medium">{item.customer}</td>
                   <td className="py-4 pr-4">{item.product}</td>
