@@ -92,6 +92,13 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "talk2record.users",
+    "talk2record.audit",
+    "talk2record.analytics",
+    "talk2record.organizations",
+    "talk2record.legal",
+    "talk2record.records",
+    "talk2record.integrations",
+    "talk2record.billing",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
