@@ -36,6 +36,7 @@ help:
 	@printf "  make migrate          Run migrations inside container\n"
 	@printf "  make makemigrations   Create migrations inside container\n"
 	@printf "  make createsuperuser  Create admin user inside container\n"
+	@printf "  make seed ARGS='..'   Run seed data inside container\n"
 	@printf "  make collectstatic    Collect static files inside container\n"
 	@printf "  make flower           Start Flower (Celery monitor)\n"
 	@printf "\nDocs:\n"
@@ -120,6 +121,10 @@ makemigrations:
 .PHONY: createsuperuser
 createsuperuser:
 	$(COMPOSE_LOCAL) run --rm django python ./manage.py createsuperuser
+
+.PHONY: seed
+seed:
+	$(COMPOSE_LOCAL) run --rm django python ./manage.py seed_data $(ARGS)
 
 .PHONY: collectstatic
 collectstatic:

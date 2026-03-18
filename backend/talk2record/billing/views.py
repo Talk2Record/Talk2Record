@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,6 +11,7 @@ from rest_framework.views import APIView
 from talk2record.audit.services import AuditService
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
+from talk2record.billing.models import Transaction
 from talk2record.billing.providers import BillingProviderRegistry
 from talk2record.billing.serializers import BillingCheckoutSerializer
 from talk2record.billing.serializers import SubscriptionSerializer
@@ -33,6 +35,76 @@ class BillingActionViewSet(GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = BillingCheckoutSerializer
 
+    def list(self, request):
+        membership = request.user.memberships.select_related("organization").first()
+        organization = request.user.current_organization or (membership.organization if membership else None)
+
+        if organization is None:
+            return Response(
+                {
+                    "subscription": {
+                        "plan": "Free",
+                        "amount": 0,
+                        "currency": "USD",
+                        "seats": 0,
+                        "voiceNotesProcessed": 0,
+                        "includedVoiceNotes": 0,
+                        "renewalDate": timezone.now(),
+                    },
+                    "invoices": [],
+                }
+            )
+
+        subscription = (
+            Subscription.objects.filter(organization=organization)
+            .select_related("plan")
+            .prefetch_related("transactions")
+            .first()
+        )
+        record_count = organization.records.count()
+        seats = organization.memberships.filter(status="active").count()
+
+        if subscription is None:
+            return Response(
+                {
+                    "subscription": {
+                        "plan": "Free",
+                        "amount": 0,
+                        "currency": organization.default_currency,
+                        "seats": seats,
+                        "voiceNotesProcessed": record_count,
+                        "includedVoiceNotes": 0,
+                        "renewalDate": timezone.now(),
+                    },
+                    "invoices": [],
+                }
+            )
+
+        invoices = [
+            {
+                "id": transaction.invoice_number or f"inv_{transaction.pk}",
+                "amount": transaction.amount,
+                "currency": transaction.currency,
+                "status": "paid" if transaction.status == Transaction.Status.PAID else "due",
+                "issuedAt": transaction.issued_at,
+            }
+            for transaction in subscription.transactions.all()
+        ]
+        return Response(
+            {
+                "subscription": {
+                    "plan": subscription.plan.name,
+                    "amount": subscription.amount,
+                    "currency": subscription.currency,
+                    "seats": subscription.seats or seats,
+                    "voiceNotesProcessed": record_count,
+                    "includedVoiceNotes": 0,
+                    "renewalDate": subscription.current_period_end or timezone.now(),
+                },
+                "invoices": invoices,
+            }
+        )
+
     @action(detail=False, methods=["post"])
     def checkout(self, request):
         serializer = BillingCheckoutSerializer(data=request.data)
@@ -45,7 +117,10 @@ class BillingActionViewSet(GenericViewSet):
         membership = request.user.memberships.select_related("organization").first()
         if membership is None:
             return Response({"detail": "Organization membership required."}, status=status.HTTP_400_BAD_REQUEST)
-        plan = Plan.objects.filter(code__iexact=serializer.validated_data["plan"]).first()
+        requested_plan = serializer.validated_data["plan"].strip()
+        plan = Plan.objects.filter(
+            Q(code__iexact=requested_plan) | Q(name__iexact=requested_plan)
+        ).first()
         if plan is None:
             return Response({"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND)
         provider = BillingProviderRegistry.get(Subscription.Provider.STRIPE)

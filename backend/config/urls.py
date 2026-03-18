@@ -10,11 +10,16 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
+from talk2record.analytics.views import AnalyticsSnapshotView
+from talk2record.analytics.views import DashboardOverviewView
 from talk2record.billing.views import BillingWebhookView
 from talk2record.users.views import CompleteOnboardingView
 from talk2record.users.views import CurrentUserView
 from talk2record.users.views import LogoutView
+from talk2record.users.views import OnboardingStepsView
+from talk2record.users.views import PasswordResetRequestView
 from talk2record.users.views import RegisterView
+from talk2record.users.views import SettingsProfileView
 from talk2record.users.views import UserTokenObtainPairView
 
 urlpatterns = [
@@ -37,11 +42,16 @@ urlpatterns += [
     path("api/", include("config.api_router")),
     path("api/auth/login/", UserTokenObtainPairView.as_view(), name="api-auth-login"),
     path("api/auth/register/", RegisterView.as_view(), name="api-auth-register"),
+    path("api/auth/forgot-password/", PasswordResetRequestView.as_view(), name="api-auth-forgot-password"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="api-auth-refresh"),
     path("api/auth/verify/", TokenVerifyView.as_view(), name="api-auth-verify"),
     path("api/auth/logout/", LogoutView.as_view(), name="api-auth-logout"),
     path("api/auth/me/", CurrentUserView.as_view(), name="api-auth-me"),
+    path("api/dashboard/", DashboardOverviewView.as_view(), name="api-dashboard-overview"),
+    path("api/analytics/", AnalyticsSnapshotView.as_view(), name="api-analytics-snapshot"),
+    path("api/onboarding/", OnboardingStepsView.as_view(), name="api-onboarding-steps"),
     path("api/onboarding/complete/", CompleteOnboardingView.as_view(), name="api-onboarding-complete"),
+    path("api/settings/", SettingsProfileView.as_view(), name="api-settings-profile"),
     path("api/billing/webhooks/<str:provider>/", BillingWebhookView.as_view(), name="api-billing-webhook"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(

@@ -2,8 +2,8 @@
 """Base settings to build other settings files upon."""
 
 import ssl
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 import environ
 
@@ -20,6 +20,7 @@ if READ_DOT_ENV_FILE:
 
 def list_env(name: str, default: list[str] | None = None) -> list[str]:
     return [value for value in env.list(name, default=default or []) if value]
+
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -99,6 +100,7 @@ LOCAL_APPS = [
     "talk2record.records",
     "talk2record.integrations",
     "talk2record.billing",
+    "talk2record.seed",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

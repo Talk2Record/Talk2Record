@@ -1,11 +1,21 @@
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.test import APIRequestFactory
 
+from talk2record.analytics.models import DailyMetric
+from talk2record.billing.models import Plan
+from talk2record.billing.models import Subscription
+from talk2record.billing.models import Transaction
+from talk2record.integrations.models import Integration
+from talk2record.integrations.models import OrganizationIntegration
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
+from talk2record.organizations.models import Membership
+from talk2record.organizations.models import Organization
+from talk2record.records.models import Record
 from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
 from talk2record.users.views import UserViewSet
@@ -223,3 +233,201 @@ class TestJWTAuthAPI:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_forgot_password_returns_generic_success(self, api_client: APIClient):
+        UserFactory.create(email="owner@example.com")
+
+        response = api_client.post(
+            reverse("api-auth-forgot-password"),
+            {"email": "owner@example.com"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "password reset instructions" in response.data["status"].lower()
+
+    def test_onboarding_steps_reflect_workspace_state(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        integration = Integration.objects.create(name="WhatsApp", slug="whatsapp", type=Integration.Type.WHATSAPP)
+        OrganizationIntegration.objects.create(
+            organization=organization,
+            integration=integration,
+            status=OrganizationIntegration.Status.CONNECTED,
+        )
+        Record.objects.create(
+            organization=organization,
+            created_by=user,
+            customer_name="Kifaru",
+            product="Rice",
+            quantity=2,
+            amount=100,
+            currency="USD",
+        )
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.get(reverse("api-onboarding-steps"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data[0]["completed"] is True
+        assert response.data[1]["completed"] is True
+        assert response.data[2]["completed"] is False
+
+    def test_settings_profile_get_and_patch(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password, email="owner@example.com")
+        organization = Organization.objects.create(
+            name="Acme",
+            slug="acme-settings",
+            timezone="Africa/Nairobi",
+            default_currency="KES",
+        )
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        get_response = api_client.get(reverse("api-settings-profile"))
+        patch_response = api_client.patch(
+            reverse("api-settings-profile"),
+            {
+                "company": "Talk2Record",
+                "contactEmail": "ops@example.com",
+                "timezone": "UTC",
+                "defaultLanguage": "English",
+                "defaultCurrency": "USD",
+            },
+            format="json",
+        )
+
+        user.refresh_from_db()
+        organization.refresh_from_db()
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.data["company"] == "Acme"
+        assert patch_response.status_code == status.HTTP_200_OK
+        assert patch_response.data["company"] == "Talk2Record"
+        assert user.email == "ops@example.com"
+        assert organization.default_currency == "USD"
+
+    def test_dashboard_overview_returns_metrics_and_activity(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme-dashboard")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        Record.objects.create(
+            organization=organization,
+            created_by=user,
+            customer_name="Kifaru",
+            product="Rice",
+            quantity=2,
+            amount=100,
+            currency="USD",
+            status=Record.Status.REVIEW,
+            voice_transcript="Please review this record.",
+        )
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.get(reverse("api-dashboard-overview"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["metrics"]) == 4
+        assert response.data["activities"][0]["customer"] == "Kifaru"
+
+    def test_analytics_snapshot_returns_aggregated_data(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme-analytics")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        Record.objects.create(
+            organization=organization,
+            created_by=user,
+            customer_name="Kifaru",
+            product="Rice",
+            quantity=2,
+            amount=100,
+            currency="USD",
+            status=Record.Status.STORED,
+        )
+        DailyMetric.objects.create(
+            organization=organization,
+            metric_date=timezone.now().date(),
+            voice_processed=4,
+            records_created=2,
+            revenue=100,
+            feature_usage=1,
+            active_users=1,
+        )
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.get(reverse("api-analytics-snapshot"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["salesPerDay"]
+        assert response.data["salesPerProduct"][0]["label"] == "Rice"
+
+    def test_billing_snapshot_returns_subscription_and_invoices(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme-billing")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        plan = Plan.objects.create(name="Growth", code="growth", base_price=99, currency="USD")
+        subscription = Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            provider=Subscription.Provider.STRIPE,
+            status=Subscription.Status.ACTIVE,
+            currency="USD",
+            amount=99,
+            seats=3,
+            current_period_end=timezone.now(),
+        )
+        Transaction.objects.create(
+            subscription=subscription,
+            amount=99,
+            currency="USD",
+            status=Transaction.Status.PAID,
+            invoice_number="INV-001",
+            issued_at=timezone.now(),
+        )
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.get("/api/billing/")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["subscription"]["plan"] == "Growth"
+        assert response.data["invoices"][0]["id"] == "INV-001"

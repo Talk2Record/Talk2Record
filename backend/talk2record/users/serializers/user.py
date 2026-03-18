@@ -3,6 +3,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.tokens import TokenError
 
+from talk2record.organizations.models import Organization
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.users.models import User
 from talk2record.users.services import RegistrationService
@@ -107,3 +108,59 @@ class LogoutSerializer(serializers.Serializer):
         except TokenError as exc:
             msg = "Refresh token is invalid or expired."
             raise serializers.ValidationError({"refresh": msg}) from exc
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class OnboardingStepSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    title = serializers.CharField()
+    description = serializers.CharField()
+    completed = serializers.BooleanField()
+
+
+class SettingsProfileSerializer(serializers.Serializer):
+    company = serializers.CharField(max_length=255)
+    contactEmail = serializers.EmailField()
+    timezone = serializers.CharField(max_length=64)
+    defaultLanguage = serializers.CharField(max_length=32, required=False, default="English")
+    defaultCurrency = serializers.CharField(max_length=8)
+
+    def validate_contactEmail(self, value: str) -> str:
+        user = self.context["request"].user
+        if User.objects.exclude(pk=user.pk).filter(email__iexact=value).exists():
+            msg = "A user with this email already exists."
+            raise serializers.ValidationError(msg)
+        return value
+
+    def validate_defaultCurrency(self, value: str) -> str:
+        return value.upper()
+
+    def save(self, **kwargs):
+        request = self.context["request"]
+        user = request.user
+        membership = user.memberships.select_related("organization").first()
+        organization = user.current_organization or (membership.organization if membership else None)
+        if organization is None:
+            msg = "Organization membership required."
+            raise serializers.ValidationError({"company": [msg]})
+        assert isinstance(organization, Organization)
+        validated_data = self.validated_data
+
+        organization.name = validated_data["company"]
+        organization.timezone = validated_data["timezone"]
+        organization.default_currency = validated_data["defaultCurrency"]
+        organization.save(update_fields=["name", "timezone", "default_currency", "updated_at"])
+
+        user.email = validated_data["contactEmail"]
+        user.save(update_fields=["email"])
+
+        return {
+            "company": organization.name,
+            "contactEmail": user.email,
+            "timezone": organization.timezone,
+            "defaultLanguage": validated_data.get("defaultLanguage", "English"),
+            "defaultCurrency": organization.default_currency,
+        }
