@@ -53,12 +53,11 @@ export const metadata: Metadata = {
     : undefined,
   icons: {
     icon: [
-      { url: siteConfig.icons.favicon, sizes: "any" },
-      { url: siteConfig.icons.svg, type: "image/svg+xml" },
+      { url: siteConfig.icons.favicon, type: "image/png" },
     ],
     apple: siteConfig.icons.appleTouchIcon,
   },
-  manifest: "/manifest.webmanifest",
+  manifest: siteConfig.manifest,
   robots: {
     index: true,
     follow: true,
@@ -89,8 +88,7 @@ const RootLayout = ({
         />
 
         {/* Favicon & Icons */}
-        <link rel="icon" href={siteConfig.icons.favicon} sizes="any" />
-        <link rel="icon" href={siteConfig.icons.svg} type="image/svg+xml" />
+        <link rel="icon" href={siteConfig.icons.favicon} type="image/png" />
         <link rel="apple-touch-icon" href={siteConfig.icons.appleTouchIcon} />
 
         {/* Theme Color */}
@@ -128,7 +126,10 @@ const RootLayout = ({
                 name: siteConfig.organization.name,
                 legalName: siteConfig.organization.legalName || siteConfig.organization.name,
                 url: baseUrl,
-                logo: siteConfig.images.logo ? `${baseUrl}${siteConfig.images.logo}` : undefined,
+                logo:
+                  siteConfig.organization.logo || siteConfig.images.logo
+                    ? `${baseUrl}${siteConfig.organization.logo || siteConfig.images.logo}`
+                    : undefined,
                 description: siteConfig.organization.description,
                 email: siteConfig.organization.email || undefined,
                 telephone: siteConfig.organization.phone || undefined,

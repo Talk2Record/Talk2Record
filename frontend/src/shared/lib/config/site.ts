@@ -60,7 +60,6 @@ export interface SiteConfig {
   };
   icons: {
     favicon: string;
-    svg: string;
     appleTouchIcon: string;
   };
   theme: { dark: string; light: string };

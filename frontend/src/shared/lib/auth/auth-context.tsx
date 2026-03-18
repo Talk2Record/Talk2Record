@@ -11,8 +11,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const setUser = useAuthStore((state) => state.setUser);
   const [isLoading, setIsLoading] = useState(false);
+  const isAuthLoading = isLoading || !hasHydrated;
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -86,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user,
-      isLoading,
+      isLoading: isAuthLoading,
       login,
       register,
       requestPasswordReset,
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       completeOnboarding,
-      isLoading,
+      isAuthLoading,
       login,
       logout,
       register,

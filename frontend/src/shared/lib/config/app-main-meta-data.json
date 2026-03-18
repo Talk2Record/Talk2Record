@@ -19,12 +19,11 @@
     "Operational analytics"
   ],
   "icons": {
-    "appleTouchIcon": "/apple-touch-icon.png",
-    "favicon": "/favicon.ico",
-    "svg": "/icon.svg"
+    "appleTouchIcon": "/favicon.png",
+    "favicon": "/favicon.png"
   },
   "images": {
-    "logo": "/logo.svg",
+    "logo": "/logo-transparent.png",
     "og": "/og-image.webp",
     "ogHeight": 630,
     "ogWidth": 1200
@@ -79,7 +78,7 @@
     "email": "alphanganga@gmail.com",
     "foundingDate": "2026-01-01",
     "legalName": "Talk2Record",
-    "logo": "/logo.svg",
+    "logo": "/logo-transparent.png",
     "name": "Talk2Record",
     "phone": "",
     "url": "https://talk2record.app"

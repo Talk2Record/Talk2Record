@@ -1,17 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/shared/lib/auth/auth-context";
-import { useLanguage } from "@/shared/lib/i18n/language-context";
-import { getTranslations } from "@/shared/lib/i18n/get-translations";
-import { useTranslations } from "@/shared/lib/i18n/use-translations";
-import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+
+import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import Link from "next/link";
 import { PasswordInput } from "@/shared/ui/password-input";
+import { getTranslations } from "@/shared/lib/i18n/get-translations";
+import { useAuth } from "@/shared/lib/auth/auth-context";
+import { useLanguage } from "@/shared/lib/i18n/language-context";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useTranslations } from "@/shared/lib/i18n/use-translations";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +32,11 @@ export default function LoginPage() {
       const user = await login(email, password);
       router.push(user.onboardingCompleted ? "/dashboard" : "/onboarding");
     } catch (submissionError) {
-      setError(submissionError instanceof Error ? submissionError.message : t("auth.login.invalidCredentials"));
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : t("auth.login.invalidCredentials")
+      );
     }
   }
 
@@ -39,7 +44,9 @@ export default function LoginPage() {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>{t("auth.login.title")}</CardTitle>
-        <CardDescription>Use a valid email and any password with 6 or more characters.</CardDescription>
+        <CardDescription>
+          Use a valid email and any password with 6 or more characters.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -64,7 +71,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <p className="text-destructive text-sm">{error}</p> : null}
           <Button className="w-full" disabled={isLoading} type="submit">
             {t("auth.login.submit")}
           </Button>

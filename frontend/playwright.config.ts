@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
+const shouldStartWebServer = !process.env.PLAYWRIGHT_BASE_URL;
+const shouldReuseExistingServer = process.env.PLAYWRIGHT_REUSE_SERVER !== "false";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -7,7 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   projects: [
@@ -15,9 +19,11 @@ export default defineConfig({
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: shouldStartWebServer
+    ? {
+        command: "npm run dev",
+        url: baseURL,
+        reuseExistingServer: shouldReuseExistingServer,
+      }
+    : undefined,
 });

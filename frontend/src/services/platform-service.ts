@@ -10,63 +10,70 @@ import type {
   SettingsProfile,
 } from "@/types/platform";
 
+const platformApiPrefix = (process.env.NEXT_PUBLIC_PLATFORM_API_PREFIX || "/mock").replace(/\/$/, "");
+
+function platformPath(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${platformApiPrefix}${normalizedPath}`;
+}
+
 export const authService = {
   async login(email: string, password: string) {
-    const response = await api.post<{ user: AuthUser }>("/mock/auth/login", { email, password });
+    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/login"), { email, password });
     return response.data.user;
   },
 
   async register(payload: { name: string; company: string; email: string; password: string }) {
-    const response = await api.post<{ user: AuthUser }>("/mock/auth/register", payload);
+    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/register"), payload);
     return response.data.user;
   },
 
   async forgotPassword(email: string) {
-    const response = await api.post<{ status: string }>("/mock/auth/forgot-password", { email });
+    const response = await api.post<{ status: string }>(platformPath("/auth/forgot-password"), { email });
     return response.data;
   },
 
   async completeOnboarding(userId: string) {
-    const response = await api.post<{ user: AuthUser }>("/mock/onboarding/complete", { userId });
+    const response = await api.post<{ user: AuthUser }>(platformPath("/onboarding/complete"), { userId });
     return response.data.user;
   },
 
   async loginWithGoogle() {
-    const response = await api.post<{ user: AuthUser }>("/mock/auth/google");
+    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/google"));
     return response.data.user;
   },
 };
 
 export const dashboardService = {
   async getOverview() {
-    const response = await api.get<DashboardOverview>("/mock/dashboard");
+    const response = await api.get<DashboardOverview>(platformPath("/dashboard"));
     return response.data;
   },
 };
 
 export const recordsService = {
   async list() {
-    const response = await api.get<RecordItem[]>("/mock/records");
+    const response = await api.get<RecordItem[]>(platformPath("/records"));
     return response.data;
   },
 };
 
 export const analyticsService = {
   async getSnapshot() {
-    const response = await api.get<AnalyticsSnapshot>("/mock/analytics");
+    const response = await api.get<AnalyticsSnapshot>(platformPath("/analytics"));
     return response.data;
   },
 };
 
 export const integrationsService = {
   async list() {
-    const response = await api.get<IntegrationItem[]>("/mock/integrations");
+    const response = await api.get<IntegrationItem[]>(platformPath("/integrations"));
     return response.data;
   },
 
   async testConnection(payload: { id: string; secret?: string; endpoint?: string }) {
     const response = await api.post<{ status: string; maskedSecret?: string }>(
-      "/mock/integrations/test",
+      platformPath("/integrations/test"),
       payload
     );
     return response.data;
@@ -75,13 +82,13 @@ export const integrationsService = {
 
 export const billingService = {
   async getSnapshot() {
-    const response = await api.get<BillingSnapshot>("/mock/billing");
+    const response = await api.get<BillingSnapshot>(platformPath("/billing"));
     return response.data;
   },
 
   async checkout(payload: { plan: string }) {
     const response = await api.post<{ status: string; checkoutUrl: string }>(
-      "/mock/billing/checkout",
+      platformPath("/billing/checkout"),
       payload
     );
     return response.data;
@@ -90,14 +97,14 @@ export const billingService = {
 
 export const onboardingService = {
   async getSteps() {
-    const response = await api.get<OnboardingStep[]>("/mock/onboarding");
+    const response = await api.get<OnboardingStep[]>(platformPath("/onboarding"));
     return response.data;
   },
 };
 
 export const settingsService = {
   async getProfile() {
-    const response = await api.get<SettingsProfile>("/mock/settings");
+    const response = await api.get<SettingsProfile>(platformPath("/settings"));
     return response.data;
   },
 };

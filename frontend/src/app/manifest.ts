@@ -21,21 +21,15 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       {
         src: siteConfig.icons.favicon,
-        sizes: "48x48",
-        type: "image/x-icon",
-        purpose: "any",
-      },
-      {
-        src: siteConfig.images.og,
-        sizes: "1200x630",
+        sizes: "250x250",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: siteConfig.icons.svg,
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable",
+        src: siteConfig.images.logo,
+        sizes: "975x267",
+        type: "image/png",
+        purpose: "any",
       },
     ],
     shortcuts: [

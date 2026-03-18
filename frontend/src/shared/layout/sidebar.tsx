@@ -51,12 +51,9 @@ const SidebarContent = ({
   logoutLabel,
 }: SidebarContentProps) => (
   <div className="bg-background flex h-full flex-col">
-    <div className="border-border flex h-16 items-center gap-3 border-b px-4">
-      <Logo size={28} className="h-7 w-7" />
-      <div>
-        <p className="text-sm font-semibold">Talk2Record</p>
-        <p className="text-muted-foreground text-xs">{workspaceLabel}</p>
-      </div>
+    <div className="border-border flex min-h-20 flex-col justify-center gap-1 border-b px-4 py-4">
+      <Logo size={34} className="h-9 w-auto" />
+      <p className="text-muted-foreground text-xs">{workspaceLabel}</p>
     </div>
 
     <div className="border-border border-b px-4 py-3">
