@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { AuthContext as AuthContextType } from "@/shared/lib/auth/types";
 import { authService } from "@/services/platform-service";
 import { useAuthStore } from "@/store/auth-store";
@@ -11,24 +11,65 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
+  const refreshToken = useAuthStore((state) => state.refreshToken);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const setSession = useAuthStore((state) => state.setSession);
   const setUser = useAuthStore((state) => state.setUser);
+  const clearSession = useAuthStore((state) => state.clearSession);
   const [isLoading, setIsLoading] = useState(false);
   const isAuthLoading = isLoading || !hasHydrated;
+  const isGoogleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (!refreshToken) {
+      clearSession();
+      return;
+    }
+
+    let isMounted = true;
+
+    const syncCurrentUser = async () => {
+      setIsLoading(true);
+      try {
+        const currentUser = await authService.getCurrentUser();
+        if (isMounted) {
+          setUser(currentUser);
+        }
+      } catch {
+        if (isMounted) {
+          clearSession();
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void syncCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clearSession, hasHydrated, refreshToken, setUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       setIsLoading(true);
       try {
-        const nextUser = await authService.login(email, password);
-        setUser(nextUser);
+        const session = await authService.login(email, password);
+        setSession(session);
         trackEvent("auth_login", { emailDomain: email.split("@")[1] });
-        return nextUser;
+        return session.user;
       } finally {
         setIsLoading(false);
       }
     },
-    [setUser]
+    [setSession]
   );
 
   const register = useCallback(
@@ -41,15 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }) => {
       setIsLoading(true);
       try {
-        const nextUser = await authService.register(payload);
-        setUser(nextUser);
+        const session = await authService.register(payload);
+        setSession(session);
         trackEvent("auth_register", { company: payload.company });
-        return nextUser;
+        return session.user;
       } finally {
         setIsLoading(false);
       }
     },
-    [setUser]
+    [setSession]
   );
 
   const requestPasswordReset = useCallback(async (email: string) => {
@@ -61,42 +102,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const completeOnboarding = useCallback(async (payload: {
-    voiceDataConsent: boolean;
-    aiReviewAcknowledged: boolean;
-    recordVerificationAcknowledged: boolean;
-  }) => {
-    if (!user) {
-      return;
-    }
+  const completeOnboarding = useCallback(
+    async (payload: {
+      voiceDataConsent: boolean;
+      aiReviewAcknowledged: boolean;
+      recordVerificationAcknowledged: boolean;
+    }) => {
+      if (!user) {
+        return;
+      }
 
+      setIsLoading(true);
+      try {
+        const nextUser = await authService.completeOnboarding(payload);
+        setUser(nextUser);
+        trackEvent("onboarding_completed", { userId: nextUser.id });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setUser, user]
+  );
+
+  const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      const nextUser = await authService.completeOnboarding({
-        userId: user.id,
-        ...payload,
-      });
-      setUser(nextUser);
-      trackEvent("onboarding_completed", { userId: nextUser.id });
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } catch {
+      // Clearing local session keeps the client consistent even if the backend token is already expired.
     } finally {
+      clearSession();
       setIsLoading(false);
     }
-  }, [setUser, user]);
-
-  const logout = useCallback(() => {
-    setUser(null);
-  }, [setUser]);
+  }, [clearSession, refreshToken]);
 
   const signInWithGoogle = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const nextUser = await authService.loginWithGoogle();
-      setUser(nextUser);
-      trackEvent("auth_google_login");
-    } finally {
-      setIsLoading(false);
+    if (!isGoogleEnabled) {
+      throw new Error("Google sign-in is not enabled for this environment.");
     }
-  }, [setUser]);
+  }, [isGoogleEnabled]);
 
   const value = useMemo(
     () => ({
@@ -109,10 +155,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       signInWithGoogle,
       isAuthenticated: Boolean(user),
-      isGoogleEnabled: true,
+      isGoogleEnabled,
     }),
     [
       completeOnboarding,
+      isGoogleEnabled,
       isAuthLoading,
       login,
       logout,

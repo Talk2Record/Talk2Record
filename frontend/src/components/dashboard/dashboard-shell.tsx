@@ -29,11 +29,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="flex h-screen overflow-hidden bg-muted/20">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardTopbar />
-        <main className="flex-1 px-4 py-6 pt-20 md:px-8 md:pt-6">{children}</main>
+        <main className="flex-1 overflow-y-auto px-4 py-6 pt-20 md:px-8 md:pt-6">{children}</main>
       </div>
     </div>
   );

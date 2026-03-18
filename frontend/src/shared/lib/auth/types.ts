@@ -19,7 +19,7 @@ export interface AuthContext {
     aiReviewAcknowledged: boolean;
     recordVerificationAcknowledged: boolean;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   isAuthenticated: boolean;
   isGoogleEnabled: boolean;

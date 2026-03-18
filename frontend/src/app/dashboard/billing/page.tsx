@@ -5,13 +5,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { usePreferencesStore } from "@/store/preferences-store";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 export default function BillingPage() {
-  const currency = usePreferencesStore((state) => state.currency);
   const { data, isLoading } = useQuery({
     queryKey: ["billing"],
     queryFn: billingService.getSnapshot,
@@ -24,6 +22,9 @@ export default function BillingPage() {
     try {
       const response = await billingService.checkout({ plan, acceptedBillingTerms });
       setStatus(response.status);
+      if (response.checkoutUrl && !response.checkoutUrl.includes("billing.example.com")) {
+        window.location.assign(response.checkoutUrl);
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to start checkout.");
     }
@@ -33,9 +34,12 @@ export default function BillingPage() {
     return <div className="text-muted-foreground">Loading billing...</div>;
   }
 
-  const usage = Math.round(
-    (data.subscription.voiceNotesProcessed / data.subscription.includedVoiceNotes) * 100
-  );
+  const usage =
+    data.subscription.includedVoiceNotes > 0
+      ? Math.round(
+          (data.subscription.voiceNotesProcessed / data.subscription.includedVoiceNotes) * 100
+        )
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -45,7 +49,8 @@ export default function BillingPage() {
         </div>
         <h1>Billing</h1>
         <p className="text-muted-foreground">
-          Subscription, invoices, usage, and upgrade flows are scaffolded against the future billing endpoints.
+          Subscription, invoices, usage, and upgrade flows are scaffolded against the future billing
+          endpoints.
         </p>
       </div>
 
@@ -56,8 +61,12 @@ export default function BillingPage() {
             <CardDescription>Current subscription plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-3xl font-semibold">{formatCurrency(data.subscription.amount, currency)}</p>
-            <p className="text-sm text-muted-foreground">Renews on {formatDate(data.subscription.renewalDate)}</p>
+            <p className="text-3xl font-semibold">
+              {formatCurrency(data.subscription.amount, data.subscription.currency)}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Renews on {formatDate(data.subscription.renewalDate)}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-primary/10">
@@ -67,7 +76,7 @@ export default function BillingPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-3xl font-semibold">{usage}%</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {data.subscription.voiceNotesProcessed} of {data.subscription.includedVoiceNotes} used
             </p>
           </CardContent>
@@ -86,20 +95,25 @@ export default function BillingPage() {
       <Card className="border-primary/10">
         <CardHeader>
           <CardTitle>Upgrade or downgrade</CardTitle>
-          <CardDescription>Mock checkout flow for Stripe/Paddle handoff.</CardDescription>
+          <CardDescription>
+            Start a provider checkout session from the backend billing API.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <label className="w-full rounded-xl border border-primary/10 bg-background/80 p-3 text-sm text-muted-foreground">
+          <label className="border-primary/10 bg-background/80 text-muted-foreground w-full rounded-xl border p-3 text-sm">
             <span className="flex items-start gap-3">
               <input
                 checked={acceptedBillingTerms}
-                className="mt-1 h-4 w-4 rounded border-primary/20"
+                className="border-primary/20 mt-1 h-4 w-4 rounded"
                 onChange={(event) => setAcceptedBillingTerms(event.target.checked)}
                 type="checkbox"
               />
               <span>
                 You agree to the{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href="/legal/billing-policy">
+                <Link
+                  className="text-primary underline-offset-4 hover:underline"
+                  href="/legal/billing-policy"
+                >
                   Billing Policy
                 </Link>{" "}
                 and understand paid plans renew automatically unless canceled before renewal.
@@ -115,7 +129,7 @@ export default function BillingPage() {
           <Button className="rounded-xl" onClick={() => checkout("Scale")} variant="outline">
             Move to Scale
           </Button>
-          {status ? <p className="w-full text-sm text-muted-foreground">{status}</p> : null}
+          {status ? <p className="text-muted-foreground w-full text-sm">{status}</p> : null}
         </CardContent>
       </Card>
 
@@ -124,18 +138,27 @@ export default function BillingPage() {
           <CardTitle>Invoices</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {data.invoices.map((invoice) => (
-            <div key={invoice.id} className="flex items-center justify-between rounded-2xl border border-primary/10 bg-background/80 p-4">
-              <div>
-                <p className="font-medium">{invoice.id}</p>
-                <p className="text-sm text-muted-foreground">{formatDate(invoice.issuedAt)}</p>
+          {data.invoices.length ? (
+            data.invoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="border-primary/10 bg-background/80 flex items-center justify-between rounded-2xl border p-4"
+              >
+                <div>
+                  <p className="font-medium">{invoice.id}</p>
+                  <p className="text-muted-foreground text-sm">{formatDate(invoice.issuedAt)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">{formatCurrency(invoice.amount, invoice.currency)}</p>
+                  <p className="text-muted-foreground text-sm">{invoice.status}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-medium">{formatCurrency(invoice.amount, invoice.currency)}</p>
-                <p className="text-sm text-muted-foreground">{invoice.status}</p>
-              </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No invoices are available for this workspace yet.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

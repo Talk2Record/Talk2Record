@@ -20,15 +20,14 @@ Talk2Record is a SaaS frontend for converting WhatsApp voice notes into structur
 - Auth: `/login`, `/register`, `/forgot-password`, `/onboarding`
 - Dashboard: `/dashboard`, `/dashboard/records`, `/dashboard/analytics`, `/dashboard/integrations`, `/dashboard/billing`, `/dashboard/settings`
 
-## Mock-first architecture
+## Architecture
 
 - Shared types live in `src/types`
 - Client services live in `src/services`
 - API client helpers live in `src/lib`
-- Mock route handlers live under `src/app/api/mock`
 - User preferences and session state use Zustand stores in `src/store`
 
-This structure is designed so the mock endpoints can be replaced with Django REST API calls with minimal UI churn.
+This structure keeps the UI decoupled from backend response details through a thin service and mapper layer, so Django API changes stay isolated from page components.
 
 ## Commands
 
@@ -43,4 +42,4 @@ npm run typecheck
 
 - Supported locales: `en`, `es`, `fr`
 - Supported currencies: `USD`, `EUR`, `GBP`, `KES`, `INR`
-- Billing, analytics, onboarding, and integrations are scaffolded with realistic mock flows first
+- Billing, analytics, onboarding, and integrations are wired through the Django backend APIs

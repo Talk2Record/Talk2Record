@@ -4,23 +4,39 @@ import type {
   AuthUser,
   BillingSnapshot,
   DashboardOverview,
-  IntegrationItem,
   OnboardingStep,
-  RecordItem,
   SettingsProfile,
 } from "@/types/platform";
+import {
+  mapAnalyticsSnapshot,
+  mapAuthUser,
+  mapBillingSnapshot,
+  mapDashboardOverview,
+  mapIntegration,
+  mapOnboardingSteps,
+  mapRecord,
+  mapSettingsProfile,
+} from "@/services/platform-mappers";
 
-const platformApiPrefix = (process.env.NEXT_PUBLIC_PLATFORM_API_PREFIX || "/mock").replace(/\/$/, "");
-
-function platformPath(path: string) {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${platformApiPrefix}${normalizedPath}`;
+interface AuthSession {
+  user: AuthUser;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export const authService = {
   async login(email: string, password: string) {
-    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/login"), { email, password });
-    return response.data.user;
+    const response = await api.post<{
+      user: Parameters<typeof mapAuthUser>[0];
+      access: string;
+      refresh: string;
+    }>("/auth/login/", { email, password });
+
+    return {
+      user: mapAuthUser(response.data.user),
+      accessToken: response.data.access,
+      refreshToken: response.data.refresh,
+    } satisfies AuthSession;
   },
 
   async register(payload: {
@@ -30,56 +46,62 @@ export const authService = {
     password: string;
     acceptedDocumentKeys: string[];
   }) {
-    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/register"), payload);
-    return response.data.user;
+    await api.post("/auth/register/", payload);
+    return authService.login(payload.email, payload.password);
   },
 
   async forgotPassword(email: string) {
-    const response = await api.post<{ status: string }>(platformPath("/auth/forgot-password"), { email });
+    const response = await api.post<{ status: string }>("/auth/forgot-password/", { email });
     return response.data;
   },
 
   async completeOnboarding(payload: {
-    userId: string;
     voiceDataConsent: boolean;
     aiReviewAcknowledged: boolean;
     recordVerificationAcknowledged: boolean;
   }) {
-    const response = await api.post<{ user: AuthUser }>(platformPath("/onboarding/complete"), payload);
-    return response.data.user;
+    const response = await api.post<{ user: Parameters<typeof mapAuthUser>[0] }>(
+      "/onboarding/complete/",
+      payload
+    );
+    return mapAuthUser(response.data.user);
   },
 
-  async loginWithGoogle() {
-    const response = await api.post<{ user: AuthUser }>(platformPath("/auth/google"));
-    return response.data.user;
+  async getCurrentUser() {
+    const response = await api.get<Parameters<typeof mapAuthUser>[0]>("/auth/me/");
+    return mapAuthUser(response.data);
+  },
+
+  async logout(refreshToken: string) {
+    await api.post("/auth/logout/", { refresh: refreshToken });
   },
 };
 
 export const dashboardService = {
   async getOverview() {
-    const response = await api.get<DashboardOverview>(platformPath("/dashboard"));
-    return response.data;
+    const response = await api.get<DashboardOverview>("/dashboard/");
+    return mapDashboardOverview(response.data);
   },
 };
 
 export const recordsService = {
   async list() {
-    const response = await api.get<RecordItem[]>(platformPath("/records"));
-    return response.data;
+    const response = await api.get<Array<Parameters<typeof mapRecord>[0]>>("/records/");
+    return response.data.map(mapRecord);
   },
 };
 
 export const analyticsService = {
   async getSnapshot() {
-    const response = await api.get<AnalyticsSnapshot>(platformPath("/analytics"));
-    return response.data;
+    const response = await api.get<AnalyticsSnapshot>("/analytics/");
+    return mapAnalyticsSnapshot(response.data);
   },
 };
 
 export const integrationsService = {
   async list() {
-    const response = await api.get<IntegrationItem[]>(platformPath("/integrations"));
-    return response.data;
+    const response = await api.get<Array<Parameters<typeof mapIntegration>[0]>>("/integrations/");
+    return response.data.map(mapIntegration);
   },
 
   async testConnection(payload: {
@@ -89,7 +111,7 @@ export const integrationsService = {
     confirmedPermission?: boolean;
   }) {
     const response = await api.post<{ status: string; maskedSecret?: string }>(
-      platformPath("/integrations/test"),
+      "/integration-actions/test_connection/",
       payload
     );
     return response.data;
@@ -98,13 +120,13 @@ export const integrationsService = {
 
 export const billingService = {
   async getSnapshot() {
-    const response = await api.get<BillingSnapshot>(platformPath("/billing"));
-    return response.data;
+    const response = await api.get<BillingSnapshot>("/billing/");
+    return mapBillingSnapshot(response.data);
   },
 
   async checkout(payload: { plan: string; acceptedBillingTerms: boolean }) {
     const response = await api.post<{ status: string; checkoutUrl: string }>(
-      platformPath("/billing/checkout"),
+      "/billing/checkout/",
       payload
     );
     return response.data;
@@ -113,14 +135,19 @@ export const billingService = {
 
 export const onboardingService = {
   async getSteps() {
-    const response = await api.get<OnboardingStep[]>(platformPath("/onboarding"));
-    return response.data;
+    const response = await api.get<OnboardingStep[]>("/onboarding/");
+    return mapOnboardingSteps(response.data);
   },
 };
 
 export const settingsService = {
   async getProfile() {
-    const response = await api.get<SettingsProfile>(platformPath("/settings"));
-    return response.data;
+    const response = await api.get<SettingsProfile>("/settings/");
+    return mapSettingsProfile(response.data);
+  },
+
+  async updateProfile(payload: SettingsProfile) {
+    const response = await api.patch<SettingsProfile>("/settings/", payload);
+    return mapSettingsProfile(response.data);
   },
 };

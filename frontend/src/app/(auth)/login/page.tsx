@@ -17,7 +17,7 @@ import { useTranslations } from "@/shared/lib/i18n/use-translations";
 export default function LoginPage() {
   const router = useRouter();
   const { locale } = useLanguage();
-  const { login, signInWithGoogle, isLoading } = useAuth();
+  const { login, signInWithGoogle, isGoogleEnabled, isLoading } = useAuth();
   const messages = getTranslations(locale);
   const { t } = useTranslations(messages);
   const [email, setEmail] = useState("");
@@ -41,14 +41,15 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
+    <Card className="border-primary/10 w-full max-w-md shadow-(--shadow-lg)">
       <CardHeader>
         <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
           Welcome back
         </div>
         <CardTitle>{t("auth.login.title")}</CardTitle>
         <CardDescription>
-          Sign in to review extracted records, analytics, and billing activity from one calm workspace.
+          Sign in to review extracted records, analytics, and billing activity from one calm
+          workspace.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -80,9 +81,15 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <Button className="w-full rounded-xl" variant="outline" onClick={() => signInWithGoogle()}>
-          {t("auth.login.signInWithGoogle")}
-        </Button>
+        {isGoogleEnabled ? (
+          <Button
+            className="w-full rounded-xl"
+            variant="outline"
+            onClick={() => signInWithGoogle()}
+          >
+            {t("auth.login.signInWithGoogle")}
+          </Button>
+        ) : null}
 
         <div className="flex items-center justify-between text-sm">
           <Link className="text-primary" href="/forgot-password">

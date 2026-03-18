@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   BarChart3,
   CreditCard,
@@ -13,17 +10,21 @@ import {
   ScrollText,
   Settings,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/shared/ui/sheet";
+
+import { Button } from "@/shared/ui/button";
+import { CurrencySwitcher } from "@/shared/components/currency-switcher";
+import LanguageSwitcher from "@/shared/components/language-switcher";
+import Link from "next/link";
+import { Logo } from "@/shared/components/logo";
+import { ThemeToggle } from "@/shared/components/theme-toggle";
+import { cn } from "@/shared/lib/utils";
+import { getTranslations } from "@/shared/lib/i18n/get-translations";
 import { useAuth } from "@/shared/lib/auth/auth-context";
 import { useLanguage } from "@/shared/lib/i18n/language-context";
-import { getTranslations } from "@/shared/lib/i18n/get-translations";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
-import { Logo } from "@/shared/components/logo";
-import { CurrencySwitcher } from "@/shared/components/currency-switcher";
-import { ThemeToggle } from "@/shared/components/theme-toggle";
-import LanguageSwitcher from "@/shared/components/language-switcher";
-import { Button } from "@/shared/ui/button";
-import { cn } from "@/shared/lib/utils";
-import { Sheet, SheetContent, SheetTrigger } from "@/shared/ui/sheet";
 
 type MenuItem = {
   label: string;
@@ -50,7 +51,7 @@ const SidebarContent = ({
   userEmail,
   logoutLabel,
 }: SidebarContentProps) => (
-  <div className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
+  <div className="bg-sidebar text-sidebar-foreground flex h-full flex-col overflow-hidden">
     <div className="border-sidebar-border flex min-h-24 flex-col justify-center gap-3 border-b px-5 py-5">
       <div className="flex items-center gap-3">
         <div className="bg-brand-gradient rounded-2xl p-px shadow-sm">
@@ -158,7 +159,7 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      <aside className="border-sidebar-border hidden h-screen w-80 shrink-0 border-r md:flex">
+      <aside className="border-sidebar-border sticky top-0 hidden h-screen shrink-0 border-r md:flex">
         <SidebarContent
           pathname={pathname}
           menuItems={menuItems}
