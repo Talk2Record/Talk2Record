@@ -11,11 +11,13 @@ from talk2record.legal.views import LegalDocumentVersionViewSet
 from talk2record.legal.views import LegalProfileViewSet
 from talk2record.organizations.views import MembershipViewSet
 from talk2record.organizations.views import OrganizationViewSet
+from talk2record.notifications.views import NotificationViewSet
 from talk2record.records.views import RecordViewSet
 from talk2record.users.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
+router.register("notifications", NotificationViewSet, basename="notification")
 router.register("users", UserViewSet)
 router.register("organizations", OrganizationViewSet, basename="organization")
 router.register("memberships", MembershipViewSet, basename="membership")

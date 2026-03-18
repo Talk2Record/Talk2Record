@@ -14,6 +14,9 @@ from talk2record.integrations.serializers import IntegrationConnectionTestSerial
 from talk2record.integrations.serializers import OrganizationIntegrationSerializer
 from talk2record.legal.models import UserLegalAttestation
 from talk2record.legal.services import LegalAcceptanceService
+from talk2record.notifications.models import Notification
+from talk2record.notifications.services import NotificationService
+from talk2record.organizations.models import Membership
 
 
 class OrganizationIntegrationViewSet(ReadOnlyModelViewSet):
@@ -71,6 +74,24 @@ class IntegrationActionViewSet(GenericViewSet):
         integration.status = OrganizationIntegration.Status.CONNECTED
         integration.last_sync = timezone.now()
         integration.save(update_fields=["endpoint", "status", "last_sync", "updated_at"])
+
+        integration_name = integration.integration.name
+        title = f"{integration_name} integration connected"
+        message = f"Your {integration_name} integration has been successfully connected."
+        for membership in integration.organization.memberships.filter(
+            status=Membership.Status.ACTIVE,
+            role__in=[Membership.Role.OWNER, Membership.Role.ADMIN],
+        ):
+            NotificationService.create(
+                user=membership.user,
+                notification_type=Notification.Type.INTEGRATION_CONNECTED,
+                title=title,
+                message=message,
+                link_url="/dashboard/integrations",
+                organization=integration.organization,
+                metadata={"integration_id": integration.pk},
+            )
+
         AuditService.log(
             action="integration.tested",
             resource_type="integration",

@@ -4,6 +4,8 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Ensure venv has all dependencies (e.g. after adding channels)
+uv sync
 
 python manage.py migrate
 exec uvicorn config.asgi:application --host 0.0.0.0 --reload --reload-include '*.html'

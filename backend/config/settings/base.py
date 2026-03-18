@@ -78,6 +78,7 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
+    "channels",
     "crispy_forms",
     "crispy_bootstrap5",
     "allauth",
@@ -100,6 +101,7 @@ LOCAL_APPS = [
     "talk2record.records",
     "talk2record.integrations",
     "talk2record.billing",
+    "talk2record.notifications",
     "talk2record.seed",
     # Your stuff: custom apps go here
 ]
@@ -279,6 +281,18 @@ LOGGING = {
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
+
+# Django Channels
+# ------------------------------------------------------------------------------
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
+    },
+}
 
 # Celery
 # ------------------------------------------------------------------------------

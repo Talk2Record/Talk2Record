@@ -4,6 +4,9 @@ from decimal import Decimal
 
 from talk2record.analytics.services import AnalyticsService
 from talk2record.audit.services import AuditService
+from talk2record.notifications.models import Notification
+from talk2record.notifications.services import NotificationService
+from talk2record.organizations.models import Membership
 from talk2record.records.models import Record
 
 
@@ -47,4 +50,19 @@ class RecordProcessingService:
             organization=record.organization,
             properties={"source": record.source, "status": record.status},
         )
+
+        title = f"Voice note from {record.customer_name} has been processed"
+        message = f"Record: {record.product} - {record.quantity} x {record.currency} {record.amount}"
+        link_url = f"/dashboard/records"
+        for membership in record.organization.memberships.filter(status=Membership.Status.ACTIVE):
+            NotificationService.create(
+                user=membership.user,
+                notification_type=Notification.Type.RECORD_STORED,
+                title=title,
+                message=message,
+                link_url=link_url,
+                organization=record.organization,
+                metadata={"record_id": record.pk},
+            )
+
         return record
