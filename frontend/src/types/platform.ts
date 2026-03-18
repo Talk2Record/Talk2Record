@@ -1,5 +1,19 @@
 export type SupportedCurrency = "USD" | "EUR" | "GBP" | "KES" | "INR";
 
+export interface AcceptedLegalDocument {
+  documentKey: string;
+  version: string;
+  acceptedAt: string | null;
+}
+
+export interface LegalAcceptanceStatus {
+  accepted_documents: AcceptedLegalDocument[];
+  required_signup_documents: string[];
+  required_billing_documents: string[];
+  has_required_signup_acceptance: boolean;
+  has_required_billing_acceptance: boolean;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -7,6 +21,7 @@ export interface AuthUser {
   company: string;
   role: "owner" | "operator";
   onboardingCompleted: boolean;
+  legal: LegalAcceptanceStatus;
 }
 
 export interface DashboardMetric {

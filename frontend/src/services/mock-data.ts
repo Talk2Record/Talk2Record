@@ -3,10 +3,44 @@ import type {
   BillingSnapshot,
   DashboardOverview,
   IntegrationItem,
+  LegalAcceptanceStatus,
   OnboardingStep,
   RecordItem,
   SettingsProfile,
 } from "@/types/platform";
+
+export const defaultLegalStatus: LegalAcceptanceStatus = {
+  accepted_documents: [
+    { documentKey: "terms-of-service", version: "2026-03-18", acceptedAt: "2026-03-18T09:00:00.000Z" },
+    { documentKey: "privacy-policy", version: "2026-03-18", acceptedAt: "2026-03-18T09:00:00.000Z" },
+    { documentKey: "billing-policy", version: "2026-03-18", acceptedAt: null },
+    { documentKey: "acceptable-use-policy", version: "2026-03-18", acceptedAt: null },
+    { documentKey: "ai-usage-disclaimer", version: "2026-03-18", acceptedAt: null },
+    { documentKey: "cookie-policy", version: "2026-03-18", acceptedAt: null },
+    { documentKey: "data-processing-agreement", version: "2026-03-18", acceptedAt: null },
+  ],
+  required_signup_documents: ["terms-of-service", "privacy-policy"],
+  required_billing_documents: ["billing-policy"],
+  has_required_signup_acceptance: true,
+  has_required_billing_acceptance: false,
+};
+
+export function withAcceptedDocuments(documentKeys: string[]): LegalAcceptanceStatus {
+  const acceptedDocuments = defaultLegalStatus.accepted_documents.map((document) =>
+    documentKeys.includes(document.documentKey)
+      ? { ...document, acceptedAt: new Date().toISOString() }
+      : document
+  );
+  const requiredBillingDocuments = defaultLegalStatus.required_billing_documents;
+
+  return {
+    ...defaultLegalStatus,
+    accepted_documents: acceptedDocuments,
+    has_required_billing_acceptance: requiredBillingDocuments.every((documentKey) =>
+      acceptedDocuments.some((document) => document.documentKey === documentKey && document.acceptedAt)
+    ),
+  };
+}
 
 export const dashboardOverview: DashboardOverview = {
   metrics: [

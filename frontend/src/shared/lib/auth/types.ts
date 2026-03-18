@@ -11,9 +11,14 @@ export interface AuthContext {
     company: string;
     email: string;
     password: string;
+    acceptedDocumentKeys: string[];
   }) => Promise<AuthUser>;
   requestPasswordReset: (_email: string) => Promise<{ status: string }>;
-  completeOnboarding: () => Promise<void>;
+  completeOnboarding: (_payload: {
+    voiceDataConsent: boolean;
+    aiReviewAcknowledged: boolean;
+    recordVerificationAcknowledged: boolean;
+  }) => Promise<void>;
   logout: () => void;
   signInWithGoogle: () => Promise<void>;
   isAuthenticated: boolean;

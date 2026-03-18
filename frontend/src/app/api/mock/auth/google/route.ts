@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAcceptedDocuments } from "@/services/mock-data";
 
 export async function POST() {
   return NextResponse.json({
@@ -9,6 +10,7 @@ export async function POST() {
       company: "Talk2Record Demo Workspace",
       role: "owner",
       onboardingCompleted: true,
+      legal: withAcceptedDocuments(["terms-of-service", "privacy-policy", "billing-policy"]),
     },
   });
 }

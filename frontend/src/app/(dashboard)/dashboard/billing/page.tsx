@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
@@ -16,11 +17,16 @@ export default function BillingPage() {
     queryFn: billingService.getSnapshot,
   });
   const [status, setStatus] = useState("");
+  const [acceptedBillingTerms, setAcceptedBillingTerms] = useState(false);
 
   async function checkout(plan: string) {
     trackEvent("billing_upgrade_started", { plan });
-    const response = await billingService.checkout({ plan });
-    setStatus(response.status);
+    try {
+      const response = await billingService.checkout({ plan, acceptedBillingTerms });
+      setStatus(response.status);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to start checkout.");
+    }
   }
 
   if (isLoading || !data) {
@@ -83,6 +89,23 @@ export default function BillingPage() {
           <CardDescription>Mock checkout flow for Stripe/Paddle handoff.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
+          <label className="w-full rounded-xl border border-primary/10 bg-background/80 p-3 text-sm text-muted-foreground">
+            <span className="flex items-start gap-3">
+              <input
+                checked={acceptedBillingTerms}
+                className="mt-1 h-4 w-4 rounded border-primary/20"
+                onChange={(event) => setAcceptedBillingTerms(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                You agree to the{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href="/legal/billing-policy">
+                  Billing Policy
+                </Link>{" "}
+                and understand paid plans renew automatically unless canceled before renewal.
+              </span>
+            </span>
+          </label>
           <Button className="rounded-xl" onClick={() => checkout("Starter")} variant="outline">
             Move to Starter
           </Button>

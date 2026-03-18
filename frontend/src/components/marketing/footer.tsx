@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { legalContactEmail } from "@/shared/lib/legal-content";
+import { legalDocuments } from "@/shared/lib/legal-content";
 
 export function MarketingFooter() {
   return (
@@ -26,13 +27,11 @@ export function MarketingFooter() {
           <Link href="/legal">Legal center</Link>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs">
-          <Link href="/legal/privacy-policy">Privacy</Link>
-          <Link href="/legal/terms-of-service">Terms</Link>
-          <Link href="/legal/data-processing-agreement">DPA</Link>
-          <Link href="/legal/ai-usage-disclaimer">AI policy</Link>
-          <Link href="/legal/cookie-policy">Cookies</Link>
-          <Link href="/legal/acceptable-use-policy">Acceptable use</Link>
-          <Link href="/legal/billing-policy">Billing</Link>
+          {legalDocuments.map((document) => (
+            <Link key={document.slug} href={`/legal/${document.slug}`}>
+              {document.shortTitle}
+            </Link>
+          ))}
         </div>
         <p className="text-xs">
           Legal and enterprise requests:{" "}

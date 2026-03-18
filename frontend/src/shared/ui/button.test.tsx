@@ -16,6 +16,6 @@ describe("Button", () => {
     );
     const button = container.querySelector("button");
     expect(button).toHaveClass("bg-secondary");
-    expect(button).toHaveClass("h-8");
+    expect(button).toHaveClass("h-9");
   });
 });

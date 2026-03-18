@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/shared/lib/auth/auth-context";
@@ -13,16 +14,34 @@ export default function OnboardingPage() {
   const router = useRouter();
   const heatmap = getHeatmapAdapter();
   const { completeOnboarding, isLoading } = useAuth();
+  const [voiceDataConsent, setVoiceDataConsent] = useState(false);
+  const [aiReviewAcknowledged, setAiReviewAcknowledged] = useState(false);
+  const [recordVerificationAcknowledged, setRecordVerificationAcknowledged] = useState(false);
+  const [error, setError] = useState("");
   const { data: steps = [] } = useQuery({
     queryKey: ["onboarding-steps"],
     queryFn: onboardingService.getSteps,
   });
 
   async function finishOnboarding() {
+    if (!voiceDataConsent || !aiReviewAcknowledged || !recordVerificationAcknowledged) {
+      setError("Review and confirm each legal acknowledgement before continuing.");
+      return;
+    }
+
     heatmap.identifyStep("company-setup");
     trackEvent("onboarding_step_completed", { step: "company-setup" });
-    await completeOnboarding();
-    router.push("/dashboard");
+    setError("");
+    try {
+      await completeOnboarding({
+        voiceDataConsent,
+        aiReviewAcknowledged,
+        recordVerificationAcknowledged,
+      });
+      router.push("/dashboard");
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to complete onboarding.");
+    }
   }
 
   return (
@@ -37,6 +56,38 @@ export default function OnboardingPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="rounded-2xl border border-primary/10 bg-background/80 p-4">
+          <p className="text-sm font-medium">Before you continue</p>
+          <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+            <label className="flex items-start gap-3">
+              <input
+                checked={voiceDataConsent}
+                className="mt-1 h-4 w-4 rounded border-primary/20"
+                onChange={(event) => setVoiceDataConsent(event.target.checked)}
+                type="checkbox"
+              />
+              <span>You confirm you have consent to process voice data.</span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input
+                checked={aiReviewAcknowledged}
+                className="mt-1 h-4 w-4 rounded border-primary/20"
+                onChange={(event) => setAiReviewAcknowledged(event.target.checked)}
+                type="checkbox"
+              />
+              <span>You understand AI outputs may not be 100% accurate.</span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input
+                checked={recordVerificationAcknowledged}
+                className="mt-1 h-4 w-4 rounded border-primary/20"
+                onChange={(event) => setRecordVerificationAcknowledged(event.target.checked)}
+                type="checkbox"
+              />
+              <span>You are responsible for verifying records before operational use.</span>
+            </label>
+          </div>
+        </div>
         {steps.map((step, index) => (
           <div key={step.id} className="rounded-2xl border border-primary/10 bg-background/80 p-4">
             <div className="flex items-start gap-3">
@@ -53,8 +104,9 @@ export default function OnboardingPage() {
             </div>
           </div>
         ))}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button className="w-full rounded-xl" disabled={isLoading} onClick={() => finishOnboarding()}>
-          Enter dashboard
+          I understand and continue
         </Button>
       </CardContent>
     </Card>

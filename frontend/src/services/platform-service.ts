@@ -23,7 +23,13 @@ export const authService = {
     return response.data.user;
   },
 
-  async register(payload: { name: string; company: string; email: string; password: string }) {
+  async register(payload: {
+    name: string;
+    company: string;
+    email: string;
+    password: string;
+    acceptedDocumentKeys: string[];
+  }) {
     const response = await api.post<{ user: AuthUser }>(platformPath("/auth/register"), payload);
     return response.data.user;
   },
@@ -33,8 +39,13 @@ export const authService = {
     return response.data;
   },
 
-  async completeOnboarding(userId: string) {
-    const response = await api.post<{ user: AuthUser }>(platformPath("/onboarding/complete"), { userId });
+  async completeOnboarding(payload: {
+    userId: string;
+    voiceDataConsent: boolean;
+    aiReviewAcknowledged: boolean;
+    recordVerificationAcknowledged: boolean;
+  }) {
+    const response = await api.post<{ user: AuthUser }>(platformPath("/onboarding/complete"), payload);
     return response.data.user;
   },
 
@@ -71,7 +82,12 @@ export const integrationsService = {
     return response.data;
   },
 
-  async testConnection(payload: { id: string; secret?: string; endpoint?: string }) {
+  async testConnection(payload: {
+    id: string;
+    secret?: string;
+    endpoint?: string;
+    confirmedPermission?: boolean;
+  }) {
     const response = await api.post<{ status: string; maskedSecret?: string }>(
       platformPath("/integrations/test"),
       payload
@@ -86,7 +102,7 @@ export const billingService = {
     return response.data;
   },
 
-  async checkout(payload: { plan: string }) {
+  async checkout(payload: { plan: string; acceptedBillingTerms: boolean }) {
     const response = await api.post<{ status: string; checkoutUrl: string }>(
       platformPath("/billing/checkout"),
       payload

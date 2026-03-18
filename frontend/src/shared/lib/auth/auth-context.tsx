@@ -32,7 +32,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (payload: { name: string; company: string; email: string; password: string }) => {
+    async (payload: {
+      name: string;
+      company: string;
+      email: string;
+      password: string;
+      acceptedDocumentKeys: string[];
+    }) => {
       setIsLoading(true);
       try {
         const nextUser = await authService.register(payload);
@@ -55,14 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const completeOnboarding = useCallback(async () => {
+  const completeOnboarding = useCallback(async (payload: {
+    voiceDataConsent: boolean;
+    aiReviewAcknowledged: boolean;
+    recordVerificationAcknowledged: boolean;
+  }) => {
     if (!user) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const nextUser = await authService.completeOnboarding(user.id);
+      const nextUser = await authService.completeOnboarding({
+        userId: user.id,
+        ...payload,
+      });
       setUser(nextUser);
       trackEvent("onboarding_completed", { userId: nextUser.id });
     } finally {

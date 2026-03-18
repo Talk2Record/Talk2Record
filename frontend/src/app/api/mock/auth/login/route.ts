@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { defaultLegalStatus } from "@/services/mock-data";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { email?: string; password?: string };
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
       company: "Talk2Record Demo Workspace",
       role: "owner",
       onboardingCompleted: false,
+      legal: defaultLegalStatus,
     },
   });
 }

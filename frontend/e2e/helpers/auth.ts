@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { defaultLegalStatus } from "@/services/mock-data";
 import type { AuthUser } from "@/types/platform";
 
 export type PlaywrightAuthMode = "mock-storage" | "mock-ui" | "real-ui";
@@ -28,6 +29,7 @@ const defaultMockUser: AuthUser = {
   company: "Talk2Record Demo Workspace",
   role: "owner",
   onboardingCompleted: true,
+  legal: defaultLegalStatus,
 };
 
 function getAuthMode(mode?: PlaywrightAuthMode): PlaywrightAuthMode {
@@ -87,9 +89,12 @@ export async function loginWithEmail(page: Page, credentials: Partial<LoginCrede
 }
 
 export async function completeOnboarding(page: Page) {
-  const enterDashboardButton = page.getByRole("button", { name: /enter dashboard/i });
+  const enterDashboardButton = page.getByRole("button", { name: /i understand and continue/i });
 
   await enterDashboardButton.waitFor({ state: "visible" });
+  await page.getByLabel(/you confirm you have consent to process voice data/i).check();
+  await page.getByLabel(/you understand ai outputs may not be 100% accurate/i).check();
+  await page.getByLabel(/you are responsible for verifying records/i).check();
   await enterDashboardButton.click();
   await waitForPathname(page, /^\/dashboard$/);
 }

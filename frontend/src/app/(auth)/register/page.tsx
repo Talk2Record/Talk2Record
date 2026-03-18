@@ -23,14 +23,26 @@ export default function RegisterPage() {
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptedRequiredTerms, setAcceptedRequiredTerms] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
+    if (!acceptedRequiredTerms) {
+      setError("You must accept the Terms of Service and Privacy Policy to create an account.");
+      return;
+    }
+
     try {
-      await register({ name, company, email, password });
+      await register({
+        name,
+        company,
+        email,
+        password,
+        acceptedDocumentKeys: ["terms-of-service", "privacy-policy"],
+      });
       router.push("/onboarding");
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Unable to create account.");
@@ -82,6 +94,25 @@ export default function RegisterPage() {
               required
             />
           </div>
+          <label className="flex items-start gap-3 rounded-xl border border-primary/10 bg-background/80 p-3 text-sm">
+            <input
+              checked={acceptedRequiredTerms}
+              className="mt-1 h-4 w-4 rounded border-primary/20"
+              onChange={(event) => setAcceptedRequiredTerms(event.target.checked)}
+              type="checkbox"
+            />
+            <span className="text-muted-foreground">
+              I agree to the{" "}
+              <Link className="text-primary underline-offset-4 hover:underline" href="/legal/terms-of-service">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link className="text-primary underline-offset-4 hover:underline" href="/legal/privacy-policy">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button className="w-full rounded-xl" disabled={isLoading} type="submit">
             {t("auth.register.submit")}
