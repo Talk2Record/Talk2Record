@@ -66,6 +66,14 @@ def test_whatsapp_webhook():
     assert resolve("/api/webhooks/whatsapp/").view_name == "api-whatsapp-webhook"
 
 
+def test_public_ingestion_records():
+    assert reverse("api-public-ingestion-records") == "/api/public/ingestion/records/"
+    assert (
+        resolve("/api/public/ingestion/records/").view_name
+        == "api-public-ingestion-records"
+    )
+
+
 def test_organization_routes():
     assert reverse("api:organization-list") == "/api/organizations/"
     assert resolve("/api/organizations/").view_name == "api:organization-list"
@@ -78,6 +86,19 @@ def test_membership_routes():
     assert resolve("/api/memberships/").view_name == "api:membership-list"
     assert reverse("api:membership-detail", kwargs={"pk": 1}) == "/api/memberships/1/"
     assert resolve("/api/memberships/1/").view_name == "api:membership-detail"
+
+
+def test_organization_api_key_routes():
+    assert reverse("api:organization-api-key-list") == "/api/organization-api-keys/"
+    assert resolve("/api/organization-api-keys/").view_name == "api:organization-api-key-list"
+    assert (
+        reverse("api:organization-api-key-revoke", kwargs={"pk": 1})
+        == "/api/organization-api-keys/1/revoke/"
+    )
+    assert (
+        resolve("/api/organization-api-keys/1/revoke/").view_name
+        == "api:organization-api-key-revoke"
+    )
 
 
 def test_record_routes():

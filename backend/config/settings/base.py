@@ -374,6 +374,7 @@ REST_FRAMEWORK = {
         "anon": env("DRF_THROTTLE_ANON", default="300/min"),
         "user": env("DRF_THROTTLE_USER", default="1000/min"),
         "whatsapp_webhook": env("DRF_THROTTLE_WHATSAPP_WEBHOOK", default="120/min"),
+        "public_ingestion": env("DRF_THROTTLE_PUBLIC_INGESTION", default="240/min"),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

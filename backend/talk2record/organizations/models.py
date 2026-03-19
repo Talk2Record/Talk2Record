@@ -64,3 +64,38 @@ class Membership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.email} -> {self.organization.name}"
+
+
+class OrganizationAPIKey(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="api_keys",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_organization_api_keys",
+    )
+    name = models.CharField(max_length=128)
+    key_prefix = models.CharField(max_length=16, db_index=True)
+    key_hash = models.CharField(max_length=64, unique=True)
+    scopes = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["organization__name", "name"]
+        indexes = [
+            models.Index(
+                fields=["organization", "is_active"],
+                name="org_api_key_active_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization.name}:{self.name}"

@@ -5,18 +5,23 @@ from decimal import Decimal
 from django.db import transaction
 from django.http import HttpResponse
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from talk2record.audit.services import AuditService
+from talk2record.ingestion.authentication import OrganizationAPIKeyAuthentication
 from talk2record.ingestion.models import WhatsAppRawPayload
 from talk2record.ingestion.observability import log_ingestion_event
 from talk2record.ingestion.observability import new_event_id
+from talk2record.ingestion.permissions import HasOrganizationAPIKey
 from talk2record.ingestion.observability import request_id_from_request
 from talk2record.ingestion.quotas import IngestionQuotaService
+from talk2record.ingestion.serializers import PublicIngestionRecordSerializer
 from talk2record.ingestion.services import InboundWhatsAppMessage
 from talk2record.ingestion.services import WhatsAppWebhookService
 from talk2record.ingestion.tasks import process_whatsapp_record
+from talk2record.ingestion.throttles import PublicIngestionRateThrottle
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
 from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
@@ -245,3 +250,98 @@ class WhatsAppWebhookView(APIView):
             },
         )
         return True
+
+
+class PublicRecordIngestionView(APIView):
+    authentication_classes = [OrganizationAPIKeyAuthentication]
+    permission_classes = [AllowAny, HasOrganizationAPIKey]
+    throttle_classes = [PublicIngestionRateThrottle]
+    throttle_scope = "public_ingestion"
+    required_scope = "ingestion:write"
+
+    def post(self, request):
+        request_id = request_id_from_request(request)
+        event_id = new_event_id()
+        serializer = PublicIngestionRecordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        api_key = request.auth
+        organization = api_key.organization
+        payload = serializer.validated_data
+
+        source_reference = payload.get("sourceReference", "").strip()
+        if source_reference:
+            record, created = Record.objects.get_or_create(
+                source=Record.Source.API,
+                source_reference=source_reference,
+                defaults={
+                    "organization": organization,
+                    "created_by": api_key.created_by,
+                    "status": Record.Status.RECEIVED,
+                    "customer_name": payload["customerName"],
+                    "product": payload["product"],
+                    "quantity": payload["quantity"],
+                    "amount": payload["amount"],
+                    "currency": payload["currency"],
+                    "payment_method": payload["paymentMethod"],
+                    "audio_url": payload["audioUrl"],
+                    "voice_transcript": payload["transcript"],
+                },
+            )
+        else:
+            created = True
+            record = Record.objects.create(
+                organization=organization,
+                created_by=api_key.created_by,
+                source=Record.Source.API,
+                status=Record.Status.RECEIVED,
+                customer_name=payload["customerName"],
+                product=payload["product"],
+                quantity=payload["quantity"],
+                amount=payload["amount"],
+                currency=payload["currency"],
+                payment_method=payload["paymentMethod"],
+                audio_url=payload["audioUrl"],
+                voice_transcript=payload["transcript"],
+            )
+
+        if not created:
+            log_ingestion_event(
+                "ingestion.api.duplicate",
+                request_id=request_id,
+                event_id=event_id,
+                record_id=record.pk,
+                org_id=organization.pk,
+                source_reference=source_reference,
+            )
+            return Response(
+                {
+                    "status": "duplicate",
+                    "recordId": record.pk,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        process_whatsapp_record.delay(
+            record.pk,
+            request_id=request_id,
+            event_id=event_id,
+        )
+        NotificationService.broadcast_record_event(
+            organization=organization,
+            record_id=record.pk,
+            status=record.status,
+            event_type="record_created",
+            summary="Record received from public API.",
+        )
+        log_ingestion_event(
+            "ingestion.api.accepted",
+            request_id=request_id,
+            event_id=event_id,
+            record_id=record.pk,
+            org_id=organization.pk,
+            source_reference=source_reference,
+        )
+        return Response(
+            {"status": "accepted", "recordId": record.pk},
+            status=status.HTTP_202_ACCEPTED,
+        )

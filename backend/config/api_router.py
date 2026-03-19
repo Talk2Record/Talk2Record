@@ -10,6 +10,7 @@ from talk2record.integrations.views import OrganizationIntegrationViewSet
 from talk2record.legal.views import LegalDocumentVersionViewSet
 from talk2record.legal.views import LegalProfileViewSet
 from talk2record.organizations.views import MembershipViewSet
+from talk2record.organizations.views import OrganizationAPIKeyViewSet
 from talk2record.organizations.views import OrganizationViewSet
 from talk2record.notifications.views import NotificationViewSet
 from talk2record.records.views import RecordViewSet
@@ -21,6 +22,7 @@ router.register("notifications", NotificationViewSet, basename="notification")
 router.register("users", UserViewSet)
 router.register("organizations", OrganizationViewSet, basename="organization")
 router.register("memberships", MembershipViewSet, basename="membership")
+router.register("organization-api-keys", OrganizationAPIKeyViewSet, basename="organization-api-key")
 router.register("records", RecordViewSet, basename="record")
 router.register("subscriptions", SubscriptionViewSet, basename="subscription")
 router.register("billing", BillingActionViewSet, basename="billing")

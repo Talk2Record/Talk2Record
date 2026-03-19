@@ -4,15 +4,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from talk2record.organizations.models import Organization
+from talk2record.organizations.services import OrganizationContextService
 from talk2record.users.serializers import SettingsProfileSerializer
 
 
 class SettingsProfileView(APIView):
     def get_profile_data(self, request) -> dict[str, str]:
-        organization = request.user.current_organization
-        if organization is None:
-            membership = request.user.memberships.select_related("organization").first()
-            organization = membership.organization if membership else None
+        context = OrganizationContextService.resolve_user_context(request.user)
+        organization = context.organization if context is not None else None
 
         if organization is None:
             return {

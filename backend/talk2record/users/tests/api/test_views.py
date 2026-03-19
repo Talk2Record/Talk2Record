@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.test import APIRequestFactory
+from rest_framework_simplejwt.tokens import AccessToken
 
 from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
@@ -105,7 +106,72 @@ class TestJWTAuthAPI:
         assert response.data["email"] == user.email
         assert response.data["url"] == f"http://testserver/api/users/{user.pk}/"
         assert response.data["name"] == user.name
+        assert response.data["currentOrganizationId"] is None
+        assert response.data["currentOrganizationSlug"] == ""
         assert response.data["legal"]["accepted_documents"]
+
+    def test_login_includes_org_context_in_user_and_token(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme-jwt")
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.ADMIN,
+        )
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+
+        response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+
+        access = AccessToken(response.data["access"])
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["user"]["company"] == "Acme"
+        assert response.data["user"]["role"] == Membership.Role.ADMIN
+        assert response.data["user"]["currentOrganizationId"] == organization.pk
+        assert response.data["user"]["currentOrganizationSlug"] == organization.slug
+        assert access["org_id"] == organization.pk
+        assert access["org_slug"] == organization.slug
+        assert access["org_role"] == Membership.Role.ADMIN
+
+    def test_current_user_role_uses_current_organization_membership(
+        self,
+        api_client: APIClient,
+    ):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        first_org = Organization.objects.create(name="Org One", slug="org-one")
+        second_org = Organization.objects.create(name="Org Two", slug="org-two")
+        Membership.objects.create(
+            user=user,
+            organization=first_org,
+            role=Membership.Role.OWNER,
+        )
+        Membership.objects.create(
+            user=user,
+            organization=second_org,
+            role=Membership.Role.OPERATOR,
+        )
+        user.current_organization = second_org
+        user.save(update_fields=["current_organization"])
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
+
+        response = api_client.get(reverse("api-auth-me"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["company"] == second_org.name
+        assert response.data["role"] == Membership.Role.OPERATOR
 
     def test_verify_accepts_valid_access_token(self, api_client: APIClient):
         password = "T3stPassword!123"

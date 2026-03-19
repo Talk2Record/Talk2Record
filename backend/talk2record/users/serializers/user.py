@@ -3,7 +3,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.tokens import TokenError
 
+from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
+from talk2record.organizations.services import OrganizationContextService
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.users.models import User
 from talk2record.users.services import RegistrationService
@@ -12,30 +14,53 @@ from talk2record.users.services import RegistrationService
 class UserSerializer(serializers.ModelSerializer[User]):
     company = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    currentOrganizationId = serializers.SerializerMethodField()
+    currentOrganizationSlug = serializers.SerializerMethodField()
     onboardingCompleted = serializers.BooleanField(source="onboarding_completed", read_only=True)
     legal = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "email", "name", "company", "role", "onboardingCompleted", "legal", "url"]
+        fields = [
+            "id",
+            "email",
+            "name",
+            "company",
+            "role",
+            "currentOrganizationId",
+            "currentOrganizationSlug",
+            "onboardingCompleted",
+            "legal",
+            "url",
+        ]
         read_only_fields = ["id", "email", "url"]
         extra_kwargs = {
             "url": {"view_name": "api:user-detail", "lookup_field": "pk"},
         }
 
     def get_company(self, obj: User) -> str:
-        if obj.current_organization_id:
-            return obj.current_organization.name
-        membership = obj.memberships.select_related("organization").first()
-        if membership:
-            return membership.organization.name
+        context = OrganizationContextService.resolve_user_context(obj)
+        if context is not None:
+            return context.organization.name
         return ""
 
     def get_role(self, obj: User) -> str:
-        membership = obj.memberships.first()
-        if membership and membership.role == "owner":
-            return "owner"
-        return "operator"
+        context = OrganizationContextService.resolve_user_context(obj)
+        if context is not None:
+            return context.role
+        return Membership.Role.OPERATOR
+
+    def get_currentOrganizationId(self, obj: User) -> int | None:
+        context = OrganizationContextService.resolve_user_context(obj)
+        if context is None:
+            return None
+        return context.organization.pk
+
+    def get_currentOrganizationSlug(self, obj: User) -> str:
+        context = OrganizationContextService.resolve_user_context(obj)
+        if context is None:
+            return ""
+        return context.organization.slug
 
     def get_legal(self, obj: User) -> dict[str, object]:
         return LegalAcceptanceService.get_user_compliance(obj)
@@ -90,6 +115,16 @@ class CompleteOnboardingSerializer(serializers.Serializer):
 
 
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        context = OrganizationContextService.resolve_user_context(user)
+        if context is not None:
+            token["org_id"] = context.organization.pk
+            token["org_slug"] = context.organization.slug
+            token["org_role"] = context.role
+        return token
+
     def validate(self, attrs):
         data = super().validate(attrs)
         data["user"] = UserSerializer(
@@ -141,11 +176,11 @@ class SettingsProfileSerializer(serializers.Serializer):
     def save(self, **kwargs):
         request = self.context["request"]
         user = request.user
-        membership = user.memberships.select_related("organization").first()
-        organization = user.current_organization or (membership.organization if membership else None)
-        if organization is None:
+        context = OrganizationContextService.resolve_user_context(user)
+        if context is None:
             msg = "Organization membership required."
             raise serializers.ValidationError({"company": [msg]})
+        organization = context.organization
         assert isinstance(organization, Organization)
         validated_data = self.validated_data
 
