@@ -13,11 +13,19 @@ class TestOrganizationAPIKeyEndpoints:
     def api_client(self) -> APIClient:
         return APIClient()
 
-    def test_owner_can_create_list_and_revoke_key(self, api_client: APIClient, workspace_user):
+    def test_owner_can_create_list_and_revoke_key(
+        self,
+        api_client: APIClient,
+        workspace_user,
+    ):
         api_client.force_authenticate(user=workspace_user)
         create_response = api_client.post(
             reverse("api:organization-api-key-list"),
-            data={"name": "Public ingestion", "scopes": ["ingestion:write"]},
+            data={
+                "name": "Public ingestion",
+                "scopes": ["ingestion:write"],
+                "expiresInDays": 30,
+            },
             format="json",
         )
 
@@ -29,10 +37,34 @@ class TestOrganizationAPIKeyEndpoints:
 
         assert create_response.status_code == status.HTTP_201_CREATED
         assert create_response.data["apiKey"].startswith("t2r_")
+        assert create_response.data["key"]["expiresAt"] is not None
         assert list_response.status_code == status.HTTP_200_OK
         assert len(list_response.data) == 1
         assert revoke_response.status_code == status.HTTP_204_NO_CONTENT
-        assert OrganizationAPIKey.objects.get(pk=key_id).is_active is False
+        api_key = OrganizationAPIKey.objects.get(pk=key_id)
+        assert api_key.is_active is False
+        assert api_key.revoked_at is not None
+
+    def test_owner_can_rotate_key(self, api_client: APIClient, workspace_user):
+        api_client.force_authenticate(user=workspace_user)
+        create_response = api_client.post(
+            reverse("api:organization-api-key-list"),
+            data={"name": "Rotatable key", "scopes": ["ingestion:write"]},
+            format="json",
+        )
+        source_key_id = create_response.data["key"]["id"]
+
+        rotate_response = api_client.post(
+            reverse("api:organization-api-key-rotate", kwargs={"pk": source_key_id}),
+        )
+
+        source_key = OrganizationAPIKey.objects.get(pk=source_key_id)
+        replacement_key = OrganizationAPIKey.objects.get(pk=rotate_response.data["key"]["id"])
+        assert rotate_response.status_code == status.HTTP_201_CREATED
+        assert rotate_response.data["apiKey"].startswith("t2r_")
+        assert replacement_key.is_active is True
+        assert source_key.is_active is False
+        assert source_key.revoked_at is not None
 
     def test_operator_cannot_manage_api_keys(
         self,

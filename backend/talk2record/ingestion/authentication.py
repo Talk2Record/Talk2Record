@@ -23,5 +23,16 @@ class OrganizationAPIKeyAuthentication(BaseAuthentication):
         if api_key is None:
             return None
 
+        OrganizationAPIKeyService.record_key_usage(
+            api_key=api_key,
+            ip_address=self._client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
         user = api_key.created_by or AnonymousUser()
         return (user, api_key)
+
+    def _client_ip(self, request) -> str:
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR", "")

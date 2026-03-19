@@ -48,7 +48,8 @@ help:
 	@printf "  make venv             Create .venv (uv-managed)\n"
 	@printf "  make venv-reset       Recreate .venv from scratch\n"
 	@printf "  make run              Run Django locally (no Docker)\n"
-	@printf "  make test             Run pytest\n"
+	@printf "  make test             Run pytest using the default database\n"
+	@printf "  make test-sqlite      Run pytest using a local SQLite database (no Docker/PG)\n"
 	@printf "  make coverage         Run coverage + html report\n"
 	@printf "  make mypy             Run mypy type checks\n"
 	@printf "  make ruff             Run ruff lint\n"
@@ -177,6 +178,10 @@ run:
 .PHONY: test
 test:
 	uv run pytest
+
+.PHONY: test-sqlite
+test-sqlite:
+	DATABASE_URL=sqlite:////tmp/talk2record-test.sqlite3 uv run pytest
 
 .PHONY: coverage
 coverage:

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -87,6 +90,7 @@ class TestPublicRecordIngestion:
         assert queued == [(record.pk, "req-public-1", queued[0][2])]
         assert queued[0][2]
         assert api_key.last_used_at is not None
+        assert api_key.last_used_ip == "127.0.0.1"
 
     def test_duplicate_source_reference_returns_duplicate(
         self,
@@ -144,6 +148,29 @@ class TestPublicRecordIngestion:
             scopes=["records:read"],
             created_by=workspace_user,
         )
+
+        response = api_client.post(
+            reverse("api-public-ingestion-records"),
+            data={"customerName": "Kifaru"},
+            format="json",
+            HTTP_X_API_KEY=raw_key,
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_rejects_expired_key(
+        self,
+        organization,
+        workspace_user,
+        api_client: APIClient,
+    ):
+        api_key, raw_key = OrganizationAPIKeyService.create_key(
+            organization=organization,
+            name="Expired key",
+            created_by=workspace_user,
+        )
+        api_key.expires_at = timezone.now() - timedelta(minutes=1)
+        api_key.save(update_fields=["expires_at", "updated_at"])
 
         response = api_client.post(
             reverse("api-public-ingestion-records"),

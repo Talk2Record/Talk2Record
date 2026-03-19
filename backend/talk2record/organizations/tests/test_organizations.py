@@ -52,3 +52,10 @@ def test_organization_api_key_service_roundtrip(organization, workspace_user):
     )
     assert resolved is not None
     assert resolved.pk == api_key.pk
+    OrganizationAPIKeyService.record_key_usage(
+        api_key=resolved,
+        ip_address="127.0.0.1",
+        user_agent="pytest-client",
+    )
+    resolved.refresh_from_db()
+    assert resolved.last_used_ip == "127.0.0.1"

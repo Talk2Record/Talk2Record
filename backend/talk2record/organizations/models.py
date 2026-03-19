@@ -84,7 +84,11 @@ class OrganizationAPIKey(models.Model):
     key_hash = models.CharField(max_length=64, unique=True)
     scopes = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
+    last_used_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_used_user_agent = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -94,6 +98,10 @@ class OrganizationAPIKey(models.Model):
             models.Index(
                 fields=["organization", "is_active"],
                 name="org_api_key_active_idx",
+            ),
+            models.Index(
+                fields=["expires_at"],
+                name="org_api_key_expires_idx",
             ),
         ]
 

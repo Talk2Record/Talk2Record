@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from drf_spectacular.utils import OpenApiExample
+from drf_spectacular.utils import OpenApiParameter
+from drf_spectacular.utils import OpenApiResponse
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import inline_serializer
 from django.db import transaction
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework import serializers
 from rest_framework.views import APIView
 
 from talk2record.audit.services import AuditService
@@ -259,6 +265,68 @@ class PublicRecordIngestionView(APIView):
     throttle_scope = "public_ingestion"
     required_scope = "ingestion:write"
 
+    @extend_schema(
+        summary="Public ingestion endpoint using org API key",
+        description=(
+            "Creates a record in the authenticated organization and enqueues "
+            "the async processing pipeline."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="X-API-Key",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description="Organization scoped API key.",
+            ),
+            OpenApiParameter(
+                name="X-Request-ID",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                required=False,
+                description="Optional client request correlation ID.",
+            ),
+        ],
+        request=PublicIngestionRecordSerializer,
+        responses={
+            202: OpenApiResponse(
+                response=inline_serializer(
+                    name="PublicIngestionAcceptedResponse",
+                    fields={
+                        "status": serializers.CharField(),
+                        "recordId": serializers.IntegerField(),
+                    },
+                ),
+                description="Record accepted and queued for processing.",
+            ),
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="PublicIngestionDuplicateResponse",
+                    fields={
+                        "status": serializers.CharField(),
+                        "recordId": serializers.IntegerField(),
+                    },
+                ),
+                description="Duplicate record by sourceReference.",
+            ),
+            403: OpenApiResponse(description="Invalid or missing API key."),
+        },
+        examples=[
+            OpenApiExample(
+                "Basic payload",
+                value={
+                    "sourceReference": "public-msg-20260319-001",
+                    "customerName": "Jane Doe",
+                    "product": "Beans",
+                    "quantity": 2,
+                    "amount": "15.50",
+                    "currency": "USD",
+                    "paymentMethod": "cash",
+                    "audioUrl": "https://example.com/audio.ogg",
+                },
+            ),
+        ],
+    )
     def post(self, request):
         request_id = request_id_from_request(request)
         event_id = new_event_id()

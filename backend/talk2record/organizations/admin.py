@@ -21,6 +21,14 @@ class MembershipAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationAPIKey)
 class OrganizationAPIKeyAdmin(admin.ModelAdmin):
-    list_display = ["name", "organization", "is_active", "last_used_at", "created_at"]
+    list_display = [
+        "name",
+        "organization",
+        "is_active",
+        "expires_at",
+        "revoked_at",
+        "last_used_at",
+        "created_at",
+    ]
     search_fields = ["name", "organization__name", "key_prefix"]
-    list_filter = ["is_active", "created_at"]
+    list_filter = ["is_active", "created_at", "expires_at"]

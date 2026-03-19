@@ -72,11 +72,13 @@ class OrganizationAPIKeyViewSet(ViewSet):
         serializer = CreateOrganizationAPIKeySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         scopes = serializer.validated_data.get("scopes")
+        expires_in_days = serializer.validated_data.get("expiresInDays")
         api_key, raw_key = OrganizationAPIKeyService.create_key(
             organization=context.organization,
             name=serializer.validated_data["name"],
             scopes=scopes,
             created_by=request.user,
+            expires_in_days=expires_in_days,
         )
         return Response(
             {
@@ -98,3 +100,26 @@ class OrganizationAPIKeyViewSet(ViewSet):
         )
         OrganizationAPIKeyService.revoke_key(api_key)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="rotate")
+    def rotate(self, request, pk: str | None = None):
+        context, denial = self._ensure_can_manage_keys()
+        if denial is not None:
+            return denial
+        api_key = get_object_or_404(
+            OrganizationAPIKey,
+            pk=pk,
+            organization=context.organization,
+            is_active=True,
+        )
+        replacement, raw_key = OrganizationAPIKeyService.rotate_key(
+            api_key=api_key,
+            rotated_by=request.user,
+        )
+        return Response(
+            {
+                "apiKey": raw_key,
+                "key": OrganizationAPIKeySerializer(replacement).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import secrets
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
@@ -47,6 +49,7 @@ class OrganizationAPIKeyService:
     KEY_SECRET_BYTES = 24
     KEY_LABEL_PREFIX = "t2r"
     DEFAULT_SCOPE = "ingestion:write"
+    KEY_PART_COUNT = 3
 
     @classmethod
     def create_key(
@@ -56,6 +59,7 @@ class OrganizationAPIKeyService:
         name: str,
         scopes: list[str] | None = None,
         created_by: User | None = None,
+        expires_in_days: int | None = None,
     ) -> tuple[OrganizationAPIKey, str]:
         secret = secrets.token_hex(cls.KEY_SECRET_BYTES)
         prefix = secret[: cls.KEY_PREFIX_LENGTH]
@@ -68,6 +72,11 @@ class OrganizationAPIKeyService:
             key_prefix=prefix,
             key_hash=key_hash,
             scopes=scopes or [cls.DEFAULT_SCOPE],
+            expires_at=(
+                timezone.now() + timedelta(days=expires_in_days)
+                if expires_in_days is not None
+                else None
+            ),
         )
         return api_key, raw_key
 
@@ -92,15 +101,58 @@ class OrganizationAPIKeyService:
                 continue
             if required_scope and required_scope not in candidate.scopes:
                 return None
-            candidate.last_used_at = timezone.now()
-            candidate.save(update_fields=["last_used_at", "updated_at"])
+            if candidate.expires_at and candidate.expires_at <= timezone.now():
+                return None
             return candidate
         return None
 
     @classmethod
+    def record_key_usage(
+        cls,
+        *,
+        api_key: OrganizationAPIKey,
+        ip_address: str = "",
+        user_agent: str = "",
+    ) -> None:
+        api_key.last_used_at = timezone.now()
+        api_key.last_used_ip = ip_address
+        api_key.last_used_user_agent = user_agent[:255]
+        api_key.save(
+            update_fields=[
+                "last_used_at",
+                "last_used_ip",
+                "last_used_user_agent",
+                "updated_at",
+            ],
+        )
+
+    @classmethod
     def revoke_key(cls, api_key: OrganizationAPIKey) -> None:
         api_key.is_active = False
-        api_key.save(update_fields=["is_active", "updated_at"])
+        api_key.revoked_at = timezone.now()
+        api_key.save(update_fields=["is_active", "revoked_at", "updated_at"])
+
+    @classmethod
+    def rotate_key(
+        cls,
+        *,
+        api_key: OrganizationAPIKey,
+        rotated_by: User | None = None,
+    ) -> tuple[OrganizationAPIKey, str]:
+        expires_in_days = None
+        if api_key.expires_at:
+            remaining_seconds = (api_key.expires_at - timezone.now()).total_seconds()
+            if remaining_seconds > 0:
+                expires_in_days = max(1, math.ceil(remaining_seconds / 86400))
+        replacement, raw_key = cls.create_key(
+            organization=api_key.organization,
+            name=f"{api_key.name} (rotated)",
+            scopes=list(api_key.scopes),
+            created_by=rotated_by or api_key.created_by,
+            expires_in_days=expires_in_days,
+        )
+        cls.revoke_key(api_key)
+        return replacement, raw_key
 
     @classmethod
     def _hash_key(cls, raw_key: str) -> str:
@@ -110,7 +162,7 @@ class OrganizationAPIKeyService:
     def _parse_key(cls, raw_key: str) -> tuple[str, str] | None:
         normalized = raw_key.strip()
         pieces = normalized.split("_")
-        if len(pieces) != 3:
+        if len(pieces) != cls.KEY_PART_COUNT:
             return None
         label, prefix, _secret = pieces
         if label != cls.KEY_LABEL_PREFIX:

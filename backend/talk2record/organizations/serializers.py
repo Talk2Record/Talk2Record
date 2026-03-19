@@ -28,6 +28,15 @@ class MembershipSerializer(serializers.ModelSerializer[Membership]):
 
 
 class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKey]):
+    expiresAt = serializers.DateTimeField(source="expires_at", read_only=True)
+    revokedAt = serializers.DateTimeField(source="revoked_at", read_only=True)
+    lastUsedAt = serializers.DateTimeField(source="last_used_at", read_only=True)
+    lastUsedIp = serializers.CharField(source="last_used_ip", read_only=True)
+    lastUsedUserAgent = serializers.CharField(
+        source="last_used_user_agent",
+        read_only=True,
+    )
+
     class Meta:
         model = OrganizationAPIKey
         fields = [
@@ -35,14 +44,28 @@ class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKe
             "name",
             "scopes",
             "is_active",
-            "last_used_at",
+            "expiresAt",
+            "revokedAt",
+            "lastUsedAt",
+            "lastUsedIp",
+            "lastUsedUserAgent",
             "created_at",
         ]
-        read_only_fields = ["id", "is_active", "last_used_at", "created_at"]
+        read_only_fields = [
+            "id",
+            "is_active",
+            "expiresAt",
+            "revokedAt",
+            "lastUsedAt",
+            "lastUsedIp",
+            "lastUsedUserAgent",
+            "created_at",
+        ]
 
 
 class CreateOrganizationAPIKeySerializer(serializers.Serializer):
     name = serializers.CharField(max_length=128)
+    expiresInDays = serializers.IntegerField(required=False, min_value=1, max_value=365)
     scopes = serializers.ListField(
         child=serializers.CharField(max_length=64),
         allow_empty=False,

@@ -99,6 +99,14 @@ def test_organization_api_key_routes():
         resolve("/api/organization-api-keys/1/revoke/").view_name
         == "api:organization-api-key-revoke"
     )
+    assert (
+        reverse("api:organization-api-key-rotate", kwargs={"pk": 1})
+        == "/api/organization-api-keys/1/rotate/"
+    )
+    assert (
+        resolve("/api/organization-api-keys/1/rotate/").view_name
+        == "api:organization-api-key-rotate"
+    )
 
 
 def test_record_routes():
