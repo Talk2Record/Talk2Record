@@ -28,7 +28,9 @@ class TestWhatsAppWebhook:
                                     {
                                         "id": "wamid.ABCD123",
                                         "from": "254700000001",
-                                        "audio": {"url": "https://example.com/audio/1.ogg"},
+                                        "audio": {
+                                            "url": "https://example.com/audio/1.ogg",
+                                        },
                                     },
                                 ],
                             },
@@ -79,6 +81,7 @@ class TestWhatsAppWebhook:
         )
 
         queued: list[tuple[int, int | None, str, str]] = []
+        broadcast_events: list[tuple[str, int, str]] = []
 
         def fake_delay(record_id: int, payload_id: int | None = None, **kwargs):
             queued.append(
@@ -90,9 +93,24 @@ class TestWhatsAppWebhook:
                 ),
             )
 
+        def fake_broadcast(
+            *,
+            organization,
+            record_id: int,
+            status: str,
+            event_type: str,
+            summary: str = "",
+        ):
+            del organization, summary
+            broadcast_events.append((event_type, record_id, status))
+
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             fake_delay,
+        )
+        monkeypatch.setattr(
+            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
+            fake_broadcast,
         )
 
         response = api_client.post(
@@ -106,8 +124,7 @@ class TestWhatsAppWebhook:
         assert response.data["accepted"] == 1
         assert response.data["duplicates"] == 0
         assert (
-            WhatsAppRawPayload.objects.filter(message_id="wamid.ABCD123").count()
-            == 1
+            WhatsAppRawPayload.objects.filter(message_id="wamid.ABCD123").count() == 1
         )
         record = Record.objects.get(
             source=Record.Source.WHATSAPP,
@@ -124,6 +141,9 @@ class TestWhatsAppWebhook:
         ]
         assert queued[0][3]
         assert response["X-Request-ID"] == "req-test-1"
+        assert broadcast_events == [
+            ("record_created", record.pk, Record.Status.RECEIVED),
+        ]
 
     def test_post_is_idempotent(
         self,
@@ -163,8 +183,7 @@ class TestWhatsAppWebhook:
             == 1
         )
         assert (
-            WhatsAppRawPayload.objects.filter(message_id="wamid.ABCD123").count()
-            == 1
+            WhatsAppRawPayload.objects.filter(message_id="wamid.ABCD123").count() == 1
         )
         assert second.data["accepted"] == 0
         assert second.data["duplicates"] == 1
@@ -205,7 +224,9 @@ class TestWhatsAppWebhook:
                                     {
                                         "id": "wamid.ABCD124",
                                         "from": "254700000002",
-                                        "audio": {"url": "https://example.com/audio/2.ogg"},
+                                        "audio": {
+                                            "url": "https://example.com/audio/2.ogg",
+                                        },
                                     },
                                 ],
                             },

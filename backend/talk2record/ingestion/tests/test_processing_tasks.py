@@ -10,6 +10,8 @@ from talk2record.ingestion.tasks import replay_whatsapp_payload
 from talk2record.records.models import Record
 from talk2record.records.models import RecordProcessingState
 from talk2record.usage.models import AIUsage
+from talk2record.usage.services import AIUsageQuotaExceededError
+from talk2record.usage.services import UsageTrackingService
 
 
 @pytest.mark.django_db
@@ -73,8 +75,7 @@ def test_process_whatsapp_record_dead_letters_after_retries(monkeypatch, record)
         == MAX_STEP_RETRIES
     )
     assert (
-        record.processing_states.filter(status=Record.Status.DEAD_LETTER).count()
-        == 1
+        record.processing_states.filter(status=Record.Status.DEAD_LETTER).count() == 1
     )
 
 
@@ -122,3 +123,27 @@ def test_processing_state_model_str(record):
         status=Record.Status.RECEIVED,
     )
     assert str(state) == f"{record.pk}:{Record.Status.RECEIVED}"
+
+
+@pytest.mark.django_db
+def test_process_whatsapp_record_enforces_ai_usage_quota(settings, record):
+    settings.AI_USAGE_MONTHLY_LIMIT_PER_ORG = 1
+    record.source = Record.Source.WHATSAPP
+    record.source_reference = f"wamid.quota.{record.pk}"
+    record.status = Record.Status.RECEIVED
+    record.save(update_fields=["source", "source_reference", "status", "updated_at"])
+
+    with pytest.raises(AIUsageQuotaExceededError):
+        process_whatsapp_record(record.pk)
+
+    record.refresh_from_db()
+    assert record.status == Record.Status.FAILED
+    assert record.processing_error_step == "extract_quota"
+    assert UsageTrackingService.monthly_usage_count(record.organization) == 1
+    assert (
+        record.ai_usage.filter(service_type=AIUsage.ServiceType.TRANSCRIPTION).count()
+        == 1
+    )
+    assert (
+        record.ai_usage.filter(service_type=AIUsage.ServiceType.EXTRACTION).count() == 0
+    )

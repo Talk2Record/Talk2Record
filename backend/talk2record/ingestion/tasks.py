@@ -16,6 +16,7 @@ from talk2record.records.models import Record
 from talk2record.records.models import RecordProcessingState
 from talk2record.records.services import RecordProcessingService
 from talk2record.usage.models import AIUsage
+from talk2record.usage.services import AIUsageQuotaExceededError
 from talk2record.usage.services import UsageTrackingService
 
 MAX_STEP_RETRIES = 3
@@ -43,10 +44,18 @@ def _append_processing_state(
         status=status,
         details=details or {},
     )
+    NotificationService.broadcast_record_event(
+        organization=record.organization,
+        record_id=record.pk,
+        status=status,
+        event_type="record_updated",
+        summary="Record processing status changed.",
+    )
 
 
 def _run_step(*, record: Record, step: str) -> None:
     if step == "transcribe":
+        UsageTrackingService.enforce_monthly_usage_limit(record.organization)
         record.status = Record.Status.TRANSCRIBING
         record.save(update_fields=["status", "updated_at"])
         _append_processing_state(record, Record.Status.TRANSCRIBING)
@@ -82,6 +91,7 @@ def _run_step(*, record: Record, step: str) -> None:
         return
 
     if step == "extract":
+        UsageTrackingService.enforce_monthly_usage_limit(record.organization)
         record.status = Record.Status.EXTRACTING
         record.save(update_fields=["status", "updated_at"])
         _append_processing_state(record, Record.Status.EXTRACTING)
@@ -161,6 +171,27 @@ def _execute_with_retries(*, record: Record, step: str) -> None:
                         "updated_at",
                     ],
                 )
+        except AIUsageQuotaExceededError as exc:
+            record.processing_error = str(exc)
+            record.processing_error_step = f"{step}_quota"
+            record.status = Record.Status.FAILED
+            record.last_failed_at = timezone.now()
+            record.save(
+                update_fields=[
+                    "status",
+                    "processing_error",
+                    "processing_error_step",
+                    "last_failed_at",
+                    "updated_at",
+                ],
+            )
+            _append_processing_state(
+                record,
+                Record.Status.FAILED,
+                {"step": step, "reason": "quota_exceeded", "error": str(exc)},
+            )
+            _notify_record_failed(record, str(exc))
+            raise
         except Exception as exc:
             record.processing_error = str(exc)
             record.processing_error_step = step

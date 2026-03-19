@@ -1,12 +1,12 @@
-from django.utils import timezone
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.viewsets import ReadOnlyModelViewSet
-from rest_framework.views import APIView
 
 from talk2record.audit.services import AuditService
 from talk2record.billing.models import Plan
@@ -19,6 +19,7 @@ from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
 from talk2record.legal.services import LegalAcceptanceService
+from talk2record.usage.services import UsageTrackingService
 
 
 class SubscriptionViewSet(ReadOnlyModelViewSet):
@@ -26,9 +27,13 @@ class SubscriptionViewSet(ReadOnlyModelViewSet):
     serializer_class = SubscriptionSerializer
 
     def get_queryset(self):
-        return Subscription.objects.filter(
-            organization__memberships__user=self.request.user,
-        ).select_related("organization", "plan").prefetch_related("transactions")
+        return (
+            Subscription.objects.filter(
+                organization__memberships__user=self.request.user,
+            )
+            .select_related("organization", "plan")
+            .prefetch_related("transactions")
+        )
 
 
 class BillingActionViewSet(GenericViewSet):
@@ -37,7 +42,9 @@ class BillingActionViewSet(GenericViewSet):
 
     def list(self, request):
         membership = request.user.memberships.select_related("organization").first()
-        organization = request.user.current_organization or (membership.organization if membership else None)
+        organization = request.user.current_organization or (
+            membership.organization if membership else None
+        )
 
         if organization is None:
             return Response(
@@ -52,7 +59,7 @@ class BillingActionViewSet(GenericViewSet):
                         "renewalDate": timezone.now(),
                     },
                     "invoices": [],
-                }
+                },
             )
 
         subscription = (
@@ -62,6 +69,8 @@ class BillingActionViewSet(GenericViewSet):
             .first()
         )
         record_count = organization.records.count()
+        ai_usage_count = UsageTrackingService.monthly_usage_count(organization)
+        ai_usage_limit = UsageTrackingService.monthly_usage_limit(organization)
         seats = organization.memberships.filter(status="active").count()
 
         if subscription is None:
@@ -72,12 +81,12 @@ class BillingActionViewSet(GenericViewSet):
                         "amount": 0,
                         "currency": organization.default_currency,
                         "seats": seats,
-                        "voiceNotesProcessed": record_count,
-                        "includedVoiceNotes": 0,
+                        "voiceNotesProcessed": ai_usage_count,
+                        "includedVoiceNotes": ai_usage_limit,
                         "renewalDate": timezone.now(),
                     },
                     "invoices": [],
-                }
+                },
             )
 
         invoices = [
@@ -85,7 +94,9 @@ class BillingActionViewSet(GenericViewSet):
                 "id": transaction.invoice_number or f"inv_{transaction.pk}",
                 "amount": transaction.amount,
                 "currency": transaction.currency,
-                "status": "paid" if transaction.status == Transaction.Status.PAID else "due",
+                "status": "paid"
+                if transaction.status == Transaction.Status.PAID
+                else "due",
                 "issuedAt": transaction.issued_at,
             }
             for transaction in subscription.transactions.all()
@@ -97,12 +108,12 @@ class BillingActionViewSet(GenericViewSet):
                     "amount": subscription.amount,
                     "currency": subscription.currency,
                     "seats": subscription.seats or seats,
-                    "voiceNotesProcessed": record_count,
-                    "includedVoiceNotes": 0,
+                    "voiceNotesProcessed": ai_usage_count or record_count,
+                    "includedVoiceNotes": ai_usage_limit,
                     "renewalDate": subscription.current_period_end or timezone.now(),
                 },
                 "invoices": invoices,
-            }
+            },
         )
 
     @action(detail=False, methods=["post"])
@@ -116,15 +127,22 @@ class BillingActionViewSet(GenericViewSet):
             )
         membership = request.user.memberships.select_related("organization").first()
         if membership is None:
-            return Response({"detail": "Organization membership required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Organization membership required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         requested_plan = serializer.validated_data["plan"].strip()
         plan = Plan.objects.filter(
-            Q(code__iexact=requested_plan) | Q(name__iexact=requested_plan)
+            Q(code__iexact=requested_plan) | Q(name__iexact=requested_plan),
         ).first()
         if plan is None:
-            return Response({"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND,
+            )
         provider = BillingProviderRegistry.get(Subscription.Provider.STRIPE)
-        session = provider.create_checkout(organization=membership.organization, plan=plan)
+        session = provider.create_checkout(
+            organization=membership.organization, plan=plan,
+        )
         LegalAcceptanceService.accept_documents(
             user=request.user,
             document_keys=[LegalDocumentVersion.DocumentKey.BILLING_POLICY],

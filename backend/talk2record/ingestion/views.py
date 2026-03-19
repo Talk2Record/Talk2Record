@@ -18,6 +18,7 @@ from talk2record.ingestion.services import InboundWhatsAppMessage
 from talk2record.ingestion.services import WhatsAppWebhookService
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
+from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
 
 
@@ -216,6 +217,13 @@ class WhatsAppWebhookView(APIView):
             raw_payload.pk,
             request_id=request_id,
             event_id=event_id,
+        )
+        NotificationService.broadcast_record_event(
+            organization=organization,
+            record_id=record.pk,
+            status=record.status,
+            event_type="record_created",
+            summary="Record received from WhatsApp.",
         )
         log_ingestion_event(
             "ingestion.whatsapp.accepted",
