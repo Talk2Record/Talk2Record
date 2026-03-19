@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 
@@ -47,6 +48,13 @@ class Record(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "source_reference"],
+                condition=~Q(source_reference=""),
+                name="unique_record_source_reference_per_source",
+            ),
+        ]
         ordering = ["-created_at"]
 
     def __str__(self) -> str:

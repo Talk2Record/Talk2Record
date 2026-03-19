@@ -9,6 +9,15 @@ DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0
 
+# WhatsApp Webhook (Meta Cloud API)
+# ------------------------------------------------------------------------------
+# Verify token used in webhook subscription handshake.
+# Docs: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+# App secret used to validate X-Hub-Signature-256 HMAC signature.
+# Docs: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#validate-payloads
+WHATSAPP_WEBHOOK_SECRET=
+
 # Celery
 # ------------------------------------------------------------------------------
 

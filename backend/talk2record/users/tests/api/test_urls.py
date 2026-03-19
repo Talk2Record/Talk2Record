@@ -61,6 +61,11 @@ def test_billing_webhook():
     assert resolve("/api/billing/webhooks/stripe/").view_name == "api-billing-webhook"
 
 
+def test_whatsapp_webhook():
+    assert reverse("api-whatsapp-webhook") == "/api/webhooks/whatsapp/"
+    assert resolve("/api/webhooks/whatsapp/").view_name == "api-whatsapp-webhook"
+
+
 def test_organization_routes():
     assert reverse("api:organization-list") == "/api/organizations/"
     assert resolve("/api/organizations/").view_name == "api:organization-list"

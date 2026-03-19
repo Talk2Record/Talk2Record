@@ -13,6 +13,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 from talk2record.analytics.views import AnalyticsSnapshotView
 from talk2record.analytics.views import DashboardOverviewView
 from talk2record.billing.views import BillingWebhookView
+from talk2record.ingestion.views import WhatsAppWebhookView
 from talk2record.users.views import CompleteOnboardingView
 from talk2record.users.views import CurrentUserView
 from talk2record.users.views import LogoutView
@@ -53,6 +54,7 @@ urlpatterns += [
     path("api/onboarding/complete/", CompleteOnboardingView.as_view(), name="api-onboarding-complete"),
     path("api/settings/", SettingsProfileView.as_view(), name="api-settings-profile"),
     path("api/billing/webhooks/<str:provider>/", BillingWebhookView.as_view(), name="api-billing-webhook"),
+    path("api/webhooks/whatsapp/", WhatsAppWebhookView.as_view(), name="api-whatsapp-webhook"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path(
         "api/docs/",
