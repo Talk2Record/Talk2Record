@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from time import monotonic
+from uuid import uuid4
 
 from celery import shared_task
 from django.utils import timezone
@@ -8,6 +9,7 @@ from django.utils import timezone
 from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
 from talk2record.ingestion.models import WhatsAppRawPayload
+from talk2record.ingestion.observability import log_ingestion_event
 from talk2record.notifications.models import Notification
 from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
@@ -201,9 +203,22 @@ def process_whatsapp_record(
     payload_id: int | None = None,
     *,
     force_reprocess: bool = False,
+    request_id: str = "",
+    event_id: str = "",
 ) -> None:
+    normalized_request_id = request_id or str(uuid4())
+    normalized_event_id = event_id or str(uuid4())
     record = Record.objects.get(pk=record_id)
     if record.status == Record.Status.STORED and not force_reprocess:
+        log_ingestion_event(
+            "processing.record.skipped",
+            request_id=normalized_request_id,
+            event_id=normalized_event_id,
+            task_id="sync",
+            record_id=record.pk,
+            org_id=record.organization_id,
+            reason="already_stored",
+        )
         return
 
     if force_reprocess:
@@ -225,8 +240,24 @@ def process_whatsapp_record(
             Record.Status.RECEIVED,
             {"force_reprocess": True},
         )
+        log_ingestion_event(
+            "processing.record.reprocess_started",
+            request_id=normalized_request_id,
+            event_id=normalized_event_id,
+            task_id="sync",
+            record_id=record.pk,
+            org_id=record.organization_id,
+        )
 
     try:
+        log_ingestion_event(
+            "processing.record.started",
+            request_id=normalized_request_id,
+            event_id=normalized_event_id,
+            task_id="sync",
+            record_id=record.pk,
+            org_id=record.organization_id,
+        )
         _execute_with_retries(record=record, step="transcribe")
         _execute_with_retries(record=record, step="extract")
         _execute_with_retries(record=record, step="store")
@@ -235,6 +266,15 @@ def process_whatsapp_record(
                 processed=True,
                 processed_at=timezone.now(),
             )
+        log_ingestion_event(
+            "processing.record.completed",
+            request_id=normalized_request_id,
+            event_id=normalized_event_id,
+            task_id="sync",
+            record_id=record.pk,
+            org_id=record.organization_id,
+            status=record.status,
+        )
     except Exception as exc:
         if record.status != Record.Status.DEAD_LETTER:
             record.status = Record.Status.FAILED
@@ -247,6 +287,17 @@ def process_whatsapp_record(
                     "updated_at",
                 ],
             )
+        log_ingestion_event(
+            "processing.record.failed",
+            request_id=normalized_request_id,
+            event_id=normalized_event_id,
+            task_id="sync",
+            record_id=record.pk,
+            org_id=record.organization_id,
+            status=record.status,
+            error=str(exc),
+            failed_step=record.processing_error_step,
+        )
         raise
 
 
@@ -274,4 +325,5 @@ def replay_whatsapp_payload(payload_id: int) -> None:
         record.pk,
         payload.pk,
         force_reprocess=True,
+        event_id=str(uuid4()),
     )

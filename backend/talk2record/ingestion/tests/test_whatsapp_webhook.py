@@ -78,10 +78,17 @@ class TestWhatsAppWebhook:
             update_fields=["status", "encrypted_config", "updated_at"],
         )
 
-        queued: list[tuple[int, int | None]] = []
+        queued: list[tuple[int, int | None, str, str]] = []
 
-        def fake_delay(record_id: int, payload_id: int | None = None):
-            queued.append((record_id, payload_id))
+        def fake_delay(record_id: int, payload_id: int | None = None, **kwargs):
+            queued.append(
+                (
+                    record_id,
+                    payload_id,
+                    str(kwargs.get("request_id", "")),
+                    str(kwargs.get("event_id", "")),
+                ),
+            )
 
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
@@ -92,6 +99,7 @@ class TestWhatsAppWebhook:
             reverse("api-whatsapp-webhook"),
             data=webhook_payload,
             format="json",
+            HTTP_X_REQUEST_ID="req-test-1",
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -107,8 +115,15 @@ class TestWhatsAppWebhook:
         )
         assert record.organization_id == organization_integration.organization_id
         assert queued == [
-            (record.pk, WhatsAppRawPayload.objects.get(message_id="wamid.ABCD123").pk),
+            (
+                record.pk,
+                WhatsAppRawPayload.objects.get(message_id="wamid.ABCD123").pk,
+                "req-test-1",
+                queued[0][3],
+            ),
         ]
+        assert queued[0][3]
+        assert response["X-Request-ID"] == "req-test-1"
 
     def test_post_is_idempotent(
         self,
@@ -153,3 +168,59 @@ class TestWhatsAppWebhook:
         )
         assert second.data["accepted"] == 0
         assert second.data["duplicates"] == 1
+
+    def test_post_respects_daily_quota(
+        self,
+        settings,
+        monkeypatch: pytest.MonkeyPatch,
+        organization_integration,
+        api_client: APIClient,
+        webhook_payload: dict,
+    ):
+        settings.INGESTION_DAILY_RECORD_LIMIT_PER_ORG = 1
+        organization_integration.status = organization_integration.Status.CONNECTED
+        organization_integration.encrypted_config = {"phone_number_id": "123456789"}
+        organization_integration.save(
+            update_fields=["status", "encrypted_config", "updated_at"],
+        )
+        monkeypatch.setattr(
+            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            lambda *args, **kwargs: None,
+        )
+
+        first = api_client.post(
+            reverse("api-whatsapp-webhook"),
+            data=webhook_payload,
+            format="json",
+        )
+        second_payload = {
+            **webhook_payload,
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "123456789"},
+                                "messages": [
+                                    {
+                                        "id": "wamid.ABCD124",
+                                        "from": "254700000002",
+                                        "audio": {"url": "https://example.com/audio/2.ogg"},
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            ],
+        }
+        second = api_client.post(
+            reverse("api-whatsapp-webhook"),
+            data=second_payload,
+            format="json",
+        )
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert first.data["accepted"] == 1
+        assert second.data["accepted"] == 0

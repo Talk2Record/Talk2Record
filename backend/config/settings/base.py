@@ -365,6 +365,16 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("DRF_THROTTLE_ANON", default="300/min"),
+        "user": env("DRF_THROTTLE_USER", default="1000/min"),
+        "whatsapp_webhook": env("DRF_THROTTLE_WHATSAPP_WEBHOOK", default="120/min"),
+    },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
@@ -388,6 +398,10 @@ WHATSAPP_WEBHOOK_SECRET = env("WHATSAPP_WEBHOOK_SECRET", default="")
 AI_TRANSCRIPTION_PROVIDER = env("AI_TRANSCRIPTION_PROVIDER", default="mock")
 AI_EXTRACTION_PROVIDER = env("AI_EXTRACTION_PROVIDER", default="mock")
 AI_EXTRACTION_PROMPT_VERSION = env("AI_EXTRACTION_PROMPT_VERSION", default="v1")
+INGESTION_DAILY_RECORD_LIMIT_PER_ORG = env.int(
+    "INGESTION_DAILY_RECORD_LIMIT_PER_ORG",
+    default=0,
+)
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
