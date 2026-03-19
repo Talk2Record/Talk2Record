@@ -28,8 +28,10 @@ class RecordProcessingService:
             record.amount = Decimal("0.00")
         if not record.confidence_score:
             record.confidence_score = Decimal("0.950")
-        record.status = Record.Status.REVIEW
-        record.save(update_fields=["amount", "confidence_score", "status", "updated_at"])
+        record.status = Record.Status.EXTRACTED
+        record.save(
+            update_fields=["amount", "confidence_score", "status", "updated_at"],
+        )
         return record
 
     @staticmethod
@@ -52,9 +54,14 @@ class RecordProcessingService:
         )
 
         title = f"Voice note from {record.customer_name} has been processed"
-        message = f"Record: {record.product} - {record.quantity} x {record.currency} {record.amount}"
-        link_url = f"/dashboard/records"
-        for membership in record.organization.memberships.filter(status=Membership.Status.ACTIVE):
+        message = (
+            f"Record: {record.product} - {record.quantity} "
+            f"x {record.currency} {record.amount}"
+        )
+        link_url = "/dashboard/records"
+        for membership in record.organization.memberships.filter(
+            status=Membership.Status.ACTIVE,
+        ):
             NotificationService.create(
                 user=membership.user,
                 notification_type=Notification.Type.RECORD_STORED,

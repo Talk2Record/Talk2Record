@@ -18,6 +18,12 @@ WHATSAPP_WEBHOOK_VERIFY_TOKEN=
 # Docs: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#validate-payloads
 WHATSAPP_WEBHOOK_SECRET=
 
+# AI pipeline
+# ------------------------------------------------------------------------------
+AI_TRANSCRIPTION_PROVIDER=mock
+AI_EXTRACTION_PROVIDER=mock
+AI_EXTRACTION_PROMPT_VERSION=v1
+
 # Celery
 # ------------------------------------------------------------------------------
 

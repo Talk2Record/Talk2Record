@@ -101,6 +101,8 @@ LOCAL_APPS = [
     "talk2record.records",
     "talk2record.integrations",
     "talk2record.ingestion",
+    "talk2record.ai",
+    "talk2record.usage",
     "talk2record.billing",
     "talk2record.notifications",
     "talk2record.seed",
@@ -383,6 +385,9 @@ SIMPLE_JWT = {
 
 WHATSAPP_WEBHOOK_VERIFY_TOKEN = env("WHATSAPP_WEBHOOK_VERIFY_TOKEN", default="")
 WHATSAPP_WEBHOOK_SECRET = env("WHATSAPP_WEBHOOK_SECRET", default="")
+AI_TRANSCRIPTION_PROVIDER = env("AI_TRANSCRIPTION_PROVIDER", default="mock")
+AI_EXTRACTION_PROVIDER = env("AI_EXTRACTION_PROVIDER", default="mock")
+AI_EXTRACTION_PROMPT_VERSION = env("AI_EXTRACTION_PROMPT_VERSION", default="v1")
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings

@@ -17,6 +17,16 @@ class WhatsAppRawPayload(models.Model):
     processed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        indexes = [
+            models.Index(
+                fields=["organization", "received_at"],
+                name="wa_raw_org_received_idx",
+            ),
+            models.Index(
+                fields=["processed", "received_at"],
+                name="wa_raw_processed_idx",
+            ),
+        ]
         ordering = ["-received_at"]
 
     def __str__(self) -> str:

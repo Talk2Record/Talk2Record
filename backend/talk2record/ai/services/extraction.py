@@ -1,0 +1,53 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from django.conf import settings
+
+from talk2record.ai.providers.base import ExtractionResult
+from talk2record.ai.providers.mock import MockExtractionProvider
+from talk2record.ai.services.prompts import PromptTemplateService
+from talk2record.ai.validation.schemas import validate_extraction_payload
+
+if TYPE_CHECKING:
+    from talk2record.ai.providers.base import BaseExtractionProvider
+    from talk2record.records.models import Record
+
+
+class ExtractionService:
+    _providers: dict[str, BaseExtractionProvider] = {
+        "mock": MockExtractionProvider(),
+    }
+
+    @classmethod
+    def _provider(cls) -> BaseExtractionProvider:
+        configured = getattr(settings, "AI_EXTRACTION_PROVIDER", "mock")
+        return cls._providers.get(configured, cls._providers["mock"])
+
+    @classmethod
+    def extract(cls, *, transcript: str, record: Record) -> ExtractionResult:
+        provider = cls._provider()
+        prompt_version = PromptTemplateService.resolve_extraction_prompt_version(
+            provider=provider.provider_name,
+            model=provider.model_name,
+        )
+        result = provider.extract(
+            transcript=transcript,
+            context={
+                "customer_name": record.customer_name,
+                "product": record.product,
+                "quantity": record.quantity,
+                "amount": record.amount,
+                "currency": record.currency,
+                "payment_method": record.payment_method,
+            },
+            prompt_version=prompt_version,
+        )
+        validated_payload = validate_extraction_payload(result.data)
+        return ExtractionResult(
+            data=validated_payload,
+            provider=result.provider,
+            model=result.model,
+            prompt_version=result.prompt_version,
+            confidence_score=result.confidence_score,
+        )

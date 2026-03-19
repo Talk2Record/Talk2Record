@@ -95,6 +95,12 @@ class WhatsAppWebhookView(APIView):
                 },
             )
             if not raw_payload_created:
+                existing_record = Record.objects.filter(
+                    source=Record.Source.WHATSAPP,
+                    source_reference=message.message_id,
+                ).first()
+                if existing_record and not raw_payload.processed:
+                    process_whatsapp_record.delay(existing_record.pk, raw_payload.pk)
                 AuditService.log(
                     action="ingestion.whatsapp.duplicate",
                     resource_type="webhook_message",
