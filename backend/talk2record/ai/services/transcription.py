@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from talk2record.ai.providers.mock import MockTranscriptionProvider
+from talk2record.integrations.services import get_active_integration
+from talk2record.integrations.services import get_active_integration_secret
 
 if TYPE_CHECKING:
     from talk2record.ai.providers.base import BaseTranscriptionProvider
@@ -19,7 +21,18 @@ class TranscriptionService:
 
     @classmethod
     def _provider(cls) -> BaseTranscriptionProvider:
-        configured = getattr(settings, "AI_TRANSCRIPTION_PROVIDER", "mock")
+        integration = get_active_integration("ai")
+        configured = ""
+        if integration is not None:
+            configured = str(
+                integration.config.get("transcription_provider")
+                or integration.config.get("provider")
+                or "",
+            ).strip()
+            # Resolve secret at runtime so admin key updates take effect immediately.
+            get_active_integration_secret("ai")
+        if not configured:
+            configured = getattr(settings, "AI_TRANSCRIPTION_PROVIDER", "mock")
         return cls._providers.get(configured, cls._providers["mock"])
 
     @classmethod

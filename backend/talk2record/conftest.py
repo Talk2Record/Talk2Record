@@ -8,8 +8,10 @@ from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
+from talk2record.integrations.crypto import SecretVault
+from talk2record.integrations.models import ApiCredential
 from talk2record.integrations.models import Integration
-from talk2record.integrations.models import OrganizationIntegration
+from talk2record.integrations.models import WhatsAppInboundRoute
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
@@ -97,23 +99,26 @@ def integration(db) -> Integration:
     integration, _ = Integration.objects.get_or_create(
         slug="whatsapp",
         defaults={
-            "name": "WhatsApp",
-            "type": Integration.Type.WHATSAPP,
-            "config_schema": {"requiresEndpoint": True},
+            "enabled": True,
+            "config": {"verify_token": "verify-me"},
         },
     )
     return integration
 
 
 @pytest.fixture
-def organization_integration(
-    organization: Organization,
-    integration: Integration,
-) -> OrganizationIntegration:
-    return OrganizationIntegration.objects.create(
-        organization=organization,
+def api_credential(integration: Integration) -> ApiCredential:
+    return ApiCredential.objects.create(
         integration=integration,
-        status=OrganizationIntegration.Status.AVAILABLE,
+        encrypted_secret=SecretVault.encrypt("supersecret1234"),
+    )
+
+
+@pytest.fixture
+def whatsapp_route(organization: Organization) -> WhatsAppInboundRoute:
+    return WhatsAppInboundRoute.objects.create(
+        organization=organization,
+        phone_number_id="123456789",
     )
 
 

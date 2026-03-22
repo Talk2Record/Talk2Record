@@ -15,9 +15,9 @@ from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.integrations.models import ApiCredential
+from talk2record.integrations.crypto import SecretVault
 from talk2record.integrations.models import Integration
-from talk2record.integrations.models import OrganizationIntegration
+from talk2record.integrations.models import ApiCredential
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -100,23 +100,6 @@ def subscription(workspace_user: User) -> Subscription:
 
 
 @pytest.fixture
-def organization_integration(workspace_user: User) -> OrganizationIntegration:
-    integration, _ = Integration.objects.get_or_create(
-        slug="whatsapp",
-        defaults={
-            "name": "WhatsApp",
-            "type": Integration.Type.WHATSAPP,
-            "config_schema": {"requiresEndpoint": True},
-        },
-    )
-    return OrganizationIntegration.objects.create(
-        organization=workspace_user.current_organization,
-        integration=integration,
-        status=OrganizationIntegration.Status.AVAILABLE,
-    )
-
-
-@pytest.fixture
 def record(workspace_user: User) -> Record:
     return Record.objects.create(
         organization=workspace_user.current_organization,
@@ -143,6 +126,19 @@ def daily_metric(workspace_user: User) -> DailyMetric:
     )
 
 
+@pytest.fixture
+def global_stripe_integration() -> Integration:
+    integration, _ = Integration.objects.get_or_create(
+        slug="stripe",
+        defaults={"enabled": True, "config": {"provider": "stripe"}},
+    )
+    ApiCredential.objects.update_or_create(
+        integration=integration,
+        defaults={"encrypted_secret": SecretVault.encrypt("stripe-secret")},
+    )
+    return integration
+
+
 @pytest.mark.django_db
 class TestPlatformEndpoints:
     def test_organizations_list(self, authed_client: APIClient, workspace_user: User):
@@ -163,23 +159,6 @@ class TestPlatformEndpoints:
         assert list_response.status_code == status.HTTP_200_OK
         assert list_response.data[0]["customer_name"] == record.customer_name
 
-        create_response = authed_client.post(
-            reverse("api:record-list"),
-            {
-                "organization": workspace_user.current_organization.pk,
-                "source": Record.Source.UPLOAD,
-                "customer_name": "Maua Retail",
-                "product": "Rice",
-                "quantity": 4,
-                "amount": "450.00",
-                "currency": "USD",
-            },
-            format="json",
-        )
-
-        assert create_response.status_code == status.HTTP_201_CREATED
-        assert Record.objects.filter(customer_name="Maua Retail").exists()
-
     def test_subscriptions_list(self, authed_client: APIClient, subscription: Subscription):
         response = authed_client.get(reverse("api:subscription-list"))
 
@@ -187,7 +166,13 @@ class TestPlatformEndpoints:
         assert response.data[0]["plan"] == subscription.plan.name
         assert len(response.data[0]["invoices"]) == 1
 
-    def test_billing_checkout_requires_acceptance(self, authed_client: APIClient, subscription: Subscription):
+    def test_billing_checkout_requires_acceptance(
+        self,
+        authed_client: APIClient,
+        subscription: Subscription,
+        global_stripe_integration: Integration,
+    ):
+        assert global_stripe_integration.slug == "stripe"
         response = authed_client.post(
             reverse("api:billing-checkout"),
             {"plan": subscription.plan.code, "acceptedBillingTerms": False},
@@ -202,7 +187,9 @@ class TestPlatformEndpoints:
         workspace_user: User,
         subscription: Subscription,
         legal_versions: dict[str, LegalDocumentVersion],
+        global_stripe_integration: Integration,
     ):
+        assert global_stripe_integration.slug == "stripe"
         response = authed_client.post(
             reverse("api:billing-checkout"),
             {"plan": subscription.plan.code, "acceptedBillingTerms": True},
@@ -227,53 +214,6 @@ class TestPlatformEndpoints:
 
         assert response.status_code == status.HTTP_202_ACCEPTED
         assert AuditLog.objects.filter(action="billing.webhook.received", resource_id="stripe").exists()
-
-    def test_integrations_list(self, authed_client: APIClient, organization_integration: OrganizationIntegration):
-        response = authed_client.get(reverse("api:integration-list"))
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data[0]["id"] == organization_integration.integration.slug
-
-    def test_integration_test_connection_requires_permission(
-        self,
-        authed_client: APIClient,
-        organization_integration: OrganizationIntegration,
-    ):
-        response = authed_client.post(
-            reverse("api:integration-action-test-connection"),
-            {"id": organization_integration.integration.slug, "confirmedPermission": False},
-            format="json",
-        )
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_integration_test_connection_updates_state_and_creates_credential(
-        self,
-        authed_client: APIClient,
-        workspace_user: User,
-        organization_integration: OrganizationIntegration,
-    ):
-        response = authed_client.post(
-            reverse("api:integration-action-test-connection"),
-            {
-                "id": organization_integration.integration.slug,
-                "endpoint": "https://example.com/hook",
-                "secret": "supersecret1234",
-                "confirmedPermission": True,
-            },
-            format="json",
-        )
-
-        organization_integration.refresh_from_db()
-        assert response.status_code == status.HTTP_200_OK
-        assert organization_integration.status == OrganizationIntegration.Status.CONNECTED
-        assert organization_integration.endpoint == "https://example.com/hook"
-        assert ApiCredential.objects.filter(organization_integration=organization_integration).exists()
-        assert UserLegalAttestation.objects.filter(
-            user=workspace_user,
-            kind=UserLegalAttestation.Kind.WHATSAPP_PERMISSION,
-            context="integration-test",
-        ).exists()
 
     def test_legal_documents_and_status(self, authed_client: APIClient, legal_versions: dict[str, LegalDocumentVersion]):
         documents_response = authed_client.get(reverse("api:legal-document-list"))

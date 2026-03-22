@@ -30,6 +30,10 @@ DRF_THROTTLE_USER=1000/min
 DRF_THROTTLE_WHATSAPP_WEBHOOK=120/min
 DRF_THROTTLE_PUBLIC_INGESTION=240/min
 
+# Audit retention and sampling
+AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES=5
+AUDIT_API_KEY_USED_RETENTION_DAYS=90
+
 # Celery
 # ------------------------------------------------------------------------------
 

@@ -17,7 +17,7 @@ from talk2record.billing.models import Transaction
 from talk2record.integrations.crypto import SecretVault
 from talk2record.integrations.models import ApiCredential
 from talk2record.integrations.models import Integration
-from talk2record.integrations.models import OrganizationIntegration
+from talk2record.integrations.models import WhatsAppInboundRoute
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -252,35 +252,22 @@ class SeedWorkspaceBuilder:
 
     def _ensure_integrations(self, *, organization: Organization, owner: User) -> None:
         whatsapp = self.reference_data.integrations["whatsapp"]
-        webhook = self.reference_data.integrations["webhook"]
-        analytics = self.reference_data.integrations["analytics"]
+        stripe = self.reference_data.integrations["stripe"]
+        ai = self.reference_data.integrations["ai"]
 
-        primary_connection = self._ensure_organization_integration(
-            organization=organization,
+        self._ensure_api_credential(
             integration=whatsapp,
-            status=OrganizationIntegration.Status.CONNECTED,
-            endpoint=f"https://seed.{organization.slug}.example.com/webhooks/whatsapp",
-            last_sync=self.time_range.end_at - timedelta(hours=2),
+            plain_secret="seed-global-whatsapp-secret",
         )
         self._ensure_api_credential(
-            organization_integration=primary_connection,
-            label="Primary credential",
-            plain_secret=f"{organization.slug}-primary-secret",
+            integration=stripe,
+            plain_secret="seed-global-stripe-secret",
         )
-        self._ensure_organization_integration(
-            organization=organization,
-            integration=webhook,
-            status=OrganizationIntegration.Status.AVAILABLE,
-            endpoint=f"https://seed.{organization.slug}.example.com/webhooks/general",
-            last_sync=self.time_range.end_at - timedelta(days=1),
+        self._ensure_api_credential(
+            integration=ai,
+            plain_secret="seed-global-ai-secret",
         )
-        self._ensure_organization_integration(
-            organization=organization,
-            integration=analytics,
-            status=OrganizationIntegration.Status.CONNECTED,
-            endpoint=f"https://seed.{organization.slug}.example.com/events",
-            last_sync=self.time_range.end_at - timedelta(hours=6),
-        )
+        self._ensure_whatsapp_route(organization=organization)
         self._ensure_legal_attestation(
             user=owner,
             kind=UserLegalAttestation.Kind.WHATSAPP_PERMISSION,
@@ -306,47 +293,28 @@ class SeedWorkspaceBuilder:
             properties={"integration": "whatsapp", "status": "connected"},
         )
 
-    def _ensure_organization_integration(
-        self,
-        *,
-        organization: Organization,
-        integration: Integration,
-        status: str,
-        endpoint: str,
-        last_sync: datetime,
-    ) -> OrganizationIntegration:
-        connection, created = OrganizationIntegration.objects.update_or_create(
-            organization=organization,
-            integration=integration,
-            defaults={
-                "status": status,
-                "endpoint": endpoint,
-                "encrypted_config": {"seed_namespace": SEED_NAMESPACE},
-                "last_sync": last_sync,
-            },
-        )
-        self.summary.bump(
-            "organization_integrations", created=created, updated=not created,
-        )
-        return connection
-
     def _ensure_api_credential(
         self,
         *,
-        organization_integration: OrganizationIntegration,
-        label: str,
+        integration: Integration,
         plain_secret: str,
     ) -> ApiCredential:
         credential, created = ApiCredential.objects.update_or_create(
-            organization_integration=organization_integration,
-            label=label,
+            integration=integration,
             defaults={
-                "encrypted_api_key": SecretVault.encrypt(plain_secret),
                 "encrypted_secret": SecretVault.encrypt(plain_secret),
             },
         )
         self.summary.bump("api_credentials", created=created, updated=not created)
         return credential
+
+    def _ensure_whatsapp_route(self, *, organization: Organization) -> WhatsAppInboundRoute:
+        route, created = WhatsAppInboundRoute.objects.update_or_create(
+            organization=organization,
+            defaults={"phone_number_id": f"seed-wa-{organization.slug}"},
+        )
+        self.summary.bump("whatsapp_routes", created=created, updated=not created)
+        return route
 
     def _ensure_subscription(
         self,

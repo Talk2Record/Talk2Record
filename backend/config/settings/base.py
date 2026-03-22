@@ -405,6 +405,16 @@ INGESTION_DAILY_RECORD_LIMIT_PER_ORG = env.int(
     default=0,
 )
 
+# Audit retention and sampling for high-volume events
+AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES = env.int(
+    "AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES",
+    default=5,
+)
+AUDIT_API_KEY_USED_RETENTION_DAYS = env.int(
+    "AUDIT_API_KEY_USED_RETENTION_DAYS",
+    default=90,
+)
+
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {

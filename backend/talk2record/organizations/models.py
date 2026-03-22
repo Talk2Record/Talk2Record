@@ -84,6 +84,7 @@ class OrganizationAPIKey(models.Model):
     key_hash = models.CharField(max_length=64, unique=True)
     scopes = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
+    rate_limit_per_minute = models.PositiveIntegerField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     last_used_at = models.DateTimeField(null=True, blank=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from talk2record.organizations.models import Organization
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -40,8 +41,11 @@ class TestWhatsAppWebhook:
             ],
         }
 
-    def test_verification_success(self, settings, api_client: APIClient):
+    def test_verification_success(self, settings, integration, api_client: APIClient):
         settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "verify-me"  # noqa: S105
+        integration.enabled = True
+        integration.config = {}
+        integration.save(update_fields=["enabled", "config", "updated_at"])
         response = api_client.get(
             reverse("api-whatsapp-webhook"),
             {
@@ -54,8 +58,11 @@ class TestWhatsAppWebhook:
         assert response.status_code == status.HTTP_200_OK
         assert response.content.decode() == "challenge-token"
 
-    def test_verification_rejects_invalid_token(self, settings, api_client: APIClient):
+    def test_verification_rejects_invalid_token(self, settings, integration, api_client: APIClient):
         settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "expected-token"  # noqa: S105
+        integration.enabled = True
+        integration.config = {}
+        integration.save(update_fields=["enabled", "config", "updated_at"])
         response = api_client.get(
             reverse("api-whatsapp-webhook"),
             {
@@ -70,15 +77,17 @@ class TestWhatsAppWebhook:
     def test_post_creates_payload_and_record(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        organization_integration,
+        integration,
+        api_credential,
+        whatsapp_route,
         api_client: APIClient,
         webhook_payload: dict,
     ):
-        organization_integration.status = organization_integration.Status.CONNECTED
-        organization_integration.encrypted_config = {"phone_number_id": "123456789"}
-        organization_integration.save(
-            update_fields=["status", "encrypted_config", "updated_at"],
-        )
+        integration.config = {"verify_token": "verify-me"}
+        integration.enabled = True
+        integration.save(update_fields=["config", "enabled", "updated_at"])
+        api_credential.encrypted_secret = ""
+        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
 
         queued: list[tuple[int, int | None, str, str]] = []
         broadcast_events: list[tuple[str, int, str]] = []
@@ -130,7 +139,7 @@ class TestWhatsAppWebhook:
             source=Record.Source.WHATSAPP,
             source_reference="wamid.ABCD123",
         )
-        assert record.organization_id == organization_integration.organization_id
+        assert record.organization_id == whatsapp_route.organization_id
         assert queued == [
             (
                 record.pk,
@@ -148,15 +157,17 @@ class TestWhatsAppWebhook:
     def test_post_is_idempotent(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        organization_integration,
+        integration,
+        api_credential,
+        whatsapp_route,
         api_client: APIClient,
         webhook_payload: dict,
     ):
-        organization_integration.status = organization_integration.Status.CONNECTED
-        organization_integration.encrypted_config = {"phone_number_id": "123456789"}
-        organization_integration.save(
-            update_fields=["status", "encrypted_config", "updated_at"],
-        )
+        integration.enabled = True
+        integration.save(update_fields=["enabled", "updated_at"])
+        api_credential.encrypted_secret = ""
+        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
@@ -192,16 +203,18 @@ class TestWhatsAppWebhook:
         self,
         settings,
         monkeypatch: pytest.MonkeyPatch,
-        organization_integration,
+        integration,
+        api_credential,
+        whatsapp_route,
         api_client: APIClient,
         webhook_payload: dict,
     ):
         settings.INGESTION_DAILY_RECORD_LIMIT_PER_ORG = 1
-        organization_integration.status = organization_integration.Status.CONNECTED
-        organization_integration.encrypted_config = {"phone_number_id": "123456789"}
-        organization_integration.save(
-            update_fields=["status", "encrypted_config", "updated_at"],
-        )
+        integration.enabled = True
+        integration.save(update_fields=["enabled", "updated_at"])
+        api_credential.encrypted_secret = ""
+        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
@@ -245,3 +258,82 @@ class TestWhatsAppWebhook:
         assert second.status_code == status.HTTP_200_OK
         assert first.data["accepted"] == 1
         assert second.data["accepted"] == 0
+
+    def test_post_ignores_when_integration_missing(
+        self,
+        api_client: APIClient,
+        webhook_payload: dict,
+    ):
+        response = api_client.post(
+            reverse("api-whatsapp-webhook"),
+            data=webhook_payload,
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "ignored"
+        assert response.data["accepted"] == 0
+
+    def test_post_routes_by_phone_number_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        integration,
+        api_credential,
+        whatsapp_route,
+        api_client: APIClient,
+        webhook_payload: dict,
+    ):
+        integration.enabled = True
+        integration.save(update_fields=["enabled", "updated_at"])
+        api_credential.encrypted_secret = ""
+        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        secondary_org = Organization.objects.create(name="Secondary Org", slug="secondary-org")
+        whatsapp_route.phone_number_id = "route-a"
+        whatsapp_route.save(update_fields=["phone_number_id", "updated_at"])
+        whatsapp_route.__class__.objects.create(
+            organization=secondary_org,
+            phone_number_id="route-b",
+        )
+        payload = {
+            **webhook_payload,
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "route-b"},
+                                "messages": webhook_payload["entry"][0]["changes"][0]["value"]["messages"],
+                            },
+                        },
+                    ],
+                },
+            ],
+        }
+        monkeypatch.setattr(
+            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            lambda *args, **kwargs: None,
+        )
+
+        response = api_client.post(reverse("api-whatsapp-webhook"), data=payload, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        record = Record.objects.get(source_reference="wamid.ABCD123")
+        assert record.organization_id == secondary_org.id
+
+    def test_post_ignores_when_integration_disabled(
+        self,
+        integration,
+        api_client: APIClient,
+        webhook_payload: dict,
+    ):
+        integration.enabled = False
+        integration.save(update_fields=["enabled", "updated_at"])
+        response = api_client.post(
+            reverse("api-whatsapp-webhook"),
+            data=webhook_payload,
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "ignored"
+        assert response.data["accepted"] == 0

@@ -1,8 +1,10 @@
 from rest_framework import serializers
 
+from talk2record.audit.models import AuditLog
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
 from talk2record.organizations.models import OrganizationAPIKey
+from talk2record.organizations.services import OrganizationAPIKeyService
 
 
 class OrganizationSerializer(serializers.ModelSerializer[Organization]):
@@ -46,6 +48,7 @@ class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKe
             "is_active",
             "expiresAt",
             "revokedAt",
+            "rate_limit_per_minute",
             "lastUsedAt",
             "lastUsedIp",
             "lastUsedUserAgent",
@@ -56,6 +59,7 @@ class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKe
             "is_active",
             "expiresAt",
             "revokedAt",
+            "rate_limit_per_minute",
             "lastUsedAt",
             "lastUsedIp",
             "lastUsedUserAgent",
@@ -66,8 +70,42 @@ class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKe
 class CreateOrganizationAPIKeySerializer(serializers.Serializer):
     name = serializers.CharField(max_length=128)
     expiresInDays = serializers.IntegerField(required=False, min_value=1, max_value=365)
+    scopePreset = serializers.ChoiceField(
+        required=False,
+        choices=tuple(
+            (preset, preset.replace("_", " ").title())
+            for preset in OrganizationAPIKeyService.SCOPE_PRESETS
+        ),
+    )
     scopes = serializers.ListField(
         child=serializers.CharField(max_length=64),
         allow_empty=False,
         required=False,
     )
+    rateLimitPerMinute = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10000,
+    )
+
+    def validate(self, attrs):
+        if attrs.get("scopePreset") and attrs.get("scopes"):
+            msg = "Use either scopePreset or scopes, not both."
+            raise serializers.ValidationError({"scopePreset": [msg]})
+        return attrs
+
+
+class APIKeyAuditEventSerializer(serializers.ModelSerializer[AuditLog]):
+    actorEmail = serializers.EmailField(source="actor.email", read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id",
+            "action",
+            "resource_type",
+            "resource_id",
+            "metadata",
+            "created_at",
+            "actorEmail",
+        ]

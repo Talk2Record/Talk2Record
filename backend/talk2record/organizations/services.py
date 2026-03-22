@@ -50,6 +50,10 @@ class OrganizationAPIKeyService:
     KEY_LABEL_PREFIX = "t2r"
     DEFAULT_SCOPE = "ingestion:write"
     KEY_PART_COUNT = 3
+    SCOPE_PRESETS = {
+        "ingestion": [DEFAULT_SCOPE],
+        "ingestion_plus_read": [DEFAULT_SCOPE, "records:read"],
+    }
 
     @classmethod
     def create_key(
@@ -58,6 +62,8 @@ class OrganizationAPIKeyService:
         organization: Organization,
         name: str,
         scopes: list[str] | None = None,
+        scope_preset: str | None = None,
+        rate_limit_per_minute: int | None = None,
         created_by: User | None = None,
         expires_in_days: int | None = None,
     ) -> tuple[OrganizationAPIKey, str]:
@@ -65,13 +71,15 @@ class OrganizationAPIKeyService:
         prefix = secret[: cls.KEY_PREFIX_LENGTH]
         raw_key = f"{cls.KEY_LABEL_PREFIX}_{prefix}_{secret}"
         key_hash = cls._hash_key(raw_key)
+        resolved_scopes = cls.resolve_scopes(scopes=scopes, scope_preset=scope_preset)
         api_key = OrganizationAPIKey.objects.create(
             organization=organization,
             created_by=created_by,
             name=name,
             key_prefix=prefix,
             key_hash=key_hash,
-            scopes=scopes or [cls.DEFAULT_SCOPE],
+            scopes=resolved_scopes,
+            rate_limit_per_minute=rate_limit_per_minute,
             expires_at=(
                 timezone.now() + timedelta(days=expires_in_days)
                 if expires_in_days is not None
@@ -148,11 +156,23 @@ class OrganizationAPIKeyService:
             organization=api_key.organization,
             name=f"{api_key.name} (rotated)",
             scopes=list(api_key.scopes),
+            rate_limit_per_minute=api_key.rate_limit_per_minute,
             created_by=rotated_by or api_key.created_by,
             expires_in_days=expires_in_days,
         )
         cls.revoke_key(api_key)
         return replacement, raw_key
+
+    @classmethod
+    def resolve_scopes(
+        cls,
+        *,
+        scopes: list[str] | None,
+        scope_preset: str | None,
+    ) -> list[str]:
+        if scope_preset:
+            return list(cls.SCOPE_PRESETS.get(scope_preset, [cls.DEFAULT_SCOPE]))
+        return scopes or [cls.DEFAULT_SCOPE]
 
     @classmethod
     def _hash_key(cls, raw_key: str) -> str:

@@ -10,8 +10,9 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import OrganizationIntegration
+from talk2record.integrations.models import WhatsAppInboundRoute
+from talk2record.integrations.services import get_active_integration
+from talk2record.integrations.services import get_active_integration_secret
 
 if TYPE_CHECKING:
     from talk2record.organizations.models import Organization
@@ -49,12 +50,19 @@ class WhatsAppWebhookService:
 
     @staticmethod
     def verify_subscription_token(token: str) -> bool:
-        configured = getattr(settings, "WHATSAPP_WEBHOOK_VERIFY_TOKEN", "")
+        integration = get_active_integration("whatsapp")
+        if integration is None:
+            return False
+        configured = str(integration.config.get("verify_token", "")).strip()
+        if not configured:
+            configured = getattr(settings, "WHATSAPP_WEBHOOK_VERIFY_TOKEN", "")
         return bool(configured) and hmac.compare_digest(configured, token)
 
     @staticmethod
     def verify_signature(body: bytes, signature_header: str) -> bool:
-        secret = getattr(settings, "WHATSAPP_WEBHOOK_SECRET", "")
+        secret = get_active_integration_secret("whatsapp")
+        if not secret:
+            secret = getattr(settings, "WHATSAPP_WEBHOOK_SECRET", "")
         if not secret:
             return True
         if not signature_header.startswith("sha256="):
@@ -95,22 +103,15 @@ class WhatsAppWebhookService:
     @staticmethod
     def resolve_organization(payload: Mapping[str, object]) -> Organization | None:
         phone_number_id = WhatsAppWebhookService._extract_phone_number_id(payload)
-        base_qs = OrganizationIntegration.objects.filter(
-            integration__slug=Integration.Type.WHATSAPP,
-            status=OrganizationIntegration.Status.CONNECTED,
-        ).select_related("organization")
+        if not phone_number_id:
+            return None
 
-        if phone_number_id:
-            match = base_qs.filter(
-                encrypted_config__phone_number_id=phone_number_id,
-            ).first()
-            if match:
-                return match.organization
-
-        integrations = list(base_qs[:2])
-        if len(integrations) == 1:
-            return integrations[0].organization
-        return None
+        route = (
+            WhatsAppInboundRoute.objects.select_related("organization")
+            .filter(phone_number_id=phone_number_id)
+            .first()
+        )
+        return route.organization if route else None
 
     @staticmethod
     def _extract_phone_number_id(payload: Mapping[str, object]) -> str:

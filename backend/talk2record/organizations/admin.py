@@ -25,6 +25,7 @@ class OrganizationAPIKeyAdmin(admin.ModelAdmin):
         "name",
         "organization",
         "is_active",
+        "rate_limit_per_minute",
         "expires_at",
         "revoked_at",
         "last_used_at",

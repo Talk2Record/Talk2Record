@@ -10,7 +10,7 @@ from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
 from talk2record.integrations.models import ApiCredential
 from talk2record.integrations.models import Integration
-from talk2record.integrations.models import OrganizationIntegration
+from talk2record.integrations.models import WhatsAppInboundRoute
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -37,7 +37,7 @@ def _model_counts() -> dict[str, int]:
         "memberships": Membership.objects.count(),
         "subscriptions": Subscription.objects.count(),
         "transactions": Transaction.objects.count(),
-        "organization_integrations": OrganizationIntegration.objects.count(),
+        "whatsapp_routes": WhatsAppInboundRoute.objects.count(),
         "api_credentials": ApiCredential.objects.count(),
         "records": Record.objects.count(),
         "daily_metrics": DailyMetric.objects.count(),

@@ -2,24 +2,23 @@ from django.contrib import admin
 
 from .models import ApiCredential
 from .models import Integration
-from .models import OrganizationIntegration
+from .models import WhatsAppInboundRoute
 
 
 @admin.register(Integration)
 class IntegrationAdmin(admin.ModelAdmin):
-    list_display = ["name", "slug", "type", "enabled", "created_at"]
-    search_fields = ["name", "slug", "type"]
-    list_filter = ["type", "enabled"]
-
-
-@admin.register(OrganizationIntegration)
-class OrganizationIntegrationAdmin(admin.ModelAdmin):
-    list_display = ["organization", "integration", "status", "endpoint", "last_sync"]
-    search_fields = ["organization__name", "integration__name", "endpoint"]
-    list_filter = ["status", "integration__type"]
+    list_display = ["slug", "enabled", "updated_at", "created_at"]
+    search_fields = ["slug"]
+    list_filter = ["enabled"]
 
 
 @admin.register(ApiCredential)
 class ApiCredentialAdmin(admin.ModelAdmin):
-    list_display = ["organization_integration", "label", "created_at"]
-    search_fields = ["label", "organization_integration__organization__name"]
+    list_display = ["integration", "updated_at", "created_at"]
+    search_fields = ["integration__slug"]
+
+
+@admin.register(WhatsAppInboundRoute)
+class WhatsAppInboundRouteAdmin(admin.ModelAdmin):
+    list_display = ["phone_number_id", "organization", "updated_at", "created_at"]
+    search_fields = ["phone_number_id", "organization__name", "organization__slug"]

@@ -139,7 +139,12 @@ class BillingActionViewSet(GenericViewSet):
             return Response(
                 {"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND,
             )
-        provider = BillingProviderRegistry.get(Subscription.Provider.STRIPE)
+        provider = BillingProviderRegistry.get_global_provider()
+        if provider is None:
+            return Response(
+                {"detail": "Global Stripe integration is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         session = provider.create_checkout(
             organization=membership.organization, plan=plan,
         )

@@ -4,6 +4,9 @@ import pytest
 from django.urls import reverse
 
 from talk2record.billing.providers import BillingProviderRegistry
+from talk2record.integrations.crypto import SecretVault
+from talk2record.integrations.models import ApiCredential
+from talk2record.integrations.models import Integration
 
 
 @pytest.mark.django_db
@@ -44,3 +47,21 @@ def test_billing_admin_pages(admin_client, subscription):
     for url in urls:
         response = admin_client.get(url)
         assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.django_db
+def test_global_stripe_provider_requires_active_integration_with_credential():
+    assert BillingProviderRegistry.get_global_provider() is None
+
+    integration = Integration.objects.create(
+        slug="stripe",
+        enabled=True,
+        config={"provider": "stripe"},
+    )
+    ApiCredential.objects.create(
+        integration=integration,
+        encrypted_secret=SecretVault.encrypt("stripe-secret"),
+    )
+
+    provider = BillingProviderRegistry.get_global_provider()
+    assert provider is not None

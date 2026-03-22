@@ -107,6 +107,14 @@ def test_organization_api_key_routes():
         resolve("/api/organization-api-keys/1/rotate/").view_name
         == "api:organization-api-key-rotate"
     )
+    assert (
+        reverse("api:organization-api-key-audit-events", kwargs={"pk": 1})
+        == "/api/organization-api-keys/1/audit-events/"
+    )
+    assert (
+        resolve("/api/organization-api-keys/1/audit-events/").view_name
+        == "api:organization-api-key-audit-events"
+    )
 
 
 def test_record_routes():
@@ -126,15 +134,6 @@ def test_subscription_routes():
 def test_billing_checkout_route():
     assert reverse("api:billing-checkout") == "/api/billing/checkout/"
     assert resolve("/api/billing/checkout/").view_name == "api:billing-checkout"
-
-
-def test_integration_routes():
-    assert reverse("api:integration-list") == "/api/integrations/"
-    assert resolve("/api/integrations/").view_name == "api:integration-list"
-    assert reverse("api:integration-detail", kwargs={"pk": 1}) == "/api/integrations/1/"
-    assert resolve("/api/integrations/1/").view_name == "api:integration-detail"
-    assert reverse("api:integration-action-test-connection") == "/api/integration-actions/test_connection/"
-    assert resolve("/api/integration-actions/test_connection/").view_name == "api:integration-action-test-connection"
 
 
 def test_legal_routes():

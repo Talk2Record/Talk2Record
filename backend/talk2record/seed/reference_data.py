@@ -49,10 +49,8 @@ def sync_reference_data(summary) -> ReferenceData:
         integration, created = Integration.objects.update_or_create(
             slug=integration_definition["slug"],
             defaults={
-                "name": integration_definition["name"],
-                "type": integration_definition["type"],
                 "enabled": True,
-                "config_schema": dict(integration_definition["config_schema"]),
+                "config": dict(integration_definition["config"]),
             },
         )
         summary.bump("integration_catalog", created=created, updated=not created)

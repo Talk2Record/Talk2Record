@@ -4,6 +4,9 @@ from decimal import Decimal
 
 import pytest
 
+from talk2record.integrations.crypto import SecretVault
+from talk2record.integrations.models import ApiCredential
+from talk2record.integrations.models import Integration
 from talk2record.ai.models import AIPromptTemplate
 from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
@@ -44,3 +47,22 @@ def test_extraction_uses_latest_prompt_template_version(record):
     result = ExtractionService.extract(transcript=transcript, record=record)
 
     assert result.prompt_version == "v3"
+
+
+@pytest.mark.django_db
+def test_ai_services_use_global_integration_runtime_config(record):
+    integration = Integration.objects.create(
+        slug="ai",
+        enabled=True,
+        config={"provider": "mock"},
+    )
+    ApiCredential.objects.create(
+        integration=integration,
+        encrypted_secret=SecretVault.encrypt("ai-secret"),
+    )
+
+    transcription = TranscriptionService.transcribe(record)
+    extraction = ExtractionService.extract(transcript=transcription.transcript, record=record)
+
+    assert transcription.provider == "mock"
+    assert extraction.provider == "mock"

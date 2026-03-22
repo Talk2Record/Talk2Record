@@ -41,33 +41,15 @@ PLAN_DEFINITIONS = (
 INTEGRATION_DEFINITIONS = (
     {
         "slug": "whatsapp",
-        "name": "WhatsApp",
-        "type": "whatsapp",
-        "config_schema": {"requiresEndpoint": True, "requiresSecret": True},
+        "config": {"verify_token": "seed-whatsapp-verify-token"},
     },
     {
         "slug": "stripe",
-        "name": "Stripe",
-        "type": "billing",
-        "config_schema": {"supportsCheckout": True},
+        "config": {"provider": "stripe"},
     },
     {
-        "slug": "zapier",
-        "name": "Zapier",
-        "type": "automation",
-        "config_schema": {"supportsTriggers": True},
-    },
-    {
-        "slug": "webhook",
-        "name": "Webhook",
-        "type": "webhook",
-        "config_schema": {"requiresEndpoint": True},
-    },
-    {
-        "slug": "analytics",
-        "name": "Analytics Sink",
-        "type": "analytics",
-        "config_schema": {"supportsExport": True},
+        "slug": "ai",
+        "config": {"provider": "mock"},
     },
 )
 

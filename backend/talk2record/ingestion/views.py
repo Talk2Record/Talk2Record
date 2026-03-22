@@ -29,6 +29,7 @@ from talk2record.ingestion.services import WhatsAppWebhookService
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import PublicIngestionRateThrottle
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
+from talk2record.integrations.services import get_active_integration
 from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
 
@@ -55,6 +56,15 @@ class WhatsAppWebhookView(APIView):
 
     def post(self, request):
         request_id = request_id_from_request(request)
+        integration = get_active_integration("whatsapp")
+        if integration is None:
+            response = Response(
+                {"status": "ignored", "accepted": 0, "duplicates": 0},
+                status=status.HTTP_200_OK,
+            )
+            response["X-Request-ID"] = request_id
+            return response
+
         signature = request.headers.get("X-Hub-Signature-256", "")
         if not WhatsAppWebhookService.verify_signature(request.body, signature):
             log_ingestion_event(

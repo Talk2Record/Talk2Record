@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.contrib.auth.models import AnonymousUser
 from rest_framework.authentication import BaseAuthentication
 
+from talk2record.audit.services import AuditService
 from talk2record.organizations.services import OrganizationAPIKeyService
 
 
@@ -23,10 +24,21 @@ class OrganizationAPIKeyAuthentication(BaseAuthentication):
         if api_key is None:
             return None
 
+        client_ip = self._client_ip(request)
         OrganizationAPIKeyService.record_key_usage(
             api_key=api_key,
-            ip_address=self._client_ip(request),
+            ip_address=client_ip,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        AuditService.log_api_key_used_if_sampled(
+            api_key_id=api_key.pk,
+            actor=api_key.created_by,
+            organization=api_key.organization,
+            metadata={
+                "path": request.path,
+                "method": request.method,
+                "ip_address": client_ip,
+            },
         )
         user = api_key.created_by or AnonymousUser()
         return (user, api_key)
