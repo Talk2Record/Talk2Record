@@ -569,6 +569,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-unfold"
+version = "0.86.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/08/f5b3f80b4e7aa8ebf621614c03c8f25d15b2d185d264f355837210dac48f/django_unfold-0.86.1.tar.gz", hash = "sha256:17d5812beeeb1e32a54ff0cbb08fb6838b6b9686ba5ec58b03a865b9b6ecec46", size = 1117484 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/71/260f2829a4fc5b590c13b22c13396ffc858f71500806e14c8b7fd9be515b/django_unfold-0.86.1-py3-none-any.whl", hash = "sha256:ecb039f3a7bf3a442e0a53e855f242eccd9ec5bdbf12a4ba04ebb4477ce9e3e9", size = 1239632 },
+]
+
+[[package]]
 name = "djangorestframework"
 version = "3.16.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1236,6 +1248,7 @@ dependencies = [
     { name = "django-model-utils" },
     { name = "django-redis" },
     { name = "django-storages", extra = ["s3"] },
+    { name = "django-unfold" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
     { name = "drf-spectacular" },
@@ -1269,6 +1282,7 @@ requires-dist = [
     { name = "django-model-utils", specifier = "==5.0.0" },
     { name = "django-redis", specifier = "==6.0.0" },
     { name = "django-storages", extras = ["s3"], specifier = "==1.14.6" },
+    { name = "django-unfold", specifier = ">=0.86.1" },
     { name = "djangorestframework", specifier = "==3.16.1" },
     { name = "djangorestframework-simplejwt", specifier = "==5.5.1" },
     { name = "drf-spectacular", specifier = "==0.29.0" },

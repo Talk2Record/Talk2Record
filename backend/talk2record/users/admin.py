@@ -1,8 +1,13 @@
+from contextlib import suppress
+
 from allauth.account.decorators import secure_admin_login
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import admin as auth_admin
+from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
+from django.contrib.auth.models import Group
 from django.utils.translation import gettext_lazy as _
+from unfold.admin import ModelAdmin
 
 from .forms import UserAdminChangeForm
 from .forms import UserAdminCreationForm
@@ -14,9 +19,12 @@ if settings.DJANGO_ADMIN_FORCE_ALLAUTH:
     admin.autodiscover()
     admin.site.login = secure_admin_login(admin.site.login)  # type: ignore[method-assign]
 
+with suppress(admin.sites.NotRegistered):
+    admin.site.unregister(Group)
+
 
 @admin.register(User)
-class UserAdmin(auth_admin.UserAdmin):
+class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
     fieldsets = (
@@ -46,7 +54,13 @@ class UserAdmin(auth_admin.UserAdmin):
         ),
         (_("Important dates"), {"fields": ("last_login", "date_joined")}),
     )
-    list_display = ["email", "name", "current_organization", "onboarding_completed", "is_superuser"]
+    list_display = [
+        "email",
+        "name",
+        "current_organization",
+        "onboarding_completed",
+        "is_superuser",
+    ]
     search_fields = ["name"]
     ordering = ["id"]
     add_fieldsets = (
@@ -58,3 +72,8 @@ class UserAdmin(auth_admin.UserAdmin):
             },
         ),
     )
+
+
+@admin.register(Group)
+class GroupAdmin(ModelAdmin, BaseGroupAdmin):
+    pass

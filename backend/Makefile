@@ -44,7 +44,7 @@ help:
 	@printf "  make apidocs          Generate docs sources from docstrings\n"
 	@printf "\nPython (uv):\n"
 	@printf "  make deps-mac         Install macOS build deps (psycopg)\n"
-	@printf "  make uv-sync          Install deps (incl dev)\n"
+	@printf "  make uv-sync          Install deps (incl dev)\n" . . your-super-secret-and-long-django-admin-password
 	@printf "  make venv             Create .venv (uv-managed)\n"
 	@printf "  make venv-reset       Recreate .venv from scratch\n"
 	@printf "  make run              Run Django locally (no Docker)\n"

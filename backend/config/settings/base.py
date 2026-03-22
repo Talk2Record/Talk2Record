@@ -6,6 +6,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # talk2record/
@@ -67,6 +69,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # APPS
 # ------------------------------------------------------------------------------
 DJANGO_APPS = [
+    "unfold",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -74,6 +77,9 @@ DJANGO_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # "django.contrib.humanize", # Handy template tags
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.inlines",
     "django.contrib.admin",
     "django.forms",
 ]
@@ -220,8 +226,8 @@ TEMPLATES = [
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 # http://django-crispy-forms.readthedocs.io/en/latest/install.html#template-packs
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "unfold_crispy"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["unfold_crispy"]
 
 # FIXTURES
 # ------------------------------------------------------------------------------
@@ -258,6 +264,251 @@ MANAGERS = ADMINS
 # https://cookiecutter-django.readthedocs.io/en/latest/settings.html#other-environment-settings
 # Force the `admin` sign in process to go through the `django-allauth` workflow
 DJANGO_ADMIN_FORCE_ALLAUTH = env.bool("DJANGO_ADMIN_FORCE_ALLAUTH", default=False)
+
+UNFOLD = {
+    "SITE_TITLE": "Talk2Record Admin",
+    "SITE_HEADER": "Talk2Record",
+    "SITE_SUBHEADER": _("Operations Console"),
+    "SITE_URL": "/",
+    "SITE_SYMBOL": "mic",
+    "SITE_DROPDOWN": [
+        {
+            "icon": "dashboard",
+            "title": _("Admin dashboard"),
+            "link": reverse_lazy("admin:index"),
+        },
+        {
+            "icon": "home",
+            "title": _("Main site"),
+            "link": "/",
+        },
+    ],
+    "COMMAND": {
+        "search_models": [
+            "organizations.organization",
+            "records.record",
+            "notifications.notification",
+            "users.user",
+        ],
+        "show_history": True,
+    },
+    "DASHBOARD_CALLBACK": "talk2record.users.admin_dashboard.dashboard_callback",
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": _("Operations"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Dashboard"),
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                    {
+                        "title": _("Organizations"),
+                        "icon": "apartment",
+                        "link": reverse_lazy("admin:organizations_organization_changelist"),
+                    },
+                    {
+                        "title": _("Memberships"),
+                        "icon": "groups",
+                        "link": reverse_lazy("admin:organizations_membership_changelist"),
+                    },
+                    {
+                        "title": _("Records"),
+                        "icon": "description",
+                        "link": reverse_lazy("admin:records_record_changelist"),
+                    },
+                    {
+                        "title": _("Integrations"),
+                        "icon": "hub",
+                        "link": reverse_lazy("admin:integrations_integration_changelist"),
+                    },
+                    {
+                        "title": _("WhatsApp Routes"),
+                        "icon": "alt_route",
+                        "link": reverse_lazy("admin:integrations_whatsappinboundroute_changelist"),
+                    },
+                    {
+                        "title": _("Notifications"),
+                        "icon": "notifications",
+                        "link": reverse_lazy("admin:notifications_notification_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Insights"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Events"),
+                        "icon": "timeline",
+                        "link": reverse_lazy("admin:analytics_event_changelist"),
+                    },
+                    {
+                        "title": _("Daily Metrics"),
+                        "icon": "monitoring",
+                        "link": reverse_lazy("admin:analytics_dailymetric_changelist"),
+                    },
+                    {
+                        "title": _("Audit Logs"),
+                        "icon": "history",
+                        "link": reverse_lazy("admin:audit_auditlog_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Billing & Legal"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Plans"),
+                        "icon": "sell",
+                        "link": reverse_lazy("admin:billing_plan_changelist"),
+                    },
+                    {
+                        "title": _("Subscriptions"),
+                        "icon": "receipt_long",
+                        "link": reverse_lazy("admin:billing_subscription_changelist"),
+                    },
+                    {
+                        "title": _("Transactions"),
+                        "icon": "payments",
+                        "link": reverse_lazy("admin:billing_transaction_changelist"),
+                    },
+                    {
+                        "title": _("Legal Documents"),
+                        "icon": "gavel",
+                        "link": reverse_lazy("admin:legal_legaldocumentversion_changelist"),
+                    },
+                    {
+                        "title": _("Legal Acceptances"),
+                        "icon": "fact_check",
+                        "link": reverse_lazy("admin:legal_userlegalacceptance_changelist"),
+                    },
+                    {
+                        "title": _("Legal Attestations"),
+                        "icon": "verified",
+                        "link": reverse_lazy("admin:legal_userlegalattestation_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Global Settings"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Users"),
+                        "icon": "people",
+                        "link": reverse_lazy("admin:users_user_changelist"),
+                    },
+                    {
+                        "title": _("Groups"),
+                        "icon": "manage_accounts",
+                        "link": reverse_lazy("admin:auth_group_changelist"),
+                    },
+                    {
+                        "title": _("API Credentials"),
+                        "icon": "key",
+                        "link": reverse_lazy("admin:integrations_apicredential_changelist"),
+                    },
+                    {
+                        "title": _("Organization API Keys"),
+                        "icon": "vpn_key",
+                        "link": reverse_lazy("admin:organizations_organizationapikey_changelist"),
+                    },
+                    {
+                        "title": _("Sites"),
+                        "icon": "public",
+                        "link": reverse_lazy("admin:sites_site_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Identity & Access"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Email Addresses"),
+                        "icon": "alternate_email",
+                        "link": reverse_lazy("admin:account_emailaddress_changelist"),
+                    },
+                    {
+                        "title": _("Authenticators"),
+                        "icon": "password",
+                        "link": reverse_lazy("admin:mfa_authenticator_changelist"),
+                    },
+                    {
+                        "title": _("Social Accounts"),
+                        "icon": "person_add",
+                        "link": reverse_lazy("admin:socialaccount_socialaccount_changelist"),
+                    },
+                    {
+                        "title": _("Social Apps"),
+                        "icon": "apps",
+                        "link": reverse_lazy("admin:socialaccount_socialapp_changelist"),
+                    },
+                    {
+                        "title": _("Social Tokens"),
+                        "icon": "token",
+                        "link": reverse_lazy("admin:socialaccount_socialtoken_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Background Jobs"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Periodic Tasks"),
+                        "icon": "schedule",
+                        "link": reverse_lazy("admin:django_celery_beat_periodictask_changelist"),
+                    },
+                    {
+                        "title": _("Interval Schedules"),
+                        "icon": "timer",
+                        "link": reverse_lazy("admin:django_celery_beat_intervalschedule_changelist"),
+                    },
+                    {
+                        "title": _("Crontab Schedules"),
+                        "icon": "calendar_month",
+                        "link": reverse_lazy("admin:django_celery_beat_crontabschedule_changelist"),
+                    },
+                    {
+                        "title": _("Clocked Schedules"),
+                        "icon": "alarm",
+                        "link": reverse_lazy("admin:django_celery_beat_clockedschedule_changelist"),
+                    },
+                    {
+                        "title": _("Solar Schedules"),
+                        "icon": "wb_sunny",
+                        "link": reverse_lazy("admin:django_celery_beat_solarschedule_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Security Tokens"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Outstanding Tokens"),
+                        "icon": "key",
+                        "link": reverse_lazy("admin:token_blacklist_outstandingtoken_changelist"),
+                    },
+                    {
+                        "title": _("Blacklisted Tokens"),
+                        "icon": "block",
+                        "link": reverse_lazy("admin:token_blacklist_blacklistedtoken_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+}
 
 # LOGGING
 # ------------------------------------------------------------------------------

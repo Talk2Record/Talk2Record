@@ -10,6 +10,7 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
+from talk2record.admin_unfold import ensure_unfold_admin_site
 from talk2record.analytics.views import AnalyticsSnapshotView
 from talk2record.analytics.views import DashboardOverviewView
 from talk2record.billing.views import BillingWebhookView
@@ -23,6 +24,8 @@ from talk2record.users.views import PasswordResetRequestView
 from talk2record.users.views import RegisterView
 from talk2record.users.views import SettingsProfileView
 from talk2record.users.views import UserTokenObtainPairView
+
+ensure_unfold_admin_site()
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
