@@ -18,7 +18,7 @@ Talk2Record is a SaaS frontend for converting WhatsApp voice notes into structur
 
 - Marketing: `/`, `/features`, `/pricing`, `/docs`
 - Auth: `/login`, `/register`, `/forgot-password`, `/onboarding`
-- Dashboard: `/dashboard`, `/dashboard/records`, `/dashboard/analytics`, `/dashboard/integrations`, `/dashboard/billing`, `/dashboard/settings`
+- Dashboard: `/dashboard`, `/dashboard/records`, `/dashboard/analytics`, `/dashboard/billing`, `/dashboard/settings`
 
 ## Architecture
 
@@ -42,4 +42,4 @@ npm run typecheck
 
 - Supported locales: `en`, `es`, `fr`
 - Supported currencies: `USD`, `EUR`, `GBP`, `KES`, `INR`
-- Billing, analytics, onboarding, and integrations are wired through the Django backend APIs
+- Billing, analytics, and onboarding are wired through the Django backend APIs

@@ -1,3 +1,8 @@
+/**
+ * NextAuth configuration for optional Google OAuth.
+ * Not used for the default app session — JWT from Django is canonical (see docs/AUTH.md).
+ * The app wraps SessionProvider only when NEXT_PUBLIC_GOOGLE_WORKSPACE_LOGIN is also true.
+ */
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { UserRole } from "@/shared/lib/auth/types";

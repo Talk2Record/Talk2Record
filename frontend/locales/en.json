@@ -39,6 +39,7 @@
     "integrations": "Integrations",
     "billing": "Billing",
     "settings": "Settings",
+    "apiKeys": "API keys",
     "logout": "Logout",
     "login": "Login",
     "register": "Register",

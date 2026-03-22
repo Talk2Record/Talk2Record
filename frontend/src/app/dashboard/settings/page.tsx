@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { settingsService } from "@/services/platform-service";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { Button } from "@/shared/ui/button";
@@ -50,6 +51,20 @@ export default function SettingsPage() {
           Manage workspace details, locale defaults, and account preferences.
         </p>
       </div>
+
+      <Card className="border-primary/10">
+        <CardHeader>
+          <CardTitle>API keys</CardTitle>
+          <CardDescription>
+            Issue scoped keys for public ingestion and integrations. Owners and admins only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" className="rounded-xl" asChild>
+            <Link href="/dashboard/settings/api-keys">Manage API keys</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/10">
         <CardHeader>

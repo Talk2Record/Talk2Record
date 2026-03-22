@@ -70,16 +70,6 @@ export interface AnalyticsSnapshot {
   heatmapSummary: string[];
 }
 
-export interface IntegrationItem {
-  id: string;
-  name: string;
-  description: string;
-  status: "connected" | "attention" | "available";
-  lastSync: string;
-  endpoint?: string;
-  maskedSecret?: string;
-}
-
 export interface Invoice {
   id: string;
   amount: number;
@@ -116,4 +106,42 @@ export interface SettingsProfile {
   timezone: string;
   defaultLanguage: string;
   defaultCurrency: SupportedCurrency;
+}
+
+export type OrganizationApiKeyScopePreset = "ingestion" | "ingestion_plus_read";
+
+export interface OrganizationApiKeyRow {
+  id: number;
+  name: string;
+  scopes: string[];
+  is_active: boolean;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  rate_limit_per_minute: number | null;
+  lastUsedAt: string | null;
+  lastUsedIp: string | null;
+  lastUsedUserAgent: string | null;
+  created_at: string;
+}
+
+export interface CreateOrganizationApiKeyInput {
+  name: string;
+  scopePreset: OrganizationApiKeyScopePreset;
+  expiresInDays?: number;
+  rateLimitPerMinute?: number;
+}
+
+export interface CreateOrganizationApiKeyResponse {
+  apiKey: string;
+  key: OrganizationApiKeyRow;
+}
+
+export interface OrganizationApiKeyAuditEvent {
+  id: number;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actorEmail: string | null;
 }

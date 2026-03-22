@@ -3,7 +3,6 @@ import type {
   AuthUser,
   BillingSnapshot,
   DashboardOverview,
-  IntegrationItem,
   LegalAcceptanceStatus,
   OnboardingStep,
   RecordItem,
@@ -47,16 +46,6 @@ interface BackendRecord {
   created_at: string;
 }
 
-interface BackendIntegration {
-  id: string;
-  name: string;
-  description: string;
-  status: IntegrationItem["status"];
-  endpoint?: string;
-  last_sync: string | null;
-  masked_secret?: string;
-}
-
 export function mapLegalAcceptanceStatus(
   legal: BackendLegalAcceptanceStatus
 ): LegalAcceptanceStatus {
@@ -97,18 +86,6 @@ export function mapRecord(record: BackendRecord): RecordItem {
     paymentMethod: record.payment_method,
     transcript: record.voice_transcript,
     confidenceScore: Number(record.confidence_score),
-  };
-}
-
-export function mapIntegration(integration: BackendIntegration): IntegrationItem {
-  return {
-    id: integration.id,
-    name: integration.name,
-    description: integration.description,
-    status: integration.status,
-    lastSync: integration.last_sync ? new Date(integration.last_sync).toLocaleString() : "Never",
-    endpoint: integration.endpoint || undefined,
-    maskedSecret: integration.masked_secret || undefined,
   };
 }
 

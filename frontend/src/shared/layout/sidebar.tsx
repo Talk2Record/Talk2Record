@@ -3,8 +3,8 @@
 import {
   BarChart3,
   CreditCard,
+  KeyRound,
   LayoutDashboard,
-  Link2,
   LogOut,
   Menu,
   ScrollText,
@@ -124,9 +124,9 @@ export const Sidebar = () => {
     { label: t("navigation.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     { label: t("navigation.records"), href: "/dashboard/records", icon: ScrollText },
     { label: t("navigation.analytics"), href: "/dashboard/analytics", icon: BarChart3 },
-    { label: t("navigation.integrations"), href: "/dashboard/integrations", icon: Link2 },
     { label: t("navigation.billing"), href: "/dashboard/billing", icon: CreditCard },
     { label: t("navigation.settings"), href: "/dashboard/settings", icon: Settings },
+    { label: t("navigation.apiKeys"), href: "/dashboard/settings/api-keys", icon: KeyRound },
   ];
 
   return (

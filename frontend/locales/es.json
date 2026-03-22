@@ -39,6 +39,7 @@
     "integrations": "Integraciones",
     "billing": "Facturación",
     "settings": "Configuración",
+    "apiKeys": "Claves API",
     "logout": "Cerrar sesión",
     "login": "Iniciar sesión",
     "register": "Registrarse",

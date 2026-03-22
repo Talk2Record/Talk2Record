@@ -3,8 +3,12 @@ import type {
   AnalyticsSnapshot,
   AuthUser,
   BillingSnapshot,
+  CreateOrganizationApiKeyInput,
+  CreateOrganizationApiKeyResponse,
   DashboardOverview,
   OnboardingStep,
+  OrganizationApiKeyAuditEvent,
+  OrganizationApiKeyRow,
   SettingsProfile,
 } from "@/types/platform";
 import {
@@ -12,7 +16,6 @@ import {
   mapAuthUser,
   mapBillingSnapshot,
   mapDashboardOverview,
-  mapIntegration,
   mapOnboardingSteps,
   mapRecord,
   mapSettingsProfile,
@@ -98,26 +101,6 @@ export const analyticsService = {
   },
 };
 
-export const integrationsService = {
-  async list() {
-    const response = await api.get<Array<Parameters<typeof mapIntegration>[0]>>("/integrations/");
-    return response.data.map(mapIntegration);
-  },
-
-  async testConnection(payload: {
-    id: string;
-    secret?: string;
-    endpoint?: string;
-    confirmedPermission?: boolean;
-  }) {
-    const response = await api.post<{ status: string; maskedSecret?: string }>(
-      "/integration-actions/test_connection/",
-      payload
-    );
-    return response.data;
-  },
-};
-
 export const billingService = {
   async getSnapshot() {
     const response = await api.get<BillingSnapshot>("/billing/");
@@ -149,5 +132,40 @@ export const settingsService = {
   async updateProfile(payload: SettingsProfile) {
     const response = await api.patch<SettingsProfile>("/settings/", payload);
     return mapSettingsProfile(response.data);
+  },
+};
+
+export const organizationApiKeysService = {
+  async list(includeInactive: boolean) {
+    const response = await api.get<OrganizationApiKeyRow[]>("/organization-api-keys/", {
+      params: includeInactive ? { includeInactive: true } : undefined,
+    });
+    return response.data;
+  },
+
+  async create(payload: CreateOrganizationApiKeyInput) {
+    const response = await api.post<CreateOrganizationApiKeyResponse>(
+      "/organization-api-keys/",
+      payload
+    );
+    return response.data;
+  },
+
+  async revoke(id: number) {
+    await api.post(`/organization-api-keys/${id}/revoke/`);
+  },
+
+  async rotate(id: number) {
+    const response = await api.post<CreateOrganizationApiKeyResponse>(
+      `/organization-api-keys/${id}/rotate/`
+    );
+    return response.data;
+  },
+
+  async auditEvents(id: number) {
+    const response = await api.get<OrganizationApiKeyAuditEvent[]>(
+      `/organization-api-keys/${id}/audit-events/`
+    );
+    return response.data;
   },
 };

@@ -18,7 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearSession = useAuthStore((state) => state.clearSession);
   const [isLoading, setIsLoading] = useState(false);
   const isAuthLoading = isLoading || !hasHydrated;
-  const isGoogleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+  /** NextAuth Google UI + SessionProvider only when OAuth is explicitly enabled end-to-end (see docs/AUTH.md). */
+  const isGoogleEnabled =
+    process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" &&
+    process.env.NEXT_PUBLIC_GOOGLE_WORKSPACE_LOGIN === "true";
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -142,6 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isGoogleEnabled) {
       throw new Error("Google sign-in is not enabled for this environment.");
     }
+    const { signIn } = await import("next-auth/react");
+    await signIn("google", { callbackUrl: "/dashboard" });
   }, [isGoogleEnabled]);
 
   const value = useMemo(
