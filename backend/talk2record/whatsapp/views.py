@@ -18,7 +18,7 @@ from talk2record.ingestion.observability import request_id_from_request
 from talk2record.ingestion.quotas import IngestionQuotaService
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
-from talk2record.integrations.services import get_active_integration
+from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 from talk2record.records.models import Record
 from talk2record.whatsapp.webhook import InboundWhatsAppMessage
 from talk2record.whatsapp.webhook import WhatsAppWebhookService
@@ -46,8 +46,7 @@ class WhatsAppWebhookView(APIView):
 
     def post(self, request):
         request_id = request_id_from_request(request)
-        integration = get_active_integration("whatsapp")
-        if integration is None:
+        if get_active_whatsapp_settings() is None:
             response = Response(
                 {"status": "ignored", "accepted": 0, "duplicates": 0},
                 status=status.HTTP_200_OK,

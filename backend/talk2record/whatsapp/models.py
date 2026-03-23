@@ -1,40 +1,43 @@
 from __future__ import annotations
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
-class Integration(models.Model):
-    slug = models.SlugField(unique=True)
+class WhatsAppSettings(models.Model):
+    """
+    Singleton (``pk=1``) for WhatsApp Cloud API: public config JSON and encrypted credential blob.
+    """
+
     enabled = models.BooleanField(default=True)
     config = models.JSONField(default=dict, blank=True)
+    encrypted_credential = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["slug"]
+        verbose_name = _("WhatsApp Cloud settings")
+        verbose_name_plural = _("WhatsApp Cloud settings")
 
     def __str__(self) -> str:
-        return self.slug
+        return "WhatsApp Cloud"
 
-
-class ApiCredential(models.Model):
-    integration = models.OneToOneField(
-        Integration,
-        on_delete=models.CASCADE,
-        related_name="credential",
-    )
-    encrypted_secret = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["integration__slug"]
-
-    def __str__(self) -> str:
-        return f"{self.integration.slug} credential"
+    @classmethod
+    def get_solo(cls) -> WhatsAppSettings:
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                "enabled": True,
+                "config": {},
+                "encrypted_credential": "",
+            },
+        )
+        return obj
 
 
 class WhatsAppInboundRoute(models.Model):
+    """Maps Meta ``phone_number_id`` to an organization for webhook routing."""
+
     phone_number_id = models.CharField(max_length=128, unique=True)
     organization = models.ForeignKey(
         "organizations.Organization",

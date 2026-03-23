@@ -105,7 +105,7 @@ LOCAL_APPS = [
     "talk2record.organizations",
     "talk2record.legal",
     "talk2record.records",
-    "talk2record.integrations",
+    "talk2record.core",
     "talk2record.whatsapp",
     "talk2record.ingestion",
     "talk2record.ai",
@@ -291,7 +291,9 @@ UNFOLD = {
             "records.record",
             "notifications.notification",
             "users.user",
-            "integrations.integration",
+            "whatsapp.whatsappsettings",
+            "ai.aisettings",
+            "billing.stripesettings",
             "ingestion.whatsapprawpayload",
         ],
         "show_history": True,
@@ -340,24 +342,31 @@ UNFOLD = {
                 "collapsible": True,
                 "items": [
                     {
-                        "title": _("Integrations"),
-                        "icon": "hub",
+                        "title": _("WhatsApp Cloud settings"),
+                        "icon": "tune",
                         "link": reverse_lazy(
-                            "admin:integrations_integration_changelist",
+                            "admin:whatsapp_whatsappsettings_changelist",
                         ),
                     },
                     {
-                        "title": _("API credentials"),
-                        "icon": "key",
+                        "title": _("Stripe / billing settings"),
+                        "icon": "payments",
                         "link": reverse_lazy(
-                            "admin:integrations_apicredential_changelist",
+                            "admin:billing_stripesettings_changelist",
+                        ),
+                    },
+                    {
+                        "title": _("AI provider settings"),
+                        "icon": "psychology",
+                        "link": reverse_lazy(
+                            "admin:ai_aisettings_changelist",
                         ),
                     },
                     {
                         "title": _("Inbound phone routes"),
                         "icon": "alt_route",
                         "link": reverse_lazy(
-                            "admin:integrations_whatsappinboundroute_changelist",
+                            "admin:whatsapp_whatsappinboundroute_changelist",
                         ),
                     },
                     {
@@ -441,9 +450,9 @@ UNFOLD = {
                         "link": reverse_lazy("admin:auth_group_changelist"),
                     },
                     {
-                        "title": _("API Credentials"),
+                        "title": _("Stripe / billing settings"),
                         "icon": "key",
-                        "link": reverse_lazy("admin:integrations_apicredential_changelist"),
+                        "link": reverse_lazy("admin:billing_stripesettings_changelist"),
                     },
                     {
                         "title": _("Organization API Keys"),

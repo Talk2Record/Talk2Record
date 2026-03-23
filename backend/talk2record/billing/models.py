@@ -4,6 +4,35 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class StripeSettings(models.Model):
+    """Singleton (``pk=1``) for Stripe (or configured provider) secrets and options."""
+
+    enabled = models.BooleanField(default=True)
+    config = models.JSONField(default=dict, blank=True)
+    encrypted_credential = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Stripe / billing provider settings")
+        verbose_name_plural = _("Stripe / billing provider settings")
+
+    def __str__(self) -> str:
+        return "Stripe"
+
+    @classmethod
+    def get_solo(cls) -> StripeSettings:
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                "enabled": True,
+                "config": {"provider": "stripe"},
+                "encrypted_credential": "",
+            },
+        )
+        return obj
+
+
 class Plan(models.Model):
     name = models.CharField(max_length=64)
     code = models.SlugField(unique=True)

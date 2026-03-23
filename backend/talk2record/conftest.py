@@ -14,10 +14,9 @@ from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
 from talk2record.events.models import DomainEvent as DomainEventRecord
-from talk2record.integrations.crypto import SecretVault
-from talk2record.integrations.models import ApiCredential
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import WhatsAppInboundRoute
+from talk2record.core.vault import SecretVault
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.notifications.models import Notification
 from talk2record.organizations.models import Membership
@@ -102,23 +101,18 @@ def subscription(organization: Organization, plan: Plan) -> Subscription:
 
 
 @pytest.fixture
-def integration(db) -> Integration:
-    integration, _ = Integration.objects.get_or_create(
-        slug="whatsapp",
-        defaults={
-            "enabled": True,
-            "config": {"verify_token": "verify-me"},
-        },
-    )
-    return integration
+def integration(db) -> WhatsAppSettings:
+    s = WhatsAppSettings.get_solo()
+    s.enabled = True
+    s.config = {"verify_token": "verify-me"}
+    s.encrypted_credential = SecretVault.encrypt("supersecret1234")
+    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
+    return s
 
 
 @pytest.fixture
-def api_credential(integration: Integration) -> ApiCredential:
-    return ApiCredential.objects.create(
-        integration=integration,
-        encrypted_secret=SecretVault.encrypt("supersecret1234"),
-    )
+def api_credential(integration: WhatsAppSettings) -> WhatsAppSettings:
+    return integration
 
 
 @pytest.fixture

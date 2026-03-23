@@ -3,17 +3,16 @@ from __future__ import annotations
 import pytest
 from django.core.management import call_command
 
+from talk2record.ai.models import AISettings
 from talk2record.analytics.models import DailyMetric
 from talk2record.analytics.models import Event
 from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Plan
+from talk2record.billing.models import StripeSettings
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
 from talk2record.events.models import DomainEvent
 from talk2record.events.names import RECORD_STORED
-from talk2record.integrations.models import ApiCredential
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import WhatsAppInboundRoute
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -24,24 +23,27 @@ from talk2record.seed.constants import INTEGRATION_DEFINITIONS
 from talk2record.seed.constants import PLAN_DEFINITIONS
 from talk2record.seed.time_range import SeedTimeRange
 from talk2record.users.models import User
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 
 EXPECTED_ORGANIZATIONS = 2
 EXPECTED_USERS = 6
-EXPECTED_INTEGRATIONS = len(INTEGRATION_DEFINITIONS)
+EXPECTED_PROVIDER_SETTINGS = len(INTEGRATION_DEFINITIONS)
 EXPECTED_PLANS = len(PLAN_DEFINITIONS)
 
 
 def _model_counts() -> dict[str, int]:
     return {
         "plans": Plan.objects.count(),
-        "integrations": Integration.objects.count(),
+        "whatsapp_settings_rows": WhatsAppSettings.objects.count(),
+        "ai_settings_rows": AISettings.objects.count(),
+        "stripe_settings_rows": StripeSettings.objects.count(),
         "organizations": Organization.objects.count(),
         "users": User.objects.count(),
         "memberships": Membership.objects.count(),
         "subscriptions": Subscription.objects.count(),
         "transactions": Transaction.objects.count(),
         "whatsapp_routes": WhatsAppInboundRoute.objects.count(),
-        "api_credentials": ApiCredential.objects.count(),
         "records": Record.objects.count(),
         "daily_metrics": DailyMetric.objects.count(),
         "events": Event.objects.count(),
@@ -79,7 +81,14 @@ def test_seed_data_command_is_idempotent(settings) -> None:
     first_counts = _model_counts()
 
     assert first_counts["plans"] >= EXPECTED_PLANS
-    assert first_counts["integrations"] >= EXPECTED_INTEGRATIONS
+    assert first_counts["whatsapp_settings_rows"] >= 1
+    assert first_counts["ai_settings_rows"] >= 1
+    assert first_counts["stripe_settings_rows"] >= 1
+    assert (
+        first_counts["whatsapp_settings_rows"]
+        + first_counts["ai_settings_rows"]
+        + first_counts["stripe_settings_rows"]
+    ) >= EXPECTED_PROVIDER_SETTINGS
     assert first_counts["organizations"] == EXPECTED_ORGANIZATIONS
     assert first_counts["users"] == EXPECTED_USERS
     assert first_counts["records"] == expected_records

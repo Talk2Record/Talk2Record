@@ -6,8 +6,8 @@ from talk2record.ai.providers.base import ExtractionResult
 from talk2record.ai.providers.mock import MockExtractionProvider
 from talk2record.ai.services.prompts import PromptTemplateService
 from talk2record.ai.validation.schemas import validate_extraction_payload
-from talk2record.integrations.services import get_active_integration
-from talk2record.integrations.services import get_active_integration_secret
+from talk2record.ai.runtime import get_active_ai_settings
+from talk2record.ai.runtime import get_ai_credential_plaintext
 
 
 class ExtractionService:
@@ -17,15 +17,16 @@ class ExtractionService:
 
     @classmethod
     def _provider(cls):
-        integration = get_active_integration("ai")
+        settings_row = get_active_ai_settings()
         configured = ""
-        if integration is not None:
+        if settings_row is not None:
+            cfg = settings_row.config if isinstance(settings_row.config, dict) else {}
             configured = str(
-                integration.config.get("extraction_provider")
-                or integration.config.get("provider")
+                cfg.get("extraction_provider")
+                or cfg.get("provider")
                 or "",
             ).strip()
-            get_active_integration_secret("ai")
+            get_ai_credential_plaintext()
         if not configured:
             configured = getattr(settings, "AI_EXTRACTION_PROVIDER", "mock")
         return cls._providers.get(configured, cls._providers["mock"])

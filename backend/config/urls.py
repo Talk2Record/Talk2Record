@@ -11,6 +11,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 from talk2record.admin_unfold import ensure_unfold_admin_site
+from talk2record.ai.connection_tests import test_ai_connection_view
+from talk2record.billing.connection_tests import test_stripe_connection_view
+from talk2record.whatsapp.connection_tests import test_whatsapp_connection_view
 from talk2record.analytics.views import AnalyticsSnapshotView
 from talk2record.analytics.views import DashboardOverviewView
 from talk2record.billing.views import BillingWebhookView
@@ -28,6 +31,21 @@ from talk2record.users.views import UserTokenObtainPairView
 ensure_unfold_admin_site()
 
 urlpatterns = [
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/tools/test-whatsapp-connection/",
+        admin.site.admin_view(test_whatsapp_connection_view),
+        name="admin_test_whatsapp_connection",
+    ),
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/tools/test-stripe-connection/",
+        admin.site.admin_view(test_stripe_connection_view),
+        name="admin_test_stripe_connection",
+    ),
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/tools/test-ai-connection/",
+        admin.site.admin_view(test_ai_connection_view),
+        name="admin_test_ai_connection",
+    ),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # Your stuff: custom urls includes go here

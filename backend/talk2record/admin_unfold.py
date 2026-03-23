@@ -10,6 +10,8 @@ def ensure_unfold_admin_site() -> None:
     templates and media resolve through django-unfold consistently.
     """
     admin.autodiscover()
+    # Named template extends Unfold's admin/index.html (not talk2record/.../admin/index.html in DIRS).
+    admin.site.index_template = "admin/provider_connection_index.html"
 
     for model, admin_instance in list(admin.site._registry.items()):
         admin_class = admin_instance.__class__

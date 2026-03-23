@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from talk2record.integrations.models import WhatsAppInboundRoute
-from talk2record.integrations.services import get_active_integration
 from talk2record.whatsapp.config import load_whatsapp_cloud_settings
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 
 if TYPE_CHECKING:
     from talk2record.organizations.models import Organization
@@ -54,10 +54,10 @@ class WhatsAppWebhookService:
 
     @staticmethod
     def verify_subscription_token(token: str) -> bool:
-        integration = get_active_integration("whatsapp")
-        if integration is None:
+        settings_row = get_active_whatsapp_settings()
+        if settings_row is None:
             return False
-        cfg = integration.config if isinstance(integration.config, dict) else {}
+        cfg = settings_row.config if isinstance(settings_row.config, dict) else {}
         configured = str(cfg.get("verify_token", "")).strip()
         return bool(configured) and hmac.compare_digest(configured, token)
 

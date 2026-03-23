@@ -26,8 +26,8 @@ def test_full_whatsapp_to_stored_notification_flow(
     STORED → AuditLog + Analytics Event + Notification + DomainEvent persisted
     """
     settings.CELERY_TASK_ALWAYS_EAGER = True
-    api_credential.encrypted_secret = ""
-    api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+    api_credential.encrypted_credential = ""
+    api_credential.save(update_fields=["encrypted_credential", "updated_at"])
 
     webhook_payload = {
         "entry": [

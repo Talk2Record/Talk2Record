@@ -18,8 +18,8 @@ def test_whatsapp_webhook_emits_record_created_and_ingestion_received_events(
     organization,
 ):
     settings.CELERY_TASK_ALWAYS_EAGER = True
-    api_credential.encrypted_secret = ""
-    api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+    api_credential.encrypted_credential = ""
+    api_credential.save(update_fields=["encrypted_credential", "updated_at"])
 
     webhook_payload = {
         "entry": [

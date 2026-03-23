@@ -15,10 +15,11 @@ from talk2record.analytics.models import Event
 from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.integrations.crypto import SecretVault
-from talk2record.integrations.models import ApiCredential
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import WhatsAppInboundRoute
+from talk2record.ai.models import AISettings
+from talk2record.billing.models import StripeSettings
+from talk2record.core.vault import SecretVault
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -252,27 +253,7 @@ class SeedWorkspaceBuilder:
         )
 
     def _ensure_integrations(self, *, organization: Organization, owner: User) -> None:
-        whatsapp = self.reference_data.integrations["whatsapp"]
-        stripe = self.reference_data.integrations["stripe"]
-        ai = self.reference_data.integrations["ai"]
-
-        self._ensure_api_credential(
-            integration=whatsapp,
-            plain_secret=json.dumps(
-                {
-                    "access_token": "seed-global-whatsapp-access-token",
-                    "app_secret": "seed-global-whatsapp-app-secret",
-                },
-            ),
-        )
-        self._ensure_api_credential(
-            integration=stripe,
-            plain_secret="seed-global-stripe-secret",
-        )
-        self._ensure_api_credential(
-            integration=ai,
-            plain_secret="seed-global-ai-secret",
-        )
+        self._ensure_global_provider_secrets()
         self._ensure_whatsapp_route(organization=organization)
         self._ensure_legal_attestation(
             user=owner,
@@ -299,20 +280,29 @@ class SeedWorkspaceBuilder:
             properties={"integration": "whatsapp", "status": "connected"},
         )
 
-    def _ensure_api_credential(
-        self,
-        *,
-        integration: Integration,
-        plain_secret: str,
-    ) -> ApiCredential:
-        credential, created = ApiCredential.objects.update_or_create(
-            integration=integration,
-            defaults={
-                "encrypted_secret": SecretVault.encrypt(plain_secret),
-            },
-        )
-        self.summary.bump("api_credentials", created=created, updated=not created)
-        return credential
+    def _ensure_global_provider_secrets(self) -> None:
+        w = WhatsAppSettings.get_solo()
+        if not (w.encrypted_credential or "").strip():
+            w.encrypted_credential = SecretVault.encrypt(
+                json.dumps(
+                    {
+                        "access_token": "seed-global-whatsapp-access-token",
+                        "app_secret": "seed-global-whatsapp-app-secret",
+                    },
+                ),
+            )
+            w.save(update_fields=["encrypted_credential", "updated_at"])
+            self.summary.bump("api_credentials", created=True)
+        stripe = StripeSettings.get_solo()
+        if not (stripe.encrypted_credential or "").strip():
+            stripe.encrypted_credential = SecretVault.encrypt("seed-global-stripe-secret")
+            stripe.save(update_fields=["encrypted_credential", "updated_at"])
+            self.summary.bump("api_credentials", created=True)
+        ai = AISettings.get_solo()
+        if not (ai.encrypted_credential or "").strip():
+            ai.encrypted_credential = SecretVault.encrypt("seed-global-ai-secret")
+            ai.save(update_fields=["encrypted_credential", "updated_at"])
+            self.summary.bump("api_credentials", created=True)
 
     def _ensure_whatsapp_route(self, *, organization: Organization) -> WhatsAppInboundRoute:
         route, created = WhatsAppInboundRoute.objects.update_or_create(

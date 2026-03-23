@@ -18,8 +18,8 @@ class WhatsAppMediaService:
       1. ``GET /{version}/{media_id}?phone_number_id=...`` → signed URL
       2. ``GET <signed_url>`` → bytes
 
-    Token, version, and default phone number ID come from the active WhatsApp
-    ``Integration`` + ``ApiCredential`` only.
+    Token, version, and default phone number ID come from
+    :class:`~talk2record.whatsapp.models.WhatsAppSettings`.
     """
 
     @classmethod

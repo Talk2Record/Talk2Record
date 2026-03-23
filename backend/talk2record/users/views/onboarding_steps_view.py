@@ -1,8 +1,8 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from talk2record.integrations.models import WhatsAppInboundRoute
-from talk2record.integrations.services import get_active_integration
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 from talk2record.records.models import Record
 from talk2record.users.serializers import OnboardingStepSerializer
 
@@ -16,7 +16,7 @@ class OnboardingStepsView(APIView):
 
         if organization is not None:
             has_whatsapp_connection = (
-                get_active_integration("whatsapp") is not None
+                get_active_whatsapp_settings() is not None
                 and WhatsAppInboundRoute.objects.filter(organization=organization).exists()
             )
             has_records = Record.objects.filter(organization=organization).exists()

@@ -4,8 +4,8 @@ from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
 
-from talk2record.integrations.services import get_active_integration
-from talk2record.integrations.services import get_active_integration_secret
+from talk2record.billing.stripe_runtime import get_active_stripe_settings
+from talk2record.billing.stripe_runtime import get_stripe_secret_plaintext
 
 
 @dataclass(frozen=True)
@@ -85,16 +85,17 @@ class BillingProviderRegistry:
 
     @classmethod
     def get_global_provider(cls) -> BillingProvider | None:
-        integration = get_active_integration("stripe")
-        if integration is None:
+        stripe_settings = get_active_stripe_settings()
+        if stripe_settings is None:
             return None
 
-        provider = str(integration.config.get("provider", "stripe")).strip().lower()
+        cfg = stripe_settings.config if isinstance(stripe_settings.config, dict) else {}
+        provider = str(cfg.get("provider", "stripe")).strip().lower()
         if provider not in cls._providers:
             return None
 
         # Force runtime credential resolution to ensure admin updates are effective.
-        secret = get_active_integration_secret("stripe")
+        secret = get_stripe_secret_plaintext()
         if secret is None:
             return None
         return cls._providers[provider]

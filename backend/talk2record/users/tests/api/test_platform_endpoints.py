@@ -15,9 +15,8 @@ from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.integrations.crypto import SecretVault
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import ApiCredential
+from talk2record.billing.models import StripeSettings
+from talk2record.core.vault import SecretVault
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -124,16 +123,13 @@ def daily_metric(workspace_user: User) -> DailyMetric:
 
 
 @pytest.fixture
-def global_stripe_integration() -> Integration:
-    integration, _ = Integration.objects.get_or_create(
-        slug="stripe",
-        defaults={"enabled": True, "config": {"provider": "stripe"}},
-    )
-    ApiCredential.objects.update_or_create(
-        integration=integration,
-        defaults={"encrypted_secret": SecretVault.encrypt("stripe-secret")},
-    )
-    return integration
+def global_stripe_settings() -> StripeSettings:
+    s = StripeSettings.get_solo()
+    s.enabled = True
+    s.config = {"provider": "stripe"}
+    s.encrypted_credential = SecretVault.encrypt("stripe-secret")
+    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
+    return s
 
 
 @pytest.mark.django_db
@@ -167,9 +163,9 @@ class TestPlatformEndpoints:
         self,
         authed_client: APIClient,
         subscription: Subscription,
-        global_stripe_integration: Integration,
+        global_stripe_settings: StripeSettings,
     ):
-        assert global_stripe_integration.slug == "stripe"
+        assert global_stripe_settings.enabled
         response = authed_client.post(
             reverse("api:billing-checkout"),
             {"plan": subscription.plan.code, "acceptedBillingTerms": False},
@@ -184,9 +180,9 @@ class TestPlatformEndpoints:
         workspace_user: User,
         subscription: Subscription,
         legal_versions: dict[str, LegalDocumentVersion],
-        global_stripe_integration: Integration,
+        global_stripe_settings: StripeSettings,
     ):
-        assert global_stripe_integration.slug == "stripe"
+        assert global_stripe_settings.enabled
         response = authed_client.post(
             reverse("api:billing-checkout"),
             {"plan": subscription.plan.code, "acceptedBillingTerms": True},

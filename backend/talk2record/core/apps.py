@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
-class IntegrationsConfig(AppConfig):
+class CoreConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "talk2record.integrations"
-    verbose_name = _("Integrations")
+    name = "talk2record.core"
+    verbose_name = _("Core")

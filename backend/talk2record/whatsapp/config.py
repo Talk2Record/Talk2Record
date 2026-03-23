@@ -5,11 +5,10 @@ from dataclasses import dataclass
 
 from django.core import signing
 
-from talk2record.integrations.crypto import SecretVault
-from talk2record.integrations.models import ApiCredential
-from talk2record.integrations.services import get_active_integration
+from talk2record.core.vault import SecretVault
+from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 
-# Maps Postman / Meta dashboard concepts to ``Integration.config`` keys:
+# Maps Meta / Graph dashboard concepts to ``WhatsAppSettings.config`` keys:
 #   Version              -> graph_api_version (e.g. "v21.0")
 #   Phone-Number-ID      -> phone_number_id
 #   WABA-ID              -> waba_id
@@ -23,7 +22,7 @@ DEFAULT_GRAPH_API_VERSION = "v21.0"
 
 def parse_whatsapp_credential_blob(decrypted: str) -> tuple[str, str]:
     """
-    Decrypted ``ApiCredential`` value: either a JSON object with ``access_token`` /
+    Decrypted credential value: either a JSON object with ``access_token`` /
     ``app_secret``, or a plain string treated as the Graph access token only.
     """
     raw = (decrypted or "").strip()
@@ -54,24 +53,23 @@ class WhatsAppCloudSettings:
 
 def load_whatsapp_cloud_settings() -> WhatsAppCloudSettings | None:
     """
-    Load WhatsApp Cloud settings from the active ``whatsapp`` integration only.
-    Returns ``None`` when the integration is missing or disabled.
+    Load WhatsApp Cloud settings from :class:`~talk2record.whatsapp.models.WhatsAppSettings`.
+    Returns ``None`` when settings are missing or disabled.
     """
-    integration = get_active_integration("whatsapp")
-    if integration is None:
+    settings_row = get_active_whatsapp_settings()
+    if settings_row is None:
         return None
 
     access_token = ""
     app_secret = ""
-    credential = ApiCredential.objects.filter(integration=integration).first()
-    if credential and credential.encrypted_secret:
+    if settings_row.encrypted_credential:
         try:
-            decrypted = SecretVault.decrypt(credential.encrypted_secret)
+            decrypted = SecretVault.decrypt(settings_row.encrypted_credential)
         except signing.BadSignature:
             decrypted = ""
         access_token, app_secret = parse_whatsapp_credential_blob(decrypted)
 
-    cfg = integration.config if isinstance(integration.config, dict) else {}
+    cfg = settings_row.config if isinstance(settings_row.config, dict) else {}
     version = str(cfg.get("graph_api_version", "") or "").strip() or DEFAULT_GRAPH_API_VERSION
 
     return WhatsAppCloudSettings(

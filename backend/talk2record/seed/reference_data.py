@@ -2,19 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from talk2record.ai.models import AISettings
 from talk2record.billing.models import Plan
-from talk2record.integrations.models import Integration
+from talk2record.billing.models import StripeSettings
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.seed.constants import INTEGRATION_DEFINITIONS
 from talk2record.seed.constants import PLAN_DEFINITIONS
+from talk2record.whatsapp.models import WhatsAppSettings
 
 
 @dataclass(frozen=True, slots=True)
 class ReferenceData:
     legal_versions: dict[str, LegalDocumentVersion]
     plans: dict[str, Plan]
-    integrations: dict[str, Integration]
 
 
 def sync_reference_data(summary) -> ReferenceData:
@@ -44,20 +45,29 @@ def sync_reference_data(summary) -> ReferenceData:
         summary.bump("plans", created=created, updated=not created)
         plans[plan.code] = plan
 
-    integrations: dict[str, Integration] = {}
     for integration_definition in INTEGRATION_DEFINITIONS:
-        integration, created = Integration.objects.update_or_create(
-            slug=integration_definition["slug"],
-            defaults={
-                "enabled": True,
-                "config": dict(integration_definition["config"]),
-            },
-        )
-        summary.bump("integration_catalog", created=created, updated=not created)
-        integrations[integration.slug] = integration
+        slug = integration_definition["slug"]
+        cfg = dict(integration_definition["config"])
+        if slug == "whatsapp":
+            _, created = WhatsAppSettings.objects.update_or_create(
+                pk=1,
+                defaults={"enabled": True, "config": cfg},
+            )
+            summary.bump("integration_catalog", created=created, updated=not created)
+        elif slug == "stripe":
+            _, created = StripeSettings.objects.update_or_create(
+                pk=1,
+                defaults={"enabled": True, "config": cfg},
+            )
+            summary.bump("integration_catalog", created=created, updated=not created)
+        elif slug == "ai":
+            _, created = AISettings.objects.update_or_create(
+                pk=1,
+                defaults={"enabled": True, "config": cfg},
+            )
+            summary.bump("integration_catalog", created=created, updated=not created)
 
     return ReferenceData(
         legal_versions=legal_versions,
         plans=plans,
-        integrations=integrations,
     )

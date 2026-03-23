@@ -9,9 +9,8 @@ from talk2record.billing.providers import BillingProviderRegistry
 from talk2record.billing.tasks import handle_domain_event_for_billing
 from talk2record.events.names import BILLING_PAYMENT_FAILED
 from talk2record.events.names import BILLING_SUBSCRIPTION_CREATED
-from talk2record.integrations.crypto import SecretVault
-from talk2record.integrations.models import ApiCredential
-from talk2record.integrations.models import Integration
+from talk2record.billing.models import StripeSettings
+from talk2record.core.vault import SecretVault
 from talk2record.notifications.models import Notification
 
 
@@ -48,6 +47,7 @@ def test_billing_admin_pages(admin_client, subscription):
         reverse("admin:billing_plan_changelist"),
         reverse("admin:billing_subscription_changelist"),
         reverse("admin:billing_transaction_changelist"),
+        reverse("admin:billing_stripesettings_changelist"),
     ]
 
     for url in urls:
@@ -56,18 +56,14 @@ def test_billing_admin_pages(admin_client, subscription):
 
 
 @pytest.mark.django_db
-def test_global_stripe_provider_requires_active_integration_with_credential():
+def test_global_stripe_provider_requires_enabled_settings_with_credential():
     assert BillingProviderRegistry.get_global_provider() is None
 
-    integration = Integration.objects.create(
-        slug="stripe",
-        enabled=True,
-        config={"provider": "stripe"},
-    )
-    ApiCredential.objects.create(
-        integration=integration,
-        encrypted_secret=SecretVault.encrypt("stripe-secret"),
-    )
+    s = StripeSettings.get_solo()
+    s.enabled = True
+    s.config = {"provider": "stripe"}
+    s.encrypted_credential = SecretVault.encrypt("stripe-secret")
+    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
 
     provider = BillingProviderRegistry.get_global_provider()
     assert provider is not None

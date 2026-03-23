@@ -10,8 +10,8 @@ from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.integrations.models import Integration
-from talk2record.integrations.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
 from talk2record.organizations.models import Membership
@@ -319,11 +319,10 @@ class TestJWTAuthAPI:
         Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
-        Integration.objects.create(
-            slug="whatsapp",
-            enabled=True,
-            config={"verify_token": "verify-me"},
-        )
+        ws = WhatsAppSettings.get_solo()
+        ws.enabled = True
+        ws.config = {"verify_token": "verify-me"}
+        ws.save(update_fields=["enabled", "config", "updated_at"])
         WhatsAppInboundRoute.objects.create(
             organization=organization,
             phone_number_id="123456789",

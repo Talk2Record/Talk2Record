@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from talk2record.ingestion.models import WhatsAppRawPayload
 from talk2record.records.models import Record
+from talk2record.whatsapp.models import WhatsAppSettings
 
 
 @pytest.mark.django_db
@@ -86,8 +87,8 @@ class TestWhatsAppWebhook:
         integration.config = {"verify_token": "verify-me"}
         integration.enabled = True
         integration.save(update_fields=["config", "enabled", "updated_at"])
-        api_credential.encrypted_secret = ""
-        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        api_credential.encrypted_credential = ""
+        api_credential.save(update_fields=["encrypted_credential", "updated_at"])
 
         queued: list[tuple[int, int | None, str, str]] = []
         published_events: list[str] = []
@@ -159,8 +160,8 @@ class TestWhatsAppWebhook:
     ):
         integration.enabled = True
         integration.save(update_fields=["enabled", "updated_at"])
-        api_credential.encrypted_secret = ""
-        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        api_credential.encrypted_credential = ""
+        api_credential.save(update_fields=["encrypted_credential", "updated_at"])
         assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
             "talk2record.whatsapp.views.process_whatsapp_record.delay",
@@ -206,8 +207,8 @@ class TestWhatsAppWebhook:
         settings.INGESTION_DAILY_RECORD_LIMIT_PER_ORG = 1
         integration.enabled = True
         integration.save(update_fields=["enabled", "updated_at"])
-        api_credential.encrypted_secret = ""
-        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        api_credential.encrypted_credential = ""
+        api_credential.save(update_fields=["encrypted_credential", "updated_at"])
         assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
             "talk2record.whatsapp.views.process_whatsapp_record.delay",
@@ -254,11 +255,15 @@ class TestWhatsAppWebhook:
         assert first.data["accepted"] == 1
         assert second.data["accepted"] == 0
 
-    def test_post_ignores_when_integration_missing(
+    def test_post_ignores_when_whatsapp_inactive(
         self,
+        db,
         api_client: APIClient,
         webhook_payload: dict,
     ):
+        s = WhatsAppSettings.get_solo()
+        s.enabled = False
+        s.save(update_fields=["enabled", "updated_at"])
         response = api_client.post(
             reverse("api-whatsapp-webhook"),
             data=webhook_payload,
@@ -280,8 +285,8 @@ class TestWhatsAppWebhook:
     ):
         integration.enabled = True
         integration.save(update_fields=["enabled", "updated_at"])
-        api_credential.encrypted_secret = ""
-        api_credential.save(update_fields=["encrypted_secret", "updated_at"])
+        api_credential.encrypted_credential = ""
+        api_credential.save(update_fields=["encrypted_credential", "updated_at"])
         secondary_org = Organization.objects.create(name="Secondary Org", slug="secondary-org")
         whatsapp_route.phone_number_id = "route-a"
         whatsapp_route.save(update_fields=["phone_number_id", "updated_at"])
