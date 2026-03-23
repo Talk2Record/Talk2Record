@@ -479,7 +479,6 @@ class SeedWorkspaceBuilder:
         ]
         from talk2record.ai.services.extraction import ExtractionService
         from talk2record.ai.services.transcription import TranscriptionService
-        from talk2record.records.models import RecordArtifact
 
         extraction_hint = {
             "customer_name": customer_name,
@@ -520,30 +519,11 @@ class SeedWorkspaceBuilder:
             RecordProcessingService.save_extraction_artifact(record, extraction_result)
 
         if desired_status == Record.Status.STORED:
-            record.status = Record.Status.STORED
+            was_stored = record.status == Record.Status.STORED
             record.processing_error = ""
-            record.save(update_fields=["status", "processing_error", "updated_at"])
-            self._ensure_audit_log(
-                action="record.stored",
-                resource_type="record",
-                resource_id=str(record.pk),
-                actor=user,
-                organization=organization,
-                created_at=occurred_at + timedelta(minutes=4),
-                metadata={"source": record.source, "seed_key": source_reference},
-            )
-            self._ensure_event(
-                name="record_stored",
-                category="records",
-                organization=organization,
-                seed_key=f"record-stored:{source_reference}",
-                occurred_at=occurred_at + timedelta(minutes=4),
-                properties={
-                    "recordId": record.pk,
-                    "source": record.source,
-                    "status": Record.Status.STORED,
-                },
-            )
+            record.save(update_fields=["processing_error", "updated_at"])
+            if not was_stored:
+                RecordProcessingService.store(record)
         elif desired_status == Record.Status.REVIEW:
             self._ensure_event(
                 name="record_review_pending",

@@ -13,7 +13,6 @@ class SeedDataOrchestrator:
     def __init__(self, *, options: SeedOptions) -> None:
         self.options = options
 
-    @transaction.atomic
     def run(self) -> SeedSummary:
         summary = SeedSummary()
         time_range = SeedTimeRange.from_lookback(
@@ -21,7 +20,8 @@ class SeedDataOrchestrator:
             months=self.options.months,
             years=self.options.years,
         )
-        reference_data = sync_reference_data(summary)
+        with transaction.atomic():
+            reference_data = sync_reference_data(summary)
         builder = SeedWorkspaceBuilder(
             options=self.options,
             reference_data=reference_data,

@@ -36,7 +36,10 @@ help:
 	@printf "  make migrate          Run migrations inside container\n"
 	@printf "  make makemigrations   Create migrations inside container\n"
 	@printf "  make createsuperuser  Create admin user inside container\n"
-	@printf "  make seed ARGS='..'   Run seed data inside container\n"
+	@printf "  make seed ARGS='..'   Run seed_data in container (args are appended to seed_data)\n"
+	@printf "  make seed-sample      Same as seed with 5 demo records (1 org, 1 calendar day)\n"
+	@printf "                        Tip: --days 0 = one calendar day; --days 1 spans two days\n"
+	@printf "                        Flags: --days --months --years --orgs --users-per-org --records-per-day --password\n"
 	@printf "  make collectstatic    Collect static files inside container\n"
 	@printf "  make flower           Start Flower (Celery monitor)\n"
 	@printf "\nDocs:\n"
@@ -44,7 +47,7 @@ help:
 	@printf "  make apidocs          Generate docs sources from docstrings\n"
 	@printf "\nPython (uv):\n"
 	@printf "  make deps-mac         Install macOS build deps (psycopg)\n"
-	@printf "  make uv-sync          Install deps (incl dev)\n" . . your-super-secret-and-long-django-admin-password
+	@printf "  make uv-sync          Install deps (incl dev)\n"
 	@printf "  make venv             Create .venv (uv-managed)\n"
 	@printf "  make venv-reset       Recreate .venv from scratch\n"
 	@printf "  make run              Run Django locally (no Docker)\n"
@@ -123,9 +126,16 @@ makemigrations:
 createsuperuser:
 	$(COMPOSE_LOCAL) run --rm django python ./manage.py createsuperuser
 
+# Demo records per org ≈ (calendar days in lookback window) × --records-per-day.
+# One calendar day: --days 0. With --days 1 the window includes two dates → 2× as many rows.
 .PHONY: seed
 seed:
 	$(COMPOSE_LOCAL) run --rm django python ./manage.py seed_data $(ARGS)
+
+# Five sample records: 1 org × 1 day × 5 records/day (see seed comment above).
+.PHONY: seed-sample
+seed-sample:
+	$(COMPOSE_LOCAL) run --rm django python ./manage.py seed_data --orgs 1 --days 0 --records-per-day 5 --users-per-org 1
 
 .PHONY: collectstatic
 collectstatic:

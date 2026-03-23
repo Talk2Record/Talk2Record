@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from django.core.management import call_command
 
 from talk2record.analytics.models import DailyMetric
@@ -8,6 +9,8 @@ from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
+from talk2record.events.models import DomainEvent
+from talk2record.events.names import RECORD_STORED
 from talk2record.integrations.models import ApiCredential
 from talk2record.integrations.models import Integration
 from talk2record.integrations.models import WhatsAppInboundRoute
@@ -46,10 +49,13 @@ def _model_counts() -> dict[str, int]:
         "legal_versions": LegalDocumentVersion.objects.count(),
         "legal_acceptances": UserLegalAcceptance.objects.count(),
         "legal_attestations": UserLegalAttestation.objects.count(),
+        "domain_events": DomainEvent.objects.count(),
     }
 
 
-def test_seed_data_command_is_idempotent(db) -> None:
+@pytest.mark.django_db(transaction=True)
+def test_seed_data_command_is_idempotent(settings) -> None:
+    settings.CELERY_TASK_ALWAYS_EAGER = True
     options = {
         "days": 3,
         "months": 0,
@@ -80,6 +86,8 @@ def test_seed_data_command_is_idempotent(db) -> None:
     assert first_counts["daily_metrics"] == expected_daily_metrics
     assert first_counts["events"] > 0
     assert first_counts["audit_logs"] > 0
+    assert first_counts["domain_events"] > 0
+    assert DomainEvent.objects.filter(name=RECORD_STORED).exists()
 
     call_command("seed_data", **options)
     second_counts = _model_counts()

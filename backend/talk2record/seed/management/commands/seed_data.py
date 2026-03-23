@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
+from django.test.utils import override_settings
 
 from talk2record.seed.builders import SeedOptions
 from talk2record.seed.constants import DEFAULT_DAYS
@@ -63,7 +64,8 @@ class Command(BaseCommand):
             records_per_day=options["records_per_day"],
             password=options["password"],
         )
-        summary = SeedDataOrchestrator(options=seed_options).run()
+        with override_settings(CELERY_TASK_ALWAYS_EAGER=True):
+            summary = SeedDataOrchestrator(options=seed_options).run()
 
         self.stdout.write(self.style.SUCCESS("Seed data generation complete."))
         for bucket, created, updated in summary.rows():
