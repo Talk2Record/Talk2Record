@@ -1,9 +1,28 @@
 from rest_framework import serializers
 
-from talk2record.records.models import Record
+from talk2record.records.models import Record, RecordArtifact
+
+
+class RecordArtifactSerializer(serializers.ModelSerializer[RecordArtifact]):
+    class Meta:
+        model = RecordArtifact
+        fields = [
+            "id",
+            "key",
+            "artifact_type",
+            "content",
+            "provider",
+            "model",
+            "prompt_version",
+            "schema_version",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class RecordSerializer(serializers.ModelSerializer[Record]):
+    artifacts = RecordArtifactSerializer(many=True, read_only=True)
+
     class Meta:
         model = Record
         fields = [
@@ -11,19 +30,10 @@ class RecordSerializer(serializers.ModelSerializer[Record]):
             "organization",
             "source",
             "source_reference",
+            "type",
             "status",
-            "customer_name",
-            "product",
-            "quantity",
-            "amount",
-            "currency",
-            "payment_method",
-            "voice_transcript",
-            "confidence_score",
-            "ai_transcription_provider",
-            "ai_extraction_provider",
-            "ai_prompt_version",
             "audio_url",
+            "media_id",
             "processing_error",
             "processing_error_step",
             "processing_retry_count",
@@ -31,14 +41,11 @@ class RecordSerializer(serializers.ModelSerializer[Record]):
             "dead_lettered_at",
             "created_at",
             "updated_at",
+            "artifacts",
         ]
         read_only_fields = [
             "status",
-            "voice_transcript",
-            "confidence_score",
-            "ai_transcription_provider",
-            "ai_extraction_provider",
-            "ai_prompt_version",
+            "media_id",
             "processing_error",
             "processing_error_step",
             "processing_retry_count",
@@ -46,4 +53,5 @@ class RecordSerializer(serializers.ModelSerializer[Record]):
             "dead_lettered_at",
             "created_at",
             "updated_at",
+            "artifacts",
         ]

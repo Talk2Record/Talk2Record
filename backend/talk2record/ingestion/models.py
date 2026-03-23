@@ -11,6 +11,7 @@ class WhatsAppRawPayload(models.Model):
     )
     message_id = models.CharField(max_length=255, unique=True)
     payload = models.JSONField(default=dict, blank=True)
+    media_id = models.CharField(max_length=255, blank=True)
     media_url = models.URLField(blank=True)
     received_at = models.DateTimeField(auto_now_add=True)
     processed = models.BooleanField(default=False)

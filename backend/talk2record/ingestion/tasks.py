@@ -8,6 +8,17 @@ from django.utils import timezone
 
 from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import AI_EXTRACTION_COMPLETED
+from talk2record.events.names import AI_EXTRACTION_FAILED
+from talk2record.events.names import AI_EXTRACTION_STARTED
+from talk2record.events.names import AI_TRANSCRIPTION_COMPLETED
+from talk2record.events.names import AI_TRANSCRIPTION_FAILED
+from talk2record.events.names import AI_TRANSCRIPTION_STARTED
+from talk2record.events.names import RECORD_PROCESSING_COMPLETED
+from talk2record.events.names import RECORD_PROCESSING_FAILED
+from talk2record.events.names import RECORD_PROCESSING_STARTED
 from talk2record.ingestion.models import WhatsAppRawPayload
 from talk2record.ingestion.observability import log_ingestion_event
 from talk2record.notifications.models import Notification
@@ -22,122 +33,139 @@ from talk2record.usage.services import UsageTrackingService
 MAX_STEP_RETRIES = 3
 
 
-def _notify_record_failed(record: Record, error: str) -> None:
-    if record.created_by_id:
-        NotificationService.create(
-            user=record.created_by,
-            notification_type=Notification.Type.RECORD_FAILED,
-            title="Voice note processing failed",
-            message=error or "An error occurred while processing your voice note.",
-            organization=record.organization,
-            metadata={"record_id": record.pk},
-        )
+class ProcessingStepRunner:
+    """
+    Orchestrates the three-step transcribe → extract → store pipeline for a
+    single Record.  Each step is executed with retry logic; permanent failures
+    dead-letter the record.
 
+    Single Responsibility: step execution, retry management, and lifecycle
+    event publishing.  Domain concerns (artifact persistence, store event) live
+    in RecordProcessingService.
+    """
 
-def _append_processing_state(
-    record: Record,
-    status: str,
-    details: dict | None = None,
-) -> None:
-    RecordProcessingState.objects.create(
-        record=record,
-        status=status,
-        details=details or {},
-    )
-    NotificationService.broadcast_record_event(
-        organization=record.organization,
-        record_id=record.pk,
-        status=status,
-        event_type="record_updated",
-        summary="Record processing status changed.",
-    )
+    def __init__(self, record: Record, request_id: str = "", event_id: str = "") -> None:
+        self.record = record
+        self.request_id = request_id or str(uuid4())
+        self.event_id = event_id or str(uuid4())
 
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
-def _run_step(*, record: Record, step: str) -> None:
-    if step == "transcribe":
+    def run(self) -> None:
+        """Execute all three pipeline steps in order."""
+        self._execute_with_retries("transcribe")
+        self._execute_with_retries("extract")
+        self._execute_with_retries("store")
+
+    # ------------------------------------------------------------------
+    # Step implementations
+    # ------------------------------------------------------------------
+
+    def _run_step(self, step: str) -> None:
+        if step == "transcribe":
+            self._step_transcribe()
+        elif step == "extract":
+            self._step_extract()
+        elif step == "store":
+            self._step_store()
+        else:
+            msg = f"Unsupported processing step: {step}"
+            raise ValueError(msg)
+
+    def _step_transcribe(self) -> None:
+        record = self.record
         UsageTrackingService.enforce_monthly_usage_limit(record.organization)
+
         record.status = Record.Status.TRANSCRIBING
         record.save(update_fields=["status", "updated_at"])
-        _append_processing_state(record, Record.Status.TRANSCRIBING)
+        self._append_state(Record.Status.TRANSCRIBING)
+
+        publish_after_commit(
+            DomainEvent(
+                name=AI_TRANSCRIPTION_STARTED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={"request_id": self.request_id},
+            ),
+        )
+
         started = monotonic()
         result = TranscriptionService.transcribe(record)
-        record.voice_transcript = result.transcript
-        record.ai_transcription_provider = result.provider
-        record.status = Record.Status.TRANSCRIBED
-        record.save(
-            update_fields=[
-                "voice_transcript",
-                "ai_transcription_provider",
-                "status",
-                "updated_at",
-            ],
-        )
         duration = monotonic() - started
-        UsageTrackingService.log_ai_usage(
-            record=record,
-            provider=result.provider,
-            service_type=AIUsage.ServiceType.TRANSCRIPTION,
-            duration_seconds=duration,
-        )
-        _append_processing_state(
-            record,
-            Record.Status.TRANSCRIBED,
-            {
-                "provider": result.provider,
-                "model": result.model,
-                "duration_seconds": duration,
-            },
-        )
-        return
 
-    if step == "extract":
+        RecordProcessingService.save_transcript_artifact(record, result)
+        record.status = Record.Status.TRANSCRIBED
+        record.save(update_fields=["status", "updated_at"])
+
+        publish_after_commit(
+            DomainEvent(
+                name=AI_TRANSCRIPTION_COMPLETED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={
+                    "provider": result.provider,
+                    "service_type": AIUsage.ServiceType.TRANSCRIPTION,
+                    "duration_seconds": duration,
+                    "model": result.model,
+                },
+            ),
+        )
+        self._append_state(
+            Record.Status.TRANSCRIBED,
+            {"provider": result.provider, "model": result.model, "duration_seconds": duration},
+        )
+
+    def _step_extract(self) -> None:
+        record = self.record
         UsageTrackingService.enforce_monthly_usage_limit(record.organization)
+
         record.status = Record.Status.EXTRACTING
         record.save(update_fields=["status", "updated_at"])
-        _append_processing_state(record, Record.Status.EXTRACTING)
+        self._append_state(Record.Status.EXTRACTING)
+
+        publish_after_commit(
+            DomainEvent(
+                name=AI_EXTRACTION_STARTED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={"request_id": self.request_id},
+            ),
+        )
+
+        transcript = RecordProcessingService.get_transcript(record)
         started = monotonic()
-        result = ExtractionService.extract(
-            transcript=record.voice_transcript,
-            record=record,
-        )
-        record.customer_name = str(
-            result.data.get("customer_name") or record.customer_name,
-        )
-        record.product = str(result.data.get("product") or record.product)
-        record.quantity = int(result.data.get("quantity") or record.quantity)
-        record.amount = result.data.get("amount", record.amount)
-        record.currency = str(result.data.get("currency") or record.currency)
-        record.payment_method = str(
-            result.data.get("payment_method") or record.payment_method,
-        )
-        record.confidence_score = result.confidence_score
-        record.ai_extraction_provider = result.provider
-        record.ai_prompt_version = result.prompt_version
-        record.status = Record.Status.EXTRACTED
-        record.save(
-            update_fields=[
-                "customer_name",
-                "product",
-                "quantity",
-                "amount",
-                "currency",
-                "payment_method",
-                "confidence_score",
-                "ai_extraction_provider",
-                "ai_prompt_version",
-                "status",
-                "updated_at",
-            ],
-        )
+        result = ExtractionService.extract(transcript=transcript)
         duration = monotonic() - started
-        UsageTrackingService.log_ai_usage(
-            record=record,
-            provider=result.provider,
-            service_type=AIUsage.ServiceType.EXTRACTION,
-            duration_seconds=duration,
+
+        RecordProcessingService.save_extraction_artifact(record, result)
+        record.status = Record.Status.EXTRACTED
+        record.save(update_fields=["status", "updated_at"])
+
+        publish_after_commit(
+            DomainEvent(
+                name=AI_EXTRACTION_COMPLETED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={
+                    "provider": result.provider,
+                    "service_type": AIUsage.ServiceType.EXTRACTION,
+                    "duration_seconds": duration,
+                    "model": result.model,
+                    "prompt_version": result.prompt_version,
+                },
+            ),
         )
-        _append_processing_state(
-            record,
+        self._append_state(
             Record.Status.EXTRACTED,
             {
                 "provider": result.provider,
@@ -146,86 +174,96 @@ def _run_step(*, record: Record, step: str) -> None:
                 "duration_seconds": duration,
             },
         )
-        return
 
-    if step == "store":
-        RecordProcessingService.store(record)
-        _append_processing_state(record, Record.Status.STORED)
-        return
+    def _step_store(self) -> None:
+        RecordProcessingService.store(self.record)
+        self._append_state(Record.Status.STORED)
 
-    msg = f"Unsupported processing step: {step}"
-    raise ValueError(msg)
+    # ------------------------------------------------------------------
+    # Retry / failure handling
+    # ------------------------------------------------------------------
 
-
-def _execute_with_retries(*, record: Record, step: str) -> None:
-    for attempt in range(1, MAX_STEP_RETRIES + 1):
-        try:
-            _run_step(record=record, step=step)
-            if record.processing_error_step == step:
-                record.processing_error = ""
-                record.processing_error_step = ""
-                record.save(
-                    update_fields=[
-                        "processing_error",
-                        "processing_error_step",
-                        "updated_at",
-                    ],
-                )
-        except AIUsageQuotaExceededError as exc:
-            record.processing_error = str(exc)
-            record.processing_error_step = f"{step}_quota"
-            record.status = Record.Status.FAILED
-            record.last_failed_at = timezone.now()
-            record.save(
-                update_fields=[
-                    "status",
-                    "processing_error",
-                    "processing_error_step",
-                    "last_failed_at",
-                    "updated_at",
-                ],
-            )
-            _append_processing_state(
-                record,
-                Record.Status.FAILED,
-                {"step": step, "reason": "quota_exceeded", "error": str(exc)},
-            )
-            _notify_record_failed(record, str(exc))
-            raise
-        except Exception as exc:
-            record.processing_error = str(exc)
-            record.processing_error_step = step
-            record.processing_retry_count += 1
-            record.last_failed_at = timezone.now()
-            record.status = Record.Status.FAILED
-            record.save(
-                update_fields=[
-                    "status",
-                    "processing_error",
-                    "processing_error_step",
-                    "processing_retry_count",
-                    "last_failed_at",
-                    "updated_at",
-                ],
-            )
-            _append_processing_state(
-                record,
-                Record.Status.FAILED,
-                {"step": step, "attempt": attempt, "error": str(exc)},
-            )
-            if attempt >= MAX_STEP_RETRIES:
-                record.status = Record.Status.DEAD_LETTER
-                record.dead_lettered_at = timezone.now()
-                record.save(update_fields=["status", "dead_lettered_at", "updated_at"])
-                _append_processing_state(
-                    record,
-                    Record.Status.DEAD_LETTER,
-                    {"step": step, "error": str(exc)},
-                )
-                _notify_record_failed(record, str(exc))
+    def _execute_with_retries(self, step: str) -> None:
+        for attempt in range(1, MAX_STEP_RETRIES + 1):
+            try:
+                self._run_step(step)
+            except AIUsageQuotaExceededError as exc:
+                self._mark_failed(step=f"{step}_quota", error=str(exc), permanent=True)
                 raise
-        else:
-            return
+            except Exception as exc:
+                self.record.processing_retry_count += 1
+                permanent = attempt >= MAX_STEP_RETRIES
+                self._mark_failed(step=step, error=str(exc), permanent=permanent)
+                if permanent:
+                    raise
+            else:
+                # Clear any previous error info on success
+                if self.record.processing_error_step == step:
+                    self.record.processing_error = ""
+                    self.record.processing_error_step = ""
+                    self.record.save(
+                        update_fields=["processing_error", "processing_error_step", "updated_at"],
+                    )
+                return
+
+    def _mark_failed(self, *, step: str, error: str, permanent: bool) -> None:
+        record = self.record
+        record.processing_error = error
+        record.processing_error_step = step
+        record.status = Record.Status.FAILED
+        record.last_failed_at = timezone.now()
+        record.save(
+            update_fields=[
+                "status",
+                "processing_error",
+                "processing_error_step",
+                "processing_retry_count",
+                "last_failed_at",
+                "updated_at",
+            ],
+        )
+        self._append_state(
+            Record.Status.FAILED,
+            {"step": step, "error": error, "permanent": permanent},
+        )
+
+        if permanent:
+            record.status = Record.Status.DEAD_LETTER
+            record.dead_lettered_at = timezone.now()
+            record.save(update_fields=["status", "dead_lettered_at", "updated_at"])
+            self._append_state(Record.Status.DEAD_LETTER, {"step": step, "error": error})
+            self._notify_failed(error)
+
+    def _notify_failed(self, error: str) -> None:
+        record = self.record
+        if record.created_by_id:
+            NotificationService.create(
+                user=record.created_by,
+                notification_type=Notification.Type.RECORD_FAILED,
+                title="Voice note processing failed",
+                message=error or "An error occurred while processing your voice note.",
+                organization=record.organization,
+                metadata={"record_id": record.pk},
+            )
+
+    def _append_state(self, status: str, details: dict | None = None) -> None:
+        RecordProcessingState.objects.create(
+            record=self.record,
+            status=status,
+            details=details or {},
+        )
+        NotificationService.broadcast_record_event(
+            organization=self.record.organization,
+            record_id=self.record.pk,
+            status=status,
+            event_type="record_updated",
+            summary="Record processing status changed.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Celery tasks
+# ---------------------------------------------------------------------------
 
 
 @shared_task
@@ -240,6 +278,7 @@ def process_whatsapp_record(
     normalized_request_id = request_id or str(uuid4())
     normalized_event_id = event_id or str(uuid4())
     record = Record.objects.get(pk=record_id)
+
     if record.status == Record.Status.STORED and not force_reprocess:
         log_ingestion_event(
             "processing.record.skipped",
@@ -251,6 +290,12 @@ def process_whatsapp_record(
             reason="already_stored",
         )
         return
+
+    runner = ProcessingStepRunner(
+        record=record,
+        request_id=normalized_request_id,
+        event_id=normalized_event_id,
+    )
 
     if force_reprocess:
         record.status = Record.Status.RECEIVED
@@ -266,11 +311,7 @@ def process_whatsapp_record(
                 "updated_at",
             ],
         )
-        _append_processing_state(
-            record,
-            Record.Status.RECEIVED,
-            {"force_reprocess": True},
-        )
+        runner._append_state(Record.Status.RECEIVED, {"force_reprocess": True})
         log_ingestion_event(
             "processing.record.reprocess_started",
             request_id=normalized_request_id,
@@ -289,14 +330,35 @@ def process_whatsapp_record(
             record_id=record.pk,
             org_id=record.organization_id,
         )
-        _execute_with_retries(record=record, step="transcribe")
-        _execute_with_retries(record=record, step="extract")
-        _execute_with_retries(record=record, step="store")
+        publish_after_commit(
+            DomainEvent(
+                name=RECORD_PROCESSING_STARTED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={"request_id": normalized_request_id},
+            ),
+        )
+
+        runner.run()
+
         if payload_id is not None:
             WhatsAppRawPayload.objects.filter(pk=payload_id).update(
                 processed=True,
                 processed_at=timezone.now(),
             )
+
+        publish_after_commit(
+            DomainEvent(
+                name=RECORD_PROCESSING_COMPLETED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={"request_id": normalized_request_id, "status": record.status},
+            ),
+        )
         log_ingestion_event(
             "processing.record.completed",
             request_id=normalized_request_id,
@@ -318,6 +380,20 @@ def process_whatsapp_record(
                     "updated_at",
                 ],
             )
+        publish_after_commit(
+            DomainEvent(
+                name=RECORD_PROCESSING_FAILED,
+                organization_id=record.organization_id,
+                user_id=record.created_by_id,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={
+                    "request_id": normalized_request_id,
+                    "error": str(exc),
+                    "failed_step": record.processing_error_step,
+                },
+            ),
+        )
         log_ingestion_event(
             "processing.record.failed",
             request_id=normalized_request_id,
@@ -344,12 +420,8 @@ def replay_whatsapp_payload(payload_id: int) -> None:
         defaults={
             "organization": payload.organization,
             "status": Record.Status.RECEIVED,
-            "customer_name": "Unknown customer",
-            "product": "WhatsApp voice note",
-            "quantity": 1,
-            "amount": 0,
-            "currency": payload.organization.default_currency or "USD",
             "audio_url": payload.media_url,
+            "media_id": payload.media_id,
         },
     )
     process_whatsapp_record.delay(

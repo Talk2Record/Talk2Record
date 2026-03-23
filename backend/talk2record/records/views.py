@@ -10,9 +10,13 @@ class RecordViewSet(ModelViewSet):
     serializer_class = RecordSerializer
 
     def get_queryset(self):
-        return Record.objects.filter(
-            organization__memberships__user=self.request.user,
-        ).select_related("organization", "created_by")
+        return (
+            Record.objects.filter(
+                organization__memberships__user=self.request.user,
+            )
+            .select_related("organization", "created_by")
+            .prefetch_related("artifacts")
+        )
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

@@ -108,6 +108,7 @@ LOCAL_APPS = [
     "talk2record.integrations",
     "talk2record.ingestion",
     "talk2record.ai",
+    "talk2record.events",
     "talk2record.usage",
     "talk2record.billing",
     "talk2record.notifications",

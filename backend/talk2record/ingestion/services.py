@@ -22,7 +22,13 @@ if TYPE_CHECKING:
 class InboundWhatsAppMessage:
     message_id: str
     sender: str
-    media_url: str
+    media_id: str
+    """WhatsApp Cloud API media ID (from audio.id).  Must be resolved via
+    WhatsAppMediaService before downloading."""
+    audio_url: str
+    """Direct URL — populated only for test/non-standard payloads that include
+    audio.url directly (e.g. integration tests using mock URLs)."""
+    phone_number_id: str
     payload: dict
 
 
@@ -84,17 +90,20 @@ class WhatsAppWebhookService:
                 value = change.get("value", {})
                 if not isinstance(value, Mapping):
                     continue
+                phone_number_id = WhatsAppWebhookService._extract_phone_number_id_from_value(value)
                 for message in WhatsAppWebhookService._messages(value):
                     message_id = str(message.get("id", "")).strip()
                     if not message_id:
                         continue
                     sender = str(message.get("from", "")).strip()
-                    media_url = WhatsAppWebhookService._extract_media_url(message)
+                    media_id, audio_url = WhatsAppWebhookService._extract_media_fields(message)
                     messages.append(
                         InboundWhatsAppMessage(
                             message_id=message_id,
                             sender=sender,
-                            media_url=media_url,
+                            media_id=media_id,
+                            audio_url=audio_url,
+                            phone_number_id=phone_number_id,
                             payload=dict(message),
                         ),
                     )
@@ -120,25 +129,46 @@ class WhatsAppWebhookService:
                 value = change.get("value", {})
                 if not isinstance(value, Mapping):
                     continue
-                metadata = value.get("metadata", {})
-                if not isinstance(metadata, Mapping):
-                    continue
-                phone_number_id = str(metadata.get("phone_number_id", "")).strip()
+                phone_number_id = WhatsAppWebhookService._extract_phone_number_id_from_value(value)
                 if phone_number_id:
                     return phone_number_id
         return ""
 
     @staticmethod
-    def _extract_media_url(message: Mapping[str, object]) -> str:
+    def _extract_phone_number_id_from_value(value: Mapping[str, object]) -> str:
+        metadata = value.get("metadata", {})
+        if not isinstance(metadata, Mapping):
+            return ""
+        return str(metadata.get("phone_number_id", "")).strip()
+
+    @staticmethod
+    def _extract_media_fields(message: Mapping[str, object]) -> tuple[str, str]:
+        """
+        Returns (media_id, audio_url).
+
+        Per the WhatsApp Cloud API spec, inbound audio messages carry
+        ``audio.id`` (a Graph API media ID that must be resolved to a
+        time-limited URL before downloading).  Some test payloads use the
+        non-standard ``audio.url`` field directly; we honour that as a
+        fallback so existing integration tests continue to work.
+        """
         media_types: Iterable[str] = ("audio", "voice", "video", "image", "document")
         for media_type in media_types:
             media = message.get(media_type)
             if not isinstance(media, Mapping):
                 continue
+
+            # Production path: WhatsApp sends audio.id
+            media_id = str(media.get("id", "")).strip()
+
+            # Test / non-standard path: direct URL in audio.url
             candidate_url = str(media.get("url", "")).strip()
-            if WhatsAppWebhookService._is_url(candidate_url):
-                return candidate_url
-        return ""
+            audio_url = candidate_url if WhatsAppWebhookService._is_url(candidate_url) else ""
+
+            if media_id or audio_url:
+                return media_id, audio_url
+
+        return "", ""
 
     @staticmethod
     def _is_url(value: str) -> bool:

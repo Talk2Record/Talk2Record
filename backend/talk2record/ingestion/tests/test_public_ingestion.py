@@ -92,7 +92,9 @@ class TestPublicRecordIngestion:
         assert response.data["recordId"] == record.pk
         assert record.organization_id == organization.pk
         assert record.created_by_id == workspace_user.pk
-        assert record.currency == "KES"
+        # Currency hint stored as artifact, not on Record directly
+        hint = record.artifacts.get(key="extraction_hint")
+        assert hint.content["currency"] == "KES"
         assert queued == [(record.pk, "req-public-1", queued[0][2])]
         assert queued[0][2]
         assert api_key.last_used_at is not None

@@ -1,21 +1,29 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from django.utils import timezone
 
+from talk2record.events.models import DomainEvent as DomainEventRecord
+from talk2record.events.names import AI_TRANSCRIPTION_COMPLETED
+from talk2record.events.names import RECORD_PROCESSING_COMPLETED
+from talk2record.events.names import RECORD_PROCESSING_STARTED
 from talk2record.ingestion.models import WhatsAppRawPayload
 from talk2record.ingestion.tasks import MAX_STEP_RETRIES
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.tasks import replay_whatsapp_payload
 from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 from talk2record.records.models import RecordProcessingState
 from talk2record.usage.models import AIUsage
 from talk2record.usage.services import AIUsageQuotaExceededError
 from talk2record.usage.services import UsageTrackingService
 
 
-@pytest.mark.django_db
-def test_process_whatsapp_record_marks_payload_processed(record):
+@pytest.mark.django_db(transaction=True)
+def test_process_whatsapp_record_marks_payload_processed(settings, record):
+    settings.CELERY_TASK_ALWAYS_EAGER = True
     raw_payload = WhatsAppRawPayload.objects.create(
         organization=record.organization,
         message_id=f"wamid.process.{record.pk}",
@@ -31,18 +39,62 @@ def test_process_whatsapp_record_marks_payload_processed(record):
     record.refresh_from_db()
     raw_payload.refresh_from_db()
     assert record.status == Record.Status.STORED
-    assert record.ai_transcription_provider == "mock"
-    assert record.ai_extraction_provider == "mock"
-    assert record.ai_prompt_version == "v1"
+
+    # Artifacts replace direct fields
+    transcript_artifact = record.artifacts.filter(key="transcript").first()
+    assert transcript_artifact is not None
+    assert transcript_artifact.provider == "mock"
+
+    extraction_artifact = record.artifacts.filter(key="extraction").first()
+    assert extraction_artifact is not None
+    assert extraction_artifact.provider == "mock"
+    assert extraction_artifact.prompt_version == "v1"
+
     assert record.processing_states.filter(status=Record.Status.TRANSCRIBED).exists()
     assert record.processing_states.filter(status=Record.Status.EXTRACTED).exists()
     assert record.processing_states.filter(status=Record.Status.STORED).exists()
-    assert record.ai_usage.filter(
-        service_type=AIUsage.ServiceType.TRANSCRIPTION,
-    ).exists()
+    assert record.ai_usage.filter(service_type=AIUsage.ServiceType.TRANSCRIPTION).exists()
     assert record.ai_usage.filter(service_type=AIUsage.ServiceType.EXTRACTION).exists()
     assert raw_payload.processed is True
     assert raw_payload.processed_at is not None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_process_whatsapp_record_emits_ai_transcription_event_not_direct_call(
+    settings, record
+):
+    """transcribe step emits AI_TRANSCRIPTION_COMPLETED event; UsageTrackingService logs via event handler."""
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    raw_payload = WhatsAppRawPayload.objects.create(
+        organization=record.organization,
+        message_id=f"wamid.event.{record.pk}",
+        payload={"entry": []},
+    )
+    record.source = Record.Source.WHATSAPP
+    record.source_reference = raw_payload.message_id
+    record.status = Record.Status.RECEIVED
+    record.save(update_fields=["source", "source_reference", "status", "updated_at"])
+
+    captured_events: list[str] = []
+
+    original_publish = __import__(
+        "talk2record.events.bus", fromlist=["publish_after_commit"]
+    ).publish_after_commit
+
+    def capturing_publish(event):
+        captured_events.append(event.name)
+        return original_publish(event)
+
+    with patch("talk2record.ingestion.tasks.publish_after_commit", capturing_publish):
+        process_whatsapp_record(record.pk, raw_payload.pk)
+
+    assert AI_TRANSCRIPTION_COMPLETED in captured_events
+    assert RECORD_PROCESSING_STARTED in captured_events
+    assert RECORD_PROCESSING_COMPLETED in captured_events
+    assert DomainEventRecord.objects.filter(name=AI_TRANSCRIPTION_COMPLETED).exists()
+    assert record.ai_usage.filter(
+        service_type=AIUsage.ServiceType.TRANSCRIPTION,
+    ).exists()
 
 
 @pytest.mark.django_db
@@ -52,7 +104,7 @@ def test_process_whatsapp_record_dead_letters_after_retries(monkeypatch, record)
     record.status = Record.Status.RECEIVED
     record.save(update_fields=["source", "source_reference", "status", "updated_at"])
 
-    def fail_transcribe(_cls, _record):
+    def fail_transcribe(_cls, _record, **kwargs):
         msg = "transcription provider down"
         raise RuntimeError(msg)
 
@@ -94,11 +146,7 @@ def test_replay_whatsapp_payload_queues_reprocess(monkeypatch, organization):
         source=Record.Source.WHATSAPP,
         source_reference=raw_payload.message_id,
         status=Record.Status.FAILED,
-        customer_name="Replay customer",
-        product="Replay product",
-        quantity=1,
-        amount=0,
-        currency=organization.default_currency,
+        type=Record.Type.VOICE_NOTE,
     )
     queued: list[tuple[int, int | None, bool]] = []
 
@@ -125,9 +173,10 @@ def test_processing_state_model_str(record):
     assert str(state) == f"{record.pk}:{Record.Status.RECEIVED}"
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_process_whatsapp_record_enforces_ai_usage_quota(settings, record):
     settings.AI_USAGE_MONTHLY_LIMIT_PER_ORG = 1
+    settings.CELERY_TASK_ALWAYS_EAGER = True
     record.source = Record.Source.WHATSAPP
     record.source_reference = f"wamid.quota.{record.pk}"
     record.status = Record.Status.RECEIVED
@@ -137,7 +186,8 @@ def test_process_whatsapp_record_enforces_ai_usage_quota(settings, record):
         process_whatsapp_record(record.pk)
 
     record.refresh_from_db()
-    assert record.status == Record.Status.FAILED
+    # Quota exceeded is a permanent failure → dead-lettered immediately
+    assert record.status in {Record.Status.FAILED, Record.Status.DEAD_LETTER}
     assert record.processing_error_step == "extract_quota"
     assert UsageTrackingService.monthly_usage_count(record.organization) == 1
     assert (
@@ -147,3 +197,33 @@ def test_process_whatsapp_record_enforces_ai_usage_quota(settings, record):
     assert (
         record.ai_usage.filter(service_type=AIUsage.ServiceType.EXTRACTION).count() == 0
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_process_whatsapp_record_writes_artifacts(settings, record):
+    """Pipeline writes transcript + extraction artifacts — never sets direct AI fields on Record."""
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    record.source_reference = f"wamid.artifacts.{record.pk}"
+    record.save(update_fields=["source_reference", "updated_at"])
+
+    process_whatsapp_record(record.pk)
+
+    assert RecordArtifact.objects.filter(record=record, key="transcript").exists()
+    assert RecordArtifact.objects.filter(record=record, key="extraction").exists()
+
+    transcript_artifact = RecordArtifact.objects.get(record=record, key="transcript")
+    assert "text" in transcript_artifact.content
+    assert transcript_artifact.artifact_type == RecordArtifact.ArtifactType.TEXT
+
+
+@pytest.mark.django_db(transaction=True)
+def test_process_whatsapp_record_skips_already_stored(settings, record):
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    record.status = Record.Status.STORED
+    record.save(update_fields=["status", "updated_at"])
+
+    process_whatsapp_record(record.pk)
+
+    record.refresh_from_db()
+    assert record.status == Record.Status.STORED
+    assert not RecordArtifact.objects.filter(record=record).exists()

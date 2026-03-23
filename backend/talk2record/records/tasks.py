@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from celery import shared_task
 
+from talk2record.ai.services.extraction import ExtractionService
+from talk2record.ai.services.transcription import TranscriptionService
 from talk2record.notifications.models import Notification
 from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
@@ -22,7 +26,10 @@ def _notify_record_failed(record: Record, error: str) -> None:
 def transcribe_voice(record_id: int) -> None:
     record = Record.objects.get(pk=record_id)
     try:
-        RecordProcessingService.transcribe(record)
+        result = TranscriptionService.transcribe(record)
+        RecordProcessingService.save_transcript_artifact(record, result)
+        record.status = Record.Status.TRANSCRIBED
+        record.save(update_fields=["status", "updated_at"])
     except Exception as exc:
         record.status = Record.Status.FAILED
         record.processing_error = str(exc)
@@ -35,7 +42,11 @@ def transcribe_voice(record_id: int) -> None:
 def extract_structured_data(record_id: int) -> None:
     record = Record.objects.get(pk=record_id)
     try:
-        RecordProcessingService.extract_structured_data(record)
+        transcript = RecordProcessingService.get_transcript(record)
+        result = ExtractionService.extract(transcript=transcript)
+        RecordProcessingService.save_extraction_artifact(record, result)
+        record.status = Record.Status.EXTRACTED
+        record.save(update_fields=["status", "updated_at"])
     except Exception as exc:
         record.status = Record.Status.FAILED
         record.processing_error = str(exc)

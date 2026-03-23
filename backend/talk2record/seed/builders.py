@@ -451,7 +451,7 @@ class SeedWorkspaceBuilder:
                     {
                         "date": current_date,
                         "status": record.status,
-                        "amount": record.amount,
+                        "amount": amount,
                     },
                 )
 
@@ -477,6 +477,19 @@ class SeedWorkspaceBuilder:
         payment_method = PAYMENT_METHODS[
             (sequence + occurred_at.weekday()) % len(PAYMENT_METHODS)
         ]
+        from talk2record.ai.services.extraction import ExtractionService
+        from talk2record.ai.services.transcription import TranscriptionService
+        from talk2record.records.models import RecordArtifact
+
+        extraction_hint = {
+            "customer_name": customer_name,
+            "product": product,
+            "quantity": sequence + 1,
+            "amount": str(amount),
+            "currency": organization.default_currency,
+            "payment_method": payment_method,
+        }
+        audio_url = f"https://media.example.com/{source_reference}.mp3"
         lookup = {"organization": organization, "source_reference": source_reference}
         record = _first(Record.objects.filter(**lookup))
         created = record is None
@@ -485,43 +498,26 @@ class SeedWorkspaceBuilder:
                 organization=organization,
                 created_by=user,
                 source=Record.Source.WHATSAPP,
+                type=Record.Type.VOICE_NOTE,
                 source_reference=source_reference,
-                customer_name=customer_name,
-                product=product,
-                quantity=sequence + 1,
-                amount=amount,
-                currency=organization.default_currency,
-                payment_method=payment_method,
-                audio_url=f"https://media.example.com/{source_reference}.mp3",
+                audio_url=audio_url,
             )
         else:
             record.created_by = user
             record.source = Record.Source.WHATSAPP
-            record.customer_name = customer_name
-            record.product = product
-            record.quantity = sequence + 1
-            record.amount = amount
-            record.currency = organization.default_currency
-            record.payment_method = payment_method
-            record.audio_url = f"https://media.example.com/{source_reference}.mp3"
-            record.save(
-                update_fields=[
-                    "created_by",
-                    "source",
-                    "customer_name",
-                    "product",
-                    "quantity",
-                    "amount",
-                    "currency",
-                    "payment_method",
-                    "audio_url",
-                    "updated_at",
-                ],
-            )
+            record.audio_url = audio_url
+            record.save(update_fields=["created_by", "source", "audio_url", "updated_at"])
 
-        RecordProcessingService.transcribe(record)
+        # Seed transcript and extraction artifacts
+        transcript_result = TranscriptionService.transcribe(record)
+        RecordProcessingService.save_transcript_artifact(record, transcript_result)
+
         if desired_status in {Record.Status.REVIEW, Record.Status.STORED}:
-            RecordProcessingService.extract_structured_data(record)
+            extraction_result = ExtractionService.extract(
+                transcript=RecordProcessingService.get_transcript(record),
+                context=extraction_hint,
+            )
+            RecordProcessingService.save_extraction_artifact(record, extraction_result)
 
         if desired_status == Record.Status.STORED:
             record.status = Record.Status.STORED
@@ -559,12 +555,10 @@ class SeedWorkspaceBuilder:
             )
         else:
             record.status = Record.Status.FAILED
-            record.confidence_score = Decimal("0.210")
             record.processing_error = "Seeded speech-to-text retry required."
             record.save(
                 update_fields=[
                     "status",
-                    "confidence_score",
                     "processing_error",
                     "updated_at",
                 ],

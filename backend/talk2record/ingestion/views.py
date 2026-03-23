@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.utils import OpenApiResponse
@@ -16,6 +14,10 @@ from rest_framework import serializers
 from rest_framework.views import APIView
 
 from talk2record.audit.services import AuditService
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import INGESTION_RECEIVED
+from talk2record.events.names import RECORD_CREATED
 from talk2record.ingestion.authentication import OrganizationAPIKeyAuthentication
 from talk2record.ingestion.models import WhatsAppRawPayload
 from talk2record.ingestion.observability import log_ingestion_event
@@ -172,7 +174,8 @@ class WhatsAppWebhookView(APIView):
                 defaults={
                     "organization": organization,
                     "payload": payload,
-                    "media_url": message.media_url,
+                    "media_id": message.media_id,
+                    "media_url": message.audio_url,
                 },
             )
             if not raw_payload_created:
@@ -210,13 +213,9 @@ class WhatsAppWebhookView(APIView):
                 defaults={
                     "organization": organization,
                     "status": Record.Status.RECEIVED,
-                    "customer_name": message.sender or "Unknown customer",
-                    "product": "WhatsApp voice note",
-                    "quantity": 1,
-                    "amount": Decimal("0.00"),
-                    "currency": organization.default_currency or "USD",
-                    "payment_method": "",
-                    "audio_url": message.media_url,
+                    "type": Record.Type.VOICE_NOTE,
+                    "audio_url": message.audio_url,
+                    "media_id": message.media_id,
                 },
             )
             if not record_created:
@@ -239,12 +238,33 @@ class WhatsAppWebhookView(APIView):
             request_id=request_id,
             event_id=event_id,
         )
-        NotificationService.broadcast_record_event(
-            organization=organization,
-            record_id=record.pk,
-            status=record.status,
-            event_type="record_created",
-            summary="Record received from WhatsApp.",
+        publish_after_commit(
+            DomainEvent(
+                name=INGESTION_RECEIVED,
+                organization_id=organization.pk,
+                user_id=None,
+                resource_type="whatsapp_payload",
+                resource_id=str(raw_payload.pk),
+                metadata={
+                    "message_id": message.message_id,
+                    "request_id": request_id,
+                    "event_id": event_id,
+                },
+            ),
+        )
+        publish_after_commit(
+            DomainEvent(
+                name=RECORD_CREATED,
+                organization_id=organization.pk,
+                user_id=None,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={
+                    "source": record.source,
+                    "status": record.status,
+                    "message_id": message.message_id,
+                },
+            ),
         )
         log_ingestion_event(
             "ingestion.whatsapp.accepted",
@@ -338,6 +358,8 @@ class PublicRecordIngestionView(APIView):
         ],
     )
     def post(self, request):
+        from talk2record.records.models import RecordArtifact
+
         request_id = request_id_from_request(request)
         event_id = new_event_id()
         serializer = PublicIngestionRecordSerializer(data=request.data)
@@ -347,40 +369,50 @@ class PublicRecordIngestionView(APIView):
         payload = serializer.validated_data
 
         source_reference = payload.get("sourceReference", "").strip()
+        record_defaults = {
+            "organization": organization,
+            "created_by": api_key.created_by,
+            "status": Record.Status.RECEIVED,
+            "type": Record.Type.VOICE_NOTE,
+            "audio_url": payload.get("audioUrl", ""),
+        }
         if source_reference:
             record, created = Record.objects.get_or_create(
                 source=Record.Source.API,
                 source_reference=source_reference,
-                defaults={
-                    "organization": organization,
-                    "created_by": api_key.created_by,
-                    "status": Record.Status.RECEIVED,
-                    "customer_name": payload["customerName"],
-                    "product": payload["product"],
-                    "quantity": payload["quantity"],
-                    "amount": payload["amount"],
-                    "currency": payload["currency"],
-                    "payment_method": payload["paymentMethod"],
-                    "audio_url": payload["audioUrl"],
-                    "voice_transcript": payload["transcript"],
-                },
+                defaults=record_defaults,
             )
         else:
             created = True
-            record = Record.objects.create(
-                organization=organization,
-                created_by=api_key.created_by,
-                source=Record.Source.API,
-                status=Record.Status.RECEIVED,
-                customer_name=payload["customerName"],
-                product=payload["product"],
-                quantity=payload["quantity"],
-                amount=payload["amount"],
-                currency=payload["currency"],
-                payment_method=payload["paymentMethod"],
-                audio_url=payload["audioUrl"],
-                voice_transcript=payload["transcript"],
+            record = Record.objects.create(source=Record.Source.API, **record_defaults)
+
+        if created:
+            # Store caller-supplied extraction hints and transcript as artifacts
+            # so the pipeline can build on them or skip AI steps if complete.
+            hint_data: dict = {
+                "customer_name": payload.get("customerName", ""),
+                "product": payload.get("product", "API submission"),
+                "quantity": int(payload.get("quantity", 1) or 1),
+                "amount": str(payload.get("amount", "0.00")),
+                "currency": str(payload.get("currency", "USD")).upper(),
+                "payment_method": payload.get("paymentMethod", ""),
+            }
+            RecordArtifact.objects.create(
+                record=record,
+                key="extraction_hint",
+                artifact_type=RecordArtifact.ArtifactType.JSON,
+                content=hint_data,
+                provider="api",
             )
+            transcript = payload.get("transcript", "")
+            if transcript:
+                RecordArtifact.objects.create(
+                    record=record,
+                    key="transcript",
+                    artifact_type=RecordArtifact.ArtifactType.TEXT,
+                    content={"text": transcript},
+                    provider="api",
+                )
 
         if not created:
             log_ingestion_event(
@@ -404,12 +436,19 @@ class PublicRecordIngestionView(APIView):
             request_id=request_id,
             event_id=event_id,
         )
-        NotificationService.broadcast_record_event(
-            organization=organization,
-            record_id=record.pk,
-            status=record.status,
-            event_type="record_created",
-            summary="Record received from public API.",
+        publish_after_commit(
+            DomainEvent(
+                name=RECORD_CREATED,
+                organization_id=organization.pk,
+                user_id=api_key.created_by_id if api_key.created_by else None,
+                resource_type="record",
+                resource_id=str(record.pk),
+                metadata={
+                    "source": record.source,
+                    "status": record.status,
+                    "source_reference": source_reference,
+                },
+            ),
         )
         log_ingestion_event(
             "ingestion.api.accepted",

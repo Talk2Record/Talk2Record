@@ -104,12 +104,9 @@ def record(workspace_user: User) -> Record:
     return Record.objects.create(
         organization=workspace_user.current_organization,
         created_by=workspace_user,
-        customer_name="Kifaru",
-        product="Oil",
-        quantity=2,
-        amount=Decimal("120.00"),
-        currency="USD",
-        payment_method="cash",
+        source=Record.Source.WHATSAPP,
+        type=Record.Type.VOICE_NOTE,
+        audio_url="https://example.com/audio/fixture.ogg",
     )
 
 
@@ -157,7 +154,7 @@ class TestPlatformEndpoints:
         list_response = authed_client.get(reverse("api:record-list"))
 
         assert list_response.status_code == status.HTTP_200_OK
-        assert list_response.data[0]["customer_name"] == record.customer_name
+        assert list_response.data[0]["source"] == record.source
 
     def test_subscriptions_list(self, authed_client: APIClient, subscription: Subscription):
         response = authed_client.get(reverse("api:subscription-list"))

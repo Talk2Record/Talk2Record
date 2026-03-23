@@ -1,18 +1,25 @@
-import pytest
-from decimal import Decimal
+import uuid
 from datetime import date
+from datetime import datetime
 from datetime import timedelta
+from datetime import timezone as dt_timezone
+from decimal import Decimal
+from unittest.mock import patch
+
+import pytest
 from django.utils import timezone
 
 from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
+from talk2record.events.models import DomainEvent as DomainEventRecord
 from talk2record.integrations.crypto import SecretVault
 from talk2record.integrations.models import ApiCredential
 from talk2record.integrations.models import Integration
 from talk2record.integrations.models import WhatsAppInboundRoute
 from talk2record.legal.services import LegalAcceptanceService
+from talk2record.notifications.models import Notification
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
 from talk2record.records.models import Record
@@ -127,12 +134,9 @@ def record(organization: Organization, workspace_user: User) -> Record:
     return Record.objects.create(
         organization=organization,
         created_by=workspace_user,
-        customer_name="Kifaru",
-        product="Oil",
-        quantity=2,
-        amount=Decimal("120.00"),
-        currency="USD",
-        payment_method="cash",
+        source=Record.Source.WHATSAPP,
+        type=Record.Type.VOICE_NOTE,
+        audio_url="https://example.com/audio/fixture.ogg",
     )
 
 
@@ -146,4 +150,33 @@ def daily_metric(organization: Organization) -> DailyMetric:
         revenue=Decimal("900.00"),
         feature_usage=5,
         active_users=3,
+    )
+
+
+@pytest.fixture
+def notification(workspace_user: User, organization: Organization) -> Notification:
+    with patch("talk2record.notifications.services._send_notification_to_user"):
+        return Notification.objects.create(
+            user=workspace_user,
+            organization=organization,
+            type=Notification.Type.RECORD_STORED,
+            title="Test notification",
+            message="Your record has been processed.",
+            link_url="/dashboard/records",
+        )
+
+
+@pytest.fixture
+def domain_event(organization: Organization) -> DomainEventRecord:
+    event_id = str(uuid.uuid4())
+    return DomainEventRecord.objects.create(
+        id=event_id,
+        name="record.stored",
+        organization_id=organization.pk,
+        user_id=None,
+        resource_type="record",
+        resource_id="1",
+        payload={"event_id": event_id, "name": "record.stored"},
+        occurred_at=datetime.now(tz=dt_timezone.utc),
+        processed=False,
     )

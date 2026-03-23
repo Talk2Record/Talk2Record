@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
 
@@ -31,7 +32,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             access = AccessToken(token)
             user_id = access["user_id"]
             self.scope["user"] = await self._get_user(user_id)
-        except (InvalidToken, KeyError, TypeError):
+        except (InvalidToken, TokenError, KeyError, TypeError):
             await self.close(code=4001)
             return
 

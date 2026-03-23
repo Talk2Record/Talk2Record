@@ -5,6 +5,9 @@ from django.utils import timezone
 from slugify import slugify
 
 from talk2record.audit.services import AuditService
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import USER_REGISTERED
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.organizations.models import Membership
@@ -53,6 +56,16 @@ class RegistrationService:
             actor=user,
             organization=organization,
             metadata={"documents": accepted_document_keys},
+        )
+        publish_after_commit(
+            DomainEvent(
+                name=USER_REGISTERED,
+                organization_id=organization.id,
+                user_id=user.id,
+                resource_type="user",
+                resource_id=str(user.pk),
+                metadata={"documents": accepted_document_keys},
+            ),
         )
         return user
 

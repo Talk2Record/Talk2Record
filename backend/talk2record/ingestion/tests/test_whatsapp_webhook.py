@@ -30,7 +30,9 @@ class TestWhatsAppWebhook:
                                         "id": "wamid.ABCD123",
                                         "from": "254700000001",
                                         "audio": {
-                                            "url": "https://example.com/audio/1.ogg",
+                                            "id": "media-id-abcd123",
+                                            "mime_type": "audio/ogg; codecs=opus",
+                                            "sha256": "abc123",
                                         },
                                     },
                                 ],
@@ -90,7 +92,7 @@ class TestWhatsAppWebhook:
         api_credential.save(update_fields=["encrypted_secret", "updated_at"])
 
         queued: list[tuple[int, int | None, str, str]] = []
-        broadcast_events: list[tuple[str, int, str]] = []
+        published_events: list[str] = []
 
         def fake_delay(record_id: int, payload_id: int | None = None, **kwargs):
             queued.append(
@@ -102,24 +104,16 @@ class TestWhatsAppWebhook:
                 ),
             )
 
-        def fake_broadcast(
-            *,
-            organization,
-            record_id: int,
-            status: str,
-            event_type: str,
-            summary: str = "",
-        ):
-            del organization, summary
-            broadcast_events.append((event_type, record_id, status))
+        def fake_publish(event):
+            published_events.append(event.name)
 
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             fake_delay,
         )
         monkeypatch.setattr(
-            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
-            fake_broadcast,
+            "talk2record.ingestion.views.publish_after_commit",
+            fake_publish,
         )
 
         response = api_client.post(
@@ -140,19 +134,21 @@ class TestWhatsAppWebhook:
             source_reference="wamid.ABCD123",
         )
         assert record.organization_id == whatsapp_route.organization_id
+        assert record.media_id == "media-id-abcd123"
+        raw = WhatsAppRawPayload.objects.get(message_id="wamid.ABCD123")
+        assert raw.media_id == "media-id-abcd123"
         assert queued == [
             (
                 record.pk,
-                WhatsAppRawPayload.objects.get(message_id="wamid.ABCD123").pk,
+                raw.pk,
                 "req-test-1",
                 queued[0][3],
             ),
         ]
         assert queued[0][3]
         assert response["X-Request-ID"] == "req-test-1"
-        assert broadcast_events == [
-            ("record_created", record.pk, Record.Status.RECEIVED),
-        ]
+        assert "record.created" in published_events
+        assert "ingestion.received" in published_events
 
     def test_post_is_idempotent(
         self,
@@ -238,7 +234,8 @@ class TestWhatsAppWebhook:
                                         "id": "wamid.ABCD124",
                                         "from": "254700000002",
                                         "audio": {
-                                            "url": "https://example.com/audio/2.ogg",
+                                            "id": "media-id-abcd124",
+                                            "mime_type": "audio/ogg; codecs=opus",
                                         },
                                     },
                                 ],

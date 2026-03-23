@@ -29,16 +29,17 @@ class TranscriptionService:
                 or integration.config.get("provider")
                 or "",
             ).strip()
-            # Resolve secret at runtime so admin key updates take effect immediately.
             get_active_integration_secret("ai")
         if not configured:
             configured = getattr(settings, "AI_TRANSCRIPTION_PROVIDER", "mock")
         return cls._providers.get(configured, cls._providers["mock"])
 
     @classmethod
-    def transcribe(cls, record: Record) -> TranscriptionResult:
+    def transcribe(cls, record: Record, *, resolved_audio_url: str = "") -> TranscriptionResult:
         provider = cls._provider()
+        audio_url = resolved_audio_url or record.audio_url
+        context_label = record.source_reference or str(record.pk)
         return provider.transcribe(
-            audio_url=record.audio_url,
-            context_label=f"{record.customer_name} and {record.product}",
+            audio_url=audio_url,
+            context_label=context_label,
         )

@@ -328,14 +328,18 @@ class TestJWTAuthAPI:
             organization=organization,
             phone_number_id="123456789",
         )
-        Record.objects.create(
+        record = Record.objects.create(
             organization=organization,
             created_by=user,
-            customer_name="Kifaru",
-            product="Rice",
-            quantity=2,
-            amount=100,
-            currency="USD",
+            source=Record.Source.WHATSAPP,
+            type=Record.Type.VOICE_NOTE,
+        )
+        from talk2record.records.models import RecordArtifact
+        RecordArtifact.objects.create(
+            record=record,
+            key="extraction",
+            artifact_type=RecordArtifact.ArtifactType.JSON,
+            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
         )
         login_response = api_client.post(
             reverse("api-auth-login"),
@@ -399,16 +403,25 @@ class TestJWTAuthAPI:
         Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
-        Record.objects.create(
+        record = Record.objects.create(
             organization=organization,
             created_by=user,
-            customer_name="Kifaru",
-            product="Rice",
-            quantity=2,
-            amount=100,
-            currency="USD",
+            source=Record.Source.WHATSAPP,
+            type=Record.Type.VOICE_NOTE,
             status=Record.Status.REVIEW,
-            voice_transcript="Please review this record.",
+        )
+        from talk2record.records.models import RecordArtifact
+        RecordArtifact.objects.create(
+            record=record,
+            key="transcript",
+            artifact_type=RecordArtifact.ArtifactType.TEXT,
+            content={"text": "Please review this record."},
+        )
+        RecordArtifact.objects.create(
+            record=record,
+            key="extraction",
+            artifact_type=RecordArtifact.ArtifactType.JSON,
+            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
         )
         login_response = api_client.post(
             reverse("api-auth-login"),
@@ -430,15 +443,19 @@ class TestJWTAuthAPI:
         Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
-        Record.objects.create(
+        record = Record.objects.create(
             organization=organization,
             created_by=user,
-            customer_name="Kifaru",
-            product="Rice",
-            quantity=2,
-            amount=100,
-            currency="USD",
+            source=Record.Source.WHATSAPP,
+            type=Record.Type.VOICE_NOTE,
             status=Record.Status.STORED,
+        )
+        from talk2record.records.models import RecordArtifact
+        RecordArtifact.objects.create(
+            record=record,
+            key="extraction",
+            artifact_type=RecordArtifact.ArtifactType.JSON,
+            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
         )
         DailyMetric.objects.create(
             organization=organization,

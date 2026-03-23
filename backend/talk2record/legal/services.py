@@ -8,6 +8,10 @@ from django.utils import timezone
 
 from talk2record.analytics.services import AnalyticsService
 from talk2record.audit.services import AuditService
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import LEGAL_ACCEPTED
+from talk2record.events.names import LEGAL_ATTESTED
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -196,6 +200,20 @@ class LegalAcceptanceService:
                 organization=user.current_organization,
                 properties={"count": len(acceptances), "source": source},
             )
+            publish_after_commit(
+                DomainEvent(
+                    name=LEGAL_ACCEPTED,
+                    organization_id=user.current_organization_id,
+                    user_id=user.id,
+                    resource_type="legal_document",
+                    resource_id="",
+                    metadata={
+                        "document_keys": list(document_keys),
+                        "source": source,
+                        "count": len(acceptances),
+                    },
+                ),
+            )
         return acceptances
 
     @staticmethod
@@ -229,5 +247,15 @@ class LegalAcceptanceService:
             category="legal",
             organization=user.current_organization,
             properties={"kind": kind, "context": context},
+        )
+        publish_after_commit(
+            DomainEvent(
+                name=LEGAL_ATTESTED,
+                organization_id=user.current_organization_id,
+                user_id=user.id,
+                resource_type="legal_attestation",
+                resource_id=str(attestation.pk),
+                metadata={"kind": kind, "context": context},
+            ),
         )
         return attestation

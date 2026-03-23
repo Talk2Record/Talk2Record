@@ -70,8 +70,25 @@ class UsageTrackingService:
         if limit <= 0:
             return
         if UsageTrackingService.monthly_usage_count(organization) >= limit:
+            _publish_limit_exceeded(organization)
             msg = "Monthly AI usage quota exceeded for organization."
             raise AIUsageQuotaExceededError(msg)
+
+
+def _publish_limit_exceeded(organization: Organization) -> None:
+    from talk2record.events import DomainEvent, publish_after_commit
+    from talk2record.events.names import BILLING_LIMIT_EXCEEDED
+
+    publish_after_commit(
+        DomainEvent(
+            name=BILLING_LIMIT_EXCEEDED,
+            organization_id=organization.pk,
+            user_id=None,
+            resource_type="organization",
+            resource_id=str(organization.pk),
+            metadata={"reason": "monthly_ai_usage_quota_exceeded"},
+        ),
+    )
 
 
 def _extract_limit_from_features(features: object) -> int:

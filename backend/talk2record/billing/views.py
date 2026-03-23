@@ -15,6 +15,10 @@ from talk2record.billing.models import Transaction
 from talk2record.billing.providers import BillingProviderRegistry
 from talk2record.billing.serializers import BillingCheckoutSerializer
 from talk2record.billing.serializers import SubscriptionSerializer
+from talk2record.events import DomainEvent
+from talk2record.events.bus import EventBus
+from talk2record.events.names import BILLING_PAYMENT_FAILED
+from talk2record.events.names import BILLING_SUBSCRIPTION_CREATED
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
@@ -188,4 +192,30 @@ class BillingWebhookView(APIView):
             resource_id=provider,
             metadata={"provider": provider, "received_at": timezone.now().isoformat()},
         )
+        event_type = str(request.data.get("type", "")) if isinstance(request.data, dict) else ""
+        organization_id = request.data.get("organization_id") if isinstance(request.data, dict) else None
+
+        if event_type == "payment_failed":
+            EventBus.publish(
+                DomainEvent(
+                    name=BILLING_PAYMENT_FAILED,
+                    organization_id=organization_id,
+                    user_id=None,
+                    resource_type="billing_webhook",
+                    resource_id=provider,
+                    metadata={"provider": provider, "event_type": event_type},
+                ),
+            )
+        elif event_type == "subscription_created":
+            EventBus.publish(
+                DomainEvent(
+                    name=BILLING_SUBSCRIPTION_CREATED,
+                    organization_id=organization_id,
+                    user_id=None,
+                    resource_type="billing_webhook",
+                    resource_id=provider,
+                    metadata={"provider": provider, "event_type": event_type},
+                ),
+            )
+
         return Response({"status": "accepted"}, status=status.HTTP_202_ACCEPTED)
