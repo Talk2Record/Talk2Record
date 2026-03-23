@@ -41,7 +41,12 @@ PLAN_DEFINITIONS = (
 INTEGRATION_DEFINITIONS = (
     {
         "slug": "whatsapp",
-        "config": {"verify_token": "seed-whatsapp-verify-token"},
+        "config": {
+            "verify_token": "seed-whatsapp-verify-token",
+            "graph_api_version": "v21.0",
+            "phone_number_id": "seed-phone-number-id",
+            "waba_id": "seed-waba-id",
+        },
     },
     {
         "slug": "stripe",

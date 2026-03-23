@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
 from .models import LegalDocumentVersion
@@ -26,6 +27,7 @@ class LegalDocumentVersionAdmin(ModelAdmin):
 @admin.register(UserLegalAcceptance)
 class UserLegalAcceptanceAdmin(ModelAdmin):
     list_display = ["user", "document_version", "acceptance_source", "accepted_at"]
+    list_select_related = ("user", "document_version")
     search_fields = [
         "user__email",
         "document_version__document_key",
@@ -37,5 +39,6 @@ class UserLegalAcceptanceAdmin(ModelAdmin):
 @admin.register(UserLegalAttestation)
 class UserLegalAttestationAdmin(ModelAdmin):
     list_display = ["user", "kind", "context", "confirmed", "confirmed_at"]
+    list_select_related = ("user",)
     search_fields = ["user__email", "kind", "context"]
     list_filter = ["kind", "confirmed"]

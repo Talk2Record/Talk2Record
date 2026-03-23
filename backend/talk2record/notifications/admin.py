@@ -9,6 +9,7 @@ from talk2record.notifications.models import Notification
 @admin.register(Notification)
 class NotificationAdmin(ModelAdmin):
     list_display = ["title", "type", "user", "organization", "read_at", "created_at"]
+    list_select_related = ("user", "organization")
     list_filter = ["type", "read_at"]
     search_fields = ["title", "message", "user__email"]
     readonly_fields = ["created_at"]

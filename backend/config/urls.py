@@ -15,7 +15,7 @@ from talk2record.analytics.views import AnalyticsSnapshotView
 from talk2record.analytics.views import DashboardOverviewView
 from talk2record.billing.views import BillingWebhookView
 from talk2record.ingestion.views import PublicRecordIngestionView
-from talk2record.ingestion.views import WhatsAppWebhookView
+from talk2record.whatsapp.views import WhatsAppWebhookView
 from talk2record.users.views import CompleteOnboardingView
 from talk2record.users.views import CurrentUserView
 from talk2record.users.views import LogoutView

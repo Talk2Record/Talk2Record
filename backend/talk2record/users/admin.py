@@ -61,7 +61,7 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
         "onboarding_completed",
         "is_superuser",
     ]
-    search_fields = ["name"]
+    search_fields = ["email", "name"]
     ordering = ["id"]
     add_fieldsets = (
         (

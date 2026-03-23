@@ -106,6 +106,7 @@ LOCAL_APPS = [
     "talk2record.legal",
     "talk2record.records",
     "talk2record.integrations",
+    "talk2record.whatsapp",
     "talk2record.ingestion",
     "talk2record.ai",
     "talk2record.events",
@@ -290,6 +291,8 @@ UNFOLD = {
             "records.record",
             "notifications.notification",
             "users.user",
+            "integrations.integration",
+            "ingestion.whatsapprawpayload",
         ],
         "show_history": True,
     },
@@ -325,19 +328,44 @@ UNFOLD = {
                         "link": reverse_lazy("admin:records_record_changelist"),
                     },
                     {
-                        "title": _("Integrations"),
-                        "icon": "hub",
-                        "link": reverse_lazy("admin:integrations_integration_changelist"),
-                    },
-                    {
-                        "title": _("WhatsApp Routes"),
-                        "icon": "alt_route",
-                        "link": reverse_lazy("admin:integrations_whatsappinboundroute_changelist"),
-                    },
-                    {
                         "title": _("Notifications"),
                         "icon": "notifications",
                         "link": reverse_lazy("admin:notifications_notification_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("WhatsApp Cloud"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Integrations"),
+                        "icon": "hub",
+                        "link": reverse_lazy(
+                            "admin:integrations_integration_changelist",
+                        ),
+                    },
+                    {
+                        "title": _("API credentials"),
+                        "icon": "key",
+                        "link": reverse_lazy(
+                            "admin:integrations_apicredential_changelist",
+                        ),
+                    },
+                    {
+                        "title": _("Inbound phone routes"),
+                        "icon": "alt_route",
+                        "link": reverse_lazy(
+                            "admin:integrations_whatsappinboundroute_changelist",
+                        ),
+                    },
+                    {
+                        "title": _("Webhook payloads"),
+                        "icon": "inbox",
+                        "link": reverse_lazy(
+                            "admin:ingestion_whatsapprawpayload_changelist",
+                        ),
                     },
                 ],
             },
@@ -646,8 +674,6 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-WHATSAPP_WEBHOOK_VERIFY_TOKEN = env("WHATSAPP_WEBHOOK_VERIFY_TOKEN", default="")
-WHATSAPP_WEBHOOK_SECRET = env("WHATSAPP_WEBHOOK_SECRET", default="")
 AI_TRANSCRIPTION_PROVIDER = env("AI_TRANSCRIPTION_PROVIDER", default="mock")
 AI_EXTRACTION_PROVIDER = env("AI_EXTRACTION_PROVIDER", default="mock")
 AI_EXTRACTION_PROMPT_VERSION = env("AI_EXTRACTION_PROMPT_VERSION", default="v1")

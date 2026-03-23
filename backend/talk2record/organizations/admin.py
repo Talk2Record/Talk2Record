@@ -11,11 +11,13 @@ class OrganizationAdmin(ModelAdmin):
     list_display = ["name", "slug", "status", "default_currency", "created_at"]
     search_fields = ["name", "slug"]
     list_filter = ["status", "default_currency"]
+    ordering = ("name",)
 
 
 @admin.register(Membership)
 class MembershipAdmin(ModelAdmin):
     list_display = ["user", "organization", "role", "status", "joined_at"]
+    list_select_related = ("user", "organization")
     search_fields = ["user__email", "organization__name"]
     list_filter = ["role", "status"]
 
@@ -32,5 +34,6 @@ class OrganizationAPIKeyAdmin(ModelAdmin):
         "last_used_at",
         "created_at",
     ]
+    list_select_related = ("organization",)
     search_fields = ["name", "organization__name", "key_prefix"]
     list_filter = ["is_active", "created_at", "expires_at"]

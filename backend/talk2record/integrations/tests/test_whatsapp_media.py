@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from talk2record.integrations.whatsapp_media import WhatsAppMediaError, WhatsAppMediaService
+from talk2record.whatsapp.media import WhatsAppMediaError
+from talk2record.whatsapp.media import WhatsAppMediaService
 
 
 @pytest.mark.django_db
@@ -14,7 +15,7 @@ class TestWhatsAppMediaService:
         mock_response.ok = True
         mock_response.json.return_value = {"url": "https://signed.example.com/audio.ogg", "mime_type": "audio/ogg"}
 
-        with patch("talk2record.integrations.whatsapp_media.requests.get", return_value=mock_response) as mock_get:
+        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response) as mock_get:
             with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
                 url = WhatsAppMediaService.resolve_media_url("media-id-123")
 
@@ -30,7 +31,7 @@ class TestWhatsAppMediaService:
         mock_response.status_code = 404
         mock_response.text = "Not found"
 
-        with patch("talk2record.integrations.whatsapp_media.requests.get", return_value=mock_response):
+        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
             with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
                 with pytest.raises(WhatsAppMediaError, match="404"):
                     WhatsAppMediaService.resolve_media_url("bad-media-id")
@@ -40,7 +41,7 @@ class TestWhatsAppMediaService:
         mock_response.ok = True
         mock_response.json.return_value = {}
 
-        with patch("talk2record.integrations.whatsapp_media.requests.get", return_value=mock_response):
+        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
             with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
                 with pytest.raises(WhatsAppMediaError, match="no URL"):
                     WhatsAppMediaService.resolve_media_url("media-id-no-url")
@@ -55,7 +56,7 @@ class TestWhatsAppMediaService:
         mock_response.ok = True
         mock_response.content = b"audio binary data"
 
-        with patch("talk2record.integrations.whatsapp_media.requests.get", return_value=mock_response):
+        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
             with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
                 data = WhatsAppMediaService.download_media("https://signed.example.com/audio.ogg")
 
@@ -67,17 +68,17 @@ class TestWhatsAppMediaService:
         mock_response.status_code = 403
         mock_response.text = "Forbidden"
 
-        with patch("talk2record.integrations.whatsapp_media.requests.get", return_value=mock_response):
+        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
             with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
                 with pytest.raises(WhatsAppMediaError, match="403"):
                     WhatsAppMediaService.download_media("https://signed.example.com/expired.ogg")
 
 
 class TestWhatsAppMediaExtraction:
-    """Test the media ID extraction fix in ingestion/services.py."""
+    """Test the media ID extraction fix in ``talk2record.whatsapp.webhook``."""
 
     def test_extract_messages_picks_up_audio_id(self):
-        from talk2record.ingestion.services import WhatsAppWebhookService
+        from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
             "entry": [{
@@ -103,7 +104,7 @@ class TestWhatsAppMediaExtraction:
         assert messages[0].audio_url == ""
 
     def test_extract_messages_fallback_to_audio_url(self):
-        from talk2record.ingestion.services import WhatsAppWebhookService
+        from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
             "entry": [{
@@ -127,7 +128,7 @@ class TestWhatsAppMediaExtraction:
         assert messages[0].audio_url == "https://example.com/audio.ogg"
 
     def test_extract_messages_includes_phone_number_id(self):
-        from talk2record.ingestion.services import WhatsAppWebhookService
+        from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
             "entry": [{

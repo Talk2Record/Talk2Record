@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
@@ -257,7 +258,12 @@ class SeedWorkspaceBuilder:
 
         self._ensure_api_credential(
             integration=whatsapp,
-            plain_secret="seed-global-whatsapp-secret",
+            plain_secret=json.dumps(
+                {
+                    "access_token": "seed-global-whatsapp-access-token",
+                    "app_secret": "seed-global-whatsapp-app-secret",
+                },
+            ),
         )
         self._ensure_api_credential(
             integration=stripe,

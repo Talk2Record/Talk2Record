@@ -61,10 +61,6 @@ class TestPublicRecordIngestion:
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             fake_delay,
         )
-        monkeypatch.setattr(
-            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
-            lambda **kwargs: None,
-        )
 
         response = api_client.post(
             reverse("api-public-ingestion-records"),
@@ -123,10 +119,6 @@ class TestPublicRecordIngestion:
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             lambda record_id, *args, **kwargs: queued.append(record_id),
-        )
-        monkeypatch.setattr(
-            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
-            lambda **kwargs: None,
         )
 
         first = api_client.post(
@@ -213,10 +205,6 @@ class TestPublicRecordIngestion:
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
         )
-        monkeypatch.setattr(
-            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
-            lambda **kwargs: None,
-        )
 
         first = api_client.post(
             reverse("api-public-ingestion-records"),
@@ -251,10 +239,6 @@ class TestPublicRecordIngestion:
         monkeypatch.setattr(
             "talk2record.ingestion.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
-        )
-        monkeypatch.setattr(
-            "talk2record.ingestion.views.NotificationService.broadcast_record_event",
-            lambda **kwargs: None,
         )
 
         api_client.post(

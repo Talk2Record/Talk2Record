@@ -11,6 +11,7 @@ class PlanAdmin(ModelAdmin):
     list_display = ["name", "code", "base_price", "currency", "region", "is_active"]
     search_fields = ["name", "code", "region"]
     list_filter = ["currency", "is_active"]
+    ordering = ("code",)
 
 
 @admin.register(Subscription)
@@ -38,6 +39,7 @@ class TransactionAdmin(ModelAdmin):
         "status",
         "issued_at",
     ]
+    list_select_related = ("subscription", "subscription__organization", "subscription__plan")
     search_fields = [
         "invoice_number",
         "provider_transaction_id",

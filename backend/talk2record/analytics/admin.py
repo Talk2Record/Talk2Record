@@ -9,6 +9,7 @@ from .models import Event
 @admin.register(Event)
 class EventAdmin(ModelAdmin):
     list_display = ["name", "category", "organization", "created_at"]
+    list_select_related = ("organization",)
     search_fields = ["name", "category", "organization__name"]
     list_filter = ["category"]
     paginator = InfinitePaginator
@@ -25,4 +26,5 @@ class DailyMetricAdmin(ModelAdmin):
         "revenue",
         "active_users",
     ]
+    list_select_related = ("organization",)
     search_fields = ["organization__name"]

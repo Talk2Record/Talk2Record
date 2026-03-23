@@ -14,6 +14,7 @@ class RecordAdmin(ModelAdmin):
         "source_reference",
         "created_at",
     ]
+    list_select_related = ("organization",)
     search_fields = [
         "organization__name",
         "source_reference",
@@ -25,6 +26,7 @@ class RecordAdmin(ModelAdmin):
 @admin.register(RecordArtifact)
 class RecordArtifactAdmin(ModelAdmin):
     list_display = ["record", "key", "artifact_type", "provider", "created_at"]
+    list_select_related = ("record", "record__organization")
     list_filter = ["artifact_type", "key"]
     search_fields = ["record__source_reference", "key", "provider"]
 

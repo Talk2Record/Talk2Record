@@ -43,10 +43,9 @@ class TestWhatsAppWebhook:
             ],
         }
 
-    def test_verification_success(self, settings, integration, api_client: APIClient):
-        settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "verify-me"  # noqa: S105
+    def test_verification_success(self, integration, api_client: APIClient):
         integration.enabled = True
-        integration.config = {}
+        integration.config = {"verify_token": "verify-me"}
         integration.save(update_fields=["enabled", "config", "updated_at"])
         response = api_client.get(
             reverse("api-whatsapp-webhook"),
@@ -60,10 +59,9 @@ class TestWhatsAppWebhook:
         assert response.status_code == status.HTTP_200_OK
         assert response.content.decode() == "challenge-token"
 
-    def test_verification_rejects_invalid_token(self, settings, integration, api_client: APIClient):
-        settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "expected-token"  # noqa: S105
+    def test_verification_rejects_invalid_token(self, integration, api_client: APIClient):
         integration.enabled = True
-        integration.config = {}
+        integration.config = {"verify_token": "expected-token"}
         integration.save(update_fields=["enabled", "config", "updated_at"])
         response = api_client.get(
             reverse("api-whatsapp-webhook"),
@@ -108,11 +106,11 @@ class TestWhatsAppWebhook:
             published_events.append(event.name)
 
         monkeypatch.setattr(
-            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            "talk2record.whatsapp.views.process_whatsapp_record.delay",
             fake_delay,
         )
         monkeypatch.setattr(
-            "talk2record.ingestion.views.publish_after_commit",
+            "talk2record.whatsapp.views.publish_after_commit",
             fake_publish,
         )
 
@@ -165,7 +163,7 @@ class TestWhatsAppWebhook:
         api_credential.save(update_fields=["encrypted_secret", "updated_at"])
         assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
-            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            "talk2record.whatsapp.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
         )
 
@@ -212,7 +210,7 @@ class TestWhatsAppWebhook:
         api_credential.save(update_fields=["encrypted_secret", "updated_at"])
         assert whatsapp_route.phone_number_id == "123456789"
         monkeypatch.setattr(
-            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            "talk2record.whatsapp.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
         )
 
@@ -307,7 +305,7 @@ class TestWhatsAppWebhook:
             ],
         }
         monkeypatch.setattr(
-            "talk2record.ingestion.views.process_whatsapp_record.delay",
+            "talk2record.whatsapp.views.process_whatsapp_record.delay",
             lambda *args, **kwargs: None,
         )
 

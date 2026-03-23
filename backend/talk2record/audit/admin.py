@@ -8,6 +8,7 @@ from .models import AuditLog
 @admin.register(AuditLog)
 class AuditLogAdmin(ModelAdmin):
     list_display = ["action", "resource_type", "organization", "actor", "created_at"]
+    list_select_related = ("organization", "actor")
     search_fields = [
         "action",
         "resource_type",
