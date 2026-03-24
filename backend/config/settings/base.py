@@ -289,6 +289,8 @@ UNFOLD = {
         "search_models": [
             "organizations.organization",
             "records.record",
+            "records.recordartifact",
+            "records.recordschema",
             "notifications.notification",
             "users.user",
             "whatsapp.whatsappsettings",
@@ -305,7 +307,7 @@ UNFOLD = {
         "show_all_applications": True,
         "navigation": [
             {
-                "title": _("Operations"),
+                "title": _("Overview"),
                 "separator": True,
                 "collapsible": True,
                 "items": [
@@ -314,6 +316,12 @@ UNFOLD = {
                         "icon": "dashboard",
                         "link": reverse_lazy("admin:index"),
                     },
+                ],
+            },
+            {
+                "title": _("Organizations"),
+                "collapsible": True,
+                "items": [
                     {
                         "title": _("Organizations"),
                         "icon": "apartment",
@@ -325,10 +333,39 @@ UNFOLD = {
                         "link": reverse_lazy("admin:organizations_membership_changelist"),
                     },
                     {
+                        "title": _("Organization API Keys"),
+                        "icon": "vpn_key",
+                        "link": reverse_lazy(
+                            "admin:organizations_organizationapikey_changelist",
+                        ),
+                    },
+                ],
+            },
+            {
+                "title": _("Records"),
+                "collapsible": True,
+                "items": [
+                    {
                         "title": _("Records"),
                         "icon": "description",
                         "link": reverse_lazy("admin:records_record_changelist"),
                     },
+                    {
+                        "title": _("Record artifacts"),
+                        "icon": "inventory_2",
+                        "link": reverse_lazy("admin:records_recordartifact_changelist"),
+                    },
+                    {
+                        "title": _("Record schemas"),
+                        "icon": "schema",
+                        "link": reverse_lazy("admin:records_recordschema_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Notifications"),
+                "collapsible": True,
+                "items": [
                     {
                         "title": _("Notifications"),
                         "icon": "notifications",
@@ -337,29 +374,14 @@ UNFOLD = {
                 ],
             },
             {
-                "title": _("WhatsApp Cloud"),
-                "separator": True,
+                "title": _("WhatsApp"),
                 "collapsible": True,
                 "items": [
                     {
-                        "title": _("WhatsApp Cloud settings"),
+                        "title": _("WhatsApp settings"),
                         "icon": "tune",
                         "link": reverse_lazy(
                             "admin:whatsapp_whatsappsettings_changelist",
-                        ),
-                    },
-                    {
-                        "title": _("Stripe / billing settings"),
-                        "icon": "payments",
-                        "link": reverse_lazy(
-                            "admin:billing_stripesettings_changelist",
-                        ),
-                    },
-                    {
-                        "title": _("AI provider settings"),
-                        "icon": "psychology",
-                        "link": reverse_lazy(
-                            "admin:ai_aisettings_changelist",
                         ),
                     },
                     {
@@ -369,6 +391,12 @@ UNFOLD = {
                             "admin:whatsapp_whatsappinboundroute_changelist",
                         ),
                     },
+                ],
+            },
+            {
+                "title": _("Ingestion"),
+                "collapsible": True,
+                "items": [
                     {
                         "title": _("Webhook payloads"),
                         "icon": "inbox",
@@ -379,30 +407,25 @@ UNFOLD = {
                 ],
             },
             {
-                "title": _("Insights"),
+                "title": _("AI"),
                 "collapsible": True,
                 "items": [
                     {
-                        "title": _("Events"),
-                        "icon": "timeline",
-                        "link": reverse_lazy("admin:analytics_event_changelist"),
-                    },
-                    {
-                        "title": _("Daily Metrics"),
-                        "icon": "monitoring",
-                        "link": reverse_lazy("admin:analytics_dailymetric_changelist"),
-                    },
-                    {
-                        "title": _("Audit Logs"),
-                        "icon": "history",
-                        "link": reverse_lazy("admin:audit_auditlog_changelist"),
+                        "title": _("AI provider settings"),
+                        "icon": "psychology",
+                        "link": reverse_lazy("admin:ai_aisettings_changelist"),
                     },
                 ],
             },
             {
-                "title": _("Billing & Legal"),
+                "title": _("Billing"),
                 "collapsible": True,
                 "items": [
+                    {
+                        "title": _("Stripe settings"),
+                        "icon": "payments",
+                        "link": reverse_lazy("admin:billing_stripesettings_changelist"),
+                    },
                     {
                         "title": _("Plans"),
                         "icon": "sell",
@@ -415,9 +438,15 @@ UNFOLD = {
                     },
                     {
                         "title": _("Transactions"),
-                        "icon": "payments",
+                        "icon": "account_balance_wallet",
                         "link": reverse_lazy("admin:billing_transaction_changelist"),
                     },
+                ],
+            },
+            {
+                "title": _("Legal"),
+                "collapsible": True,
+                "items": [
                     {
                         "title": _("Legal Documents"),
                         "icon": "gavel",
@@ -436,7 +465,34 @@ UNFOLD = {
                 ],
             },
             {
-                "title": _("Global Settings"),
+                "title": _("Analytics"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Events"),
+                        "icon": "timeline",
+                        "link": reverse_lazy("admin:analytics_event_changelist"),
+                    },
+                    {
+                        "title": _("Daily Metrics"),
+                        "icon": "monitoring",
+                        "link": reverse_lazy("admin:analytics_dailymetric_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Audit"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Audit Logs"),
+                        "icon": "history",
+                        "link": reverse_lazy("admin:audit_auditlog_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Users & permissions"),
                 "collapsible": True,
                 "items": [
                     {
@@ -449,16 +505,12 @@ UNFOLD = {
                         "icon": "manage_accounts",
                         "link": reverse_lazy("admin:auth_group_changelist"),
                     },
-                    {
-                        "title": _("Stripe / billing settings"),
-                        "icon": "key",
-                        "link": reverse_lazy("admin:billing_stripesettings_changelist"),
-                    },
-                    {
-                        "title": _("Organization API Keys"),
-                        "icon": "vpn_key",
-                        "link": reverse_lazy("admin:organizations_organizationapikey_changelist"),
-                    },
+                ],
+            },
+            {
+                "title": _("Sites"),
+                "collapsible": True,
+                "items": [
                     {
                         "title": _("Sites"),
                         "icon": "public",
