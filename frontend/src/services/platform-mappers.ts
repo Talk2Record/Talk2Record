@@ -30,6 +30,8 @@ interface BackendAuthUser {
   company: string;
   role: AuthUser["role"];
   onboardingCompleted: boolean;
+  isStaff?: boolean;
+  isSuperuser?: boolean;
   legal: BackendLegalAcceptanceStatus;
 }
 
@@ -70,6 +72,8 @@ export function mapAuthUser(user: BackendAuthUser): AuthUser {
     company: user.company,
     role: user.role,
     onboardingCompleted: user.onboardingCompleted,
+    isStaff: Boolean(user.isStaff),
+    isSuperuser: Boolean(user.isSuperuser),
     legal: mapLegalAcceptanceStatus(user.legal),
   };
 }

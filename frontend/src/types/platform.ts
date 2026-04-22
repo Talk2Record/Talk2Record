@@ -14,14 +14,83 @@ export interface LegalAcceptanceStatus {
   has_required_billing_acceptance: boolean;
 }
 
+export type OrgRole = "owner" | "admin" | "operator";
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   company: string;
-  role: "owner" | "operator";
+  role: OrgRole;
   onboardingCompleted: boolean;
+  isStaff: boolean;
+  isSuperuser: boolean;
   legal: LegalAcceptanceStatus;
+}
+
+export interface OrganizationSummary {
+  id: number;
+  name: string;
+  slug: string;
+  region?: string;
+  timezone: string;
+  default_currency: string;
+  status: string;
+}
+
+export interface MembershipRow {
+  id: number;
+  organization: OrganizationSummary;
+  role: OrgRole;
+  status: string;
+  joined_at: string;
+  userEmail: string;
+  userName: string;
+}
+
+export interface InvitationRow {
+  id: number;
+  organization: OrganizationSummary;
+  email: string;
+  role: OrgRole;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  invitedByEmail: string | null;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface CreateInvitationResponse {
+  invitation: InvitationRow;
+  acceptUrl: string;
+  token: string;
+}
+
+export interface SessionRow {
+  id: number;
+  ip_address: string | null;
+  user_agent: string;
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  expires_at: string | null;
+  isCurrent: boolean;
+}
+
+export interface AdminUserRow {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  is_staff: boolean;
+  is_superuser: boolean;
+  onboarding_completed: boolean;
+  suspended_at: string | null;
+  suspended_reason: string;
+  date_joined: string;
+  last_login: string | null;
+  organizationsCount: number;
 }
 
 export interface DashboardMetric {

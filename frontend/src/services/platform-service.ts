@@ -101,16 +101,32 @@ export const analyticsService = {
   },
 };
 
+export interface EntitlementRow {
+  feature_key: string;
+  enabled: boolean;
+  limit: number;
+  period: "none" | "monthly" | "yearly";
+}
+
 export const billingService = {
   async getSnapshot() {
     const response = await api.get<BillingSnapshot>("/billing/");
     return mapBillingSnapshot(response.data);
   },
 
-  async checkout(payload: { plan: string; acceptedBillingTerms: boolean }) {
+  async listEntitlements() {
+    const response = await api.get<EntitlementRow[]>("/billing/entitlements/");
+    return response.data;
+  },
+
+  async checkout(payload: {
+    plan: string;
+    acceptedBillingTerms: boolean;
+    provider?: string;
+  }) {
     const response = await api.post<{ status: string; checkoutUrl: string }>(
       "/billing/checkout/",
-      payload
+      payload,
     );
     return response.data;
   },

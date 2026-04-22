@@ -9,18 +9,29 @@ import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
+type BillingProvider = "stripe" | "paddle";
+
 export default function BillingPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["billing"],
     queryFn: billingService.getSnapshot,
   });
+  const entitlementsQuery = useQuery({
+    queryKey: ["billing", "entitlements"],
+    queryFn: () => billingService.listEntitlements(),
+  });
   const [status, setStatus] = useState("");
   const [acceptedBillingTerms, setAcceptedBillingTerms] = useState(false);
+  const [provider, setProvider] = useState<BillingProvider>("stripe");
 
   async function checkout(plan: string) {
-    trackEvent("billing_upgrade_started", { plan });
+    trackEvent("billing_upgrade_started", { plan, provider });
     try {
-      const response = await billingService.checkout({ plan, acceptedBillingTerms });
+      const response = await billingService.checkout({
+        plan,
+        acceptedBillingTerms,
+        provider,
+      });
       setStatus(response.status);
       if (response.checkoutUrl && !response.checkoutUrl.includes("billing.example.com")) {
         window.location.assign(response.checkoutUrl);
@@ -120,6 +131,25 @@ export default function BillingPage() {
               </span>
             </span>
           </label>
+          <div className="flex w-full items-center gap-3 text-sm">
+            <span className="text-muted-foreground">Provider</span>
+            <div className="flex gap-2">
+              {(["stripe", "paddle"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setProvider(value)}
+                  className={
+                    value === provider
+                      ? "rounded-full bg-primary px-3 py-1 text-primary-foreground"
+                      : "rounded-full border border-primary/20 px-3 py-1 text-muted-foreground hover:bg-muted"
+                  }
+                >
+                  {value === "stripe" ? "Stripe" : "Paddle"}
+                </button>
+              ))}
+            </div>
+          </div>
           <Button className="rounded-xl" onClick={() => checkout("Starter")} variant="outline">
             Move to Starter
           </Button>
@@ -130,6 +160,42 @@ export default function BillingPage() {
             Move to Scale
           </Button>
           {status ? <p className="text-muted-foreground w-full text-sm">{status}</p> : null}
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/10">
+        <CardHeader>
+          <CardTitle>Plan features</CardTitle>
+          <CardDescription>
+            Features and limits granted by your current subscription.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {entitlementsQuery.isLoading ? (
+            <p className="text-muted-foreground text-sm">Loading…</p>
+          ) : entitlementsQuery.data && entitlementsQuery.data.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {entitlementsQuery.data.map((row) => (
+                <li
+                  key={row.feature_key}
+                  className="flex items-center justify-between rounded-md border border-primary/10 px-3 py-2"
+                >
+                  <span className="font-medium">{row.feature_key}</span>
+                  <span className="text-muted-foreground">
+                    {row.enabled
+                      ? row.limit > 0
+                        ? `${row.limit}${row.period !== "none" ? ` / ${row.period}` : ""}`
+                        : "Included"
+                      : "Disabled"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No plan features published yet.
+            </p>
+          )}
         </CardContent>
       </Card>
 

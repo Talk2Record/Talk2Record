@@ -2,13 +2,17 @@
 
 import {
   BarChart3,
+  Cpu,
   CreditCard,
   KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
+  Monitor,
   ScrollText,
   Settings,
+  ShieldAlert,
+  UsersRound,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/shared/ui/sheet";
 
@@ -120,13 +124,22 @@ export const Sidebar = () => {
   const messages = getTranslations(locale);
   const { t } = useTranslations(messages);
 
+  const isAdminRole = user?.role === "owner" || user?.role === "admin";
+  const isPlatformStaff = Boolean(user?.isStaff || user?.isSuperuser);
+
   const menuItems: MenuItem[] = [
     { label: t("navigation.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     { label: t("navigation.records"), href: "/dashboard/records", icon: ScrollText },
     { label: t("navigation.analytics"), href: "/dashboard/analytics", icon: BarChart3 },
     { label: t("navigation.billing"), href: "/dashboard/billing", icon: CreditCard },
+    ...(isAdminRole ? [{ label: "Team", href: "/dashboard/team", icon: UsersRound }] : []),
     { label: t("navigation.settings"), href: "/dashboard/settings", icon: Settings },
     { label: t("navigation.apiKeys"), href: "/dashboard/settings/api-keys", icon: KeyRound },
+    ...(isAdminRole ? [{ label: "AI", href: "/dashboard/settings/ai", icon: Cpu }] : []),
+    { label: "Sessions", href: "/dashboard/settings/sessions", icon: Monitor },
+    ...(isPlatformStaff
+      ? [{ label: "Platform admin", href: "/dashboard/admin/users", icon: ShieldAlert }]
+      : []),
   ];
 
   return (
