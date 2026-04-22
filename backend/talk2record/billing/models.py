@@ -4,6 +4,48 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class BillingProviderConfig(models.Model):
+    """Per-provider platform-level credentials for a billing integration.
+
+    Unlike ``AIProviderConfig`` this is **not** org-scoped: billing providers
+    (Stripe, Paddle, …) are configured globally by platform staff and shared
+    across all organisations.
+    """
+
+    provider = models.CharField(
+        max_length=32,
+        unique=True,
+        help_text="Provider slug (stripe, paddle, paypal, ...).",
+    )
+    display_name = models.CharField(max_length=120, blank=True)
+    enabled = models.BooleanField(default=True)
+    environment = models.CharField(
+        max_length=32,
+        blank=True,
+        default="sandbox",
+        help_text="sandbox | production — provider specific.",
+    )
+    encrypted_api_key = models.TextField(
+        blank=True,
+        help_text="Server-side API key encrypted via SecretVault.",
+    )
+    encrypted_webhook_secret = models.TextField(
+        blank=True,
+        help_text="Webhook signing secret encrypted via SecretVault.",
+    )
+    config = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Billing provider config")
+        verbose_name_plural = _("Billing provider configs")
+        ordering = ["provider"]
+
+    def __str__(self) -> str:
+        return self.display_name or self.provider
+
+
 class StripeSettings(models.Model):
     """Singleton (``pk=1``) for Stripe (or configured provider) secrets and options."""
 
@@ -49,6 +91,97 @@ class Plan(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.currency})"
+
+
+class PlanProviderPrice(models.Model):
+    """Maps a ``Plan`` to a provider's price/product identifier.
+
+    Lets a single plan be sold via multiple providers (Stripe + Paddle) by
+    pointing at the provider-native price object.
+    """
+
+    plan = models.ForeignKey(
+        Plan,
+        on_delete=models.CASCADE,
+        related_name="provider_prices",
+    )
+    provider = models.CharField(max_length=32)
+    provider_price_id = models.CharField(max_length=255)
+    interval = models.CharField(
+        max_length=16,
+        default="month",
+        help_text="month | year | one_time",
+    )
+    active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Plan provider price")
+        verbose_name_plural = _("Plan provider prices")
+        ordering = ["plan_id", "provider"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan", "provider", "interval"],
+                name="unique_plan_provider_interval",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.plan.code}/{self.provider}={self.provider_price_id}"
+
+
+class PlanEntitlement(models.Model):
+    """A feature / limit granted by a ``Plan``.
+
+    Two shapes are supported:
+
+    * Boolean feature flags (``limit`` is ``None`` / ``0``).
+    * Numeric limits (``limit`` set to the allowed count per period).
+    """
+
+    class Period(models.TextChoices):
+        NONE = "none", _("None")
+        MONTHLY = "monthly", _("Monthly")
+        YEARLY = "yearly", _("Yearly")
+
+    plan = models.ForeignKey(
+        Plan,
+        on_delete=models.CASCADE,
+        related_name="entitlements",
+    )
+    feature_key = models.CharField(
+        max_length=64,
+        help_text="Dotted-key identifier (e.g. ai.usage, whatsapp.numbers).",
+    )
+    enabled = models.BooleanField(default=True)
+    limit = models.PositiveIntegerField(
+        default=0,
+        help_text="0 = unlimited / feature flag only.",
+    )
+    period = models.CharField(
+        max_length=16,
+        choices=Period.choices,
+        default=Period.NONE,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Plan entitlement")
+        verbose_name_plural = _("Plan entitlements")
+        ordering = ["plan_id", "feature_key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan", "feature_key"],
+                name="unique_plan_feature",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.plan.code}:{self.feature_key}"
 
 
 class Subscription(models.Model):

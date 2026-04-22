@@ -17,6 +17,8 @@ class UserSerializer(serializers.ModelSerializer[User]):
     currentOrganizationId = serializers.SerializerMethodField()
     currentOrganizationSlug = serializers.SerializerMethodField()
     onboardingCompleted = serializers.BooleanField(source="onboarding_completed", read_only=True)
+    isStaff = serializers.BooleanField(source="is_staff", read_only=True)
+    isSuperuser = serializers.BooleanField(source="is_superuser", read_only=True)
     legal = serializers.SerializerMethodField()
 
     class Meta:
@@ -30,10 +32,12 @@ class UserSerializer(serializers.ModelSerializer[User]):
             "currentOrganizationId",
             "currentOrganizationSlug",
             "onboardingCompleted",
+            "isStaff",
+            "isSuperuser",
             "legal",
             "url",
         ]
-        read_only_fields = ["id", "email", "url"]
+        read_only_fields = ["id", "email", "url", "isStaff", "isSuperuser"]
         extra_kwargs = {
             "url": {"view_name": "api:user-detail", "lookup_field": "pk"},
         }
@@ -127,11 +131,51 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
+        request = self.context.get("request")
         data["user"] = UserSerializer(
             self.user,
-            context={"request": self.context.get("request")},
+            context={"request": request},
         ).data
+        refresh_token_str = data.get("refresh")
+        if refresh_token_str and self.user is not None and request is not None:
+            self._record_session(refresh_token_str, request)
         return data
+
+    def _record_session(self, refresh_token_str: str, request) -> None:
+        from datetime import datetime, timezone  # noqa: PLC0415
+        from rest_framework_simplejwt.tokens import RefreshToken  # noqa: PLC0415
+
+        from talk2record.users.models import UserSession  # noqa: PLC0415
+
+        try:
+            refresh = RefreshToken(refresh_token_str)
+        except TokenError:
+            return
+        jti = refresh.get("jti")
+        exp = refresh.get("exp")
+        if not jti:
+            return
+        expires_at = (
+            datetime.fromtimestamp(exp, tz=timezone.utc) if exp else None
+        )
+        ip_address = _request_ip(request)
+        user_agent = (request.META.get("HTTP_USER_AGENT") or "")[:512]
+        UserSession.objects.update_or_create(
+            refresh_jti=str(jti),
+            defaults={
+                "user": self.user,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "expires_at": expires_at,
+            },
+        )
+
+
+def _request_ip(request) -> str | None:
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip() or None
+    return request.META.get("REMOTE_ADDR") or None
 
 
 class LogoutSerializer(serializers.Serializer):
@@ -139,10 +183,22 @@ class LogoutSerializer(serializers.Serializer):
 
     def save(self, **kwargs) -> None:
         try:
-            RefreshToken(self.validated_data["refresh"]).blacklist()
+            refresh = RefreshToken(self.validated_data["refresh"])
         except TokenError as exc:
             msg = "Refresh token is invalid or expired."
             raise serializers.ValidationError({"refresh": msg}) from exc
+
+        jti = refresh.get("jti")
+        refresh.blacklist()
+
+        if jti:
+            from django.utils import timezone  # noqa: PLC0415
+
+            from talk2record.users.models import UserSession  # noqa: PLC0415
+
+            UserSession.objects.filter(refresh_jti=str(jti), revoked_at__isnull=True).update(
+                revoked_at=timezone.now(),
+            )
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -159,9 +215,13 @@ class OnboardingStepSerializer(serializers.Serializer):
 class SettingsProfileSerializer(serializers.Serializer):
     company = serializers.CharField(max_length=255)
     contactEmail = serializers.EmailField()
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     timezone = serializers.CharField(max_length=64)
     defaultLanguage = serializers.CharField(max_length=32, required=False, default="English")
     defaultCurrency = serializers.CharField(max_length=8)
+    locale = serializers.CharField(max_length=16, required=False, allow_blank=True)
+    avatarUrl = serializers.CharField(max_length=512, required=False, allow_blank=True)
+    mfaEnabled = serializers.BooleanField(required=False)
 
     def validate_contactEmail(self, value: str) -> str:
         user = self.context["request"].user
@@ -189,13 +249,34 @@ class SettingsProfileSerializer(serializers.Serializer):
         organization.default_currency = validated_data["defaultCurrency"]
         organization.save(update_fields=["name", "timezone", "default_currency", "updated_at"])
 
-        user.email = validated_data["contactEmail"]
-        user.save(update_fields=["email"])
+        user_update_fields: list[str] = []
+        new_email = validated_data["contactEmail"]
+        if user.email != new_email:
+            user.email = new_email
+            user_update_fields.append("email")
+        if "name" in validated_data and validated_data["name"]:
+            user.name = validated_data["name"]
+            user_update_fields.append("name")
+        if "locale" in validated_data and validated_data["locale"]:
+            user.locale = validated_data["locale"]
+            user_update_fields.append("locale")
+        if "avatarUrl" in validated_data:
+            user.avatar_url = validated_data["avatarUrl"]
+            user_update_fields.append("avatar_url")
+        if "timezone" in validated_data:
+            user.timezone = validated_data["timezone"]
+            user_update_fields.append("timezone")
+        if user_update_fields:
+            user.save(update_fields=user_update_fields)
 
         return {
             "company": organization.name,
             "contactEmail": user.email,
+            "name": user.name,
             "timezone": organization.timezone,
             "defaultLanguage": validated_data.get("defaultLanguage", "English"),
             "defaultCurrency": organization.default_currency,
+            "locale": user.locale,
+            "avatarUrl": user.avatar_url,
+            "mfaEnabled": user.mfa_enabled,
         }

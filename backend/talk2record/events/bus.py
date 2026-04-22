@@ -19,6 +19,11 @@ from talk2record.events.names import INGESTION_RECEIVED
 from talk2record.events.names import INGESTION_VALIDATED
 from talk2record.events.names import LEGAL_ACCEPTED
 from talk2record.events.names import LEGAL_ATTESTED
+from talk2record.events.names import MEMBERSHIP_ACCEPTED
+from talk2record.events.names import MEMBERSHIP_INVITED
+from talk2record.events.names import MEMBERSHIP_REMOVED
+from talk2record.events.names import MEMBERSHIP_REVOKED
+from talk2record.events.names import MEMBERSHIP_ROLE_CHANGED
 from talk2record.events.names import RECORD_CREATED
 from talk2record.events.names import RECORD_PROCESSING_COMPLETED
 from talk2record.events.names import RECORD_PROCESSING_FAILED
@@ -27,7 +32,18 @@ from talk2record.events.names import RECORD_STORED
 from talk2record.events.names import RECORD_UPDATED
 from talk2record.events.names import SYSTEM_ERROR
 from talk2record.events.names import USAGE_AI_INCREMENTED
+from talk2record.events.names import USER_IMPERSONATED
+from talk2record.events.names import USER_PROFILE_UPDATED
+from talk2record.events.names import USER_REACTIVATED
 from talk2record.events.names import USER_REGISTERED
+from talk2record.events.names import USER_SUSPENDED
+from talk2record.events.names import VOICE_NOTE_RECEIVED
+from talk2record.events.names import WHATSAPP_MESSAGE_DELIVERED
+from talk2record.events.names import WHATSAPP_MESSAGE_FAILED
+from talk2record.events.names import WHATSAPP_MESSAGE_READ
+from talk2record.events.names import WHATSAPP_MESSAGE_RECEIVED
+from talk2record.events.names import WHATSAPP_MESSAGE_SENT
+from talk2record.events.names import WHATSAPP_STATUS_UPDATED
 from talk2record.events.types import DomainEvent
 
 _AUDIT = "talk2record.audit.tasks.handle_domain_event_for_audit"
@@ -129,7 +145,33 @@ def register_defaults(register: Callable[[str, str], None]) -> None:
 
     # Users / system
     register(USER_REGISTERED, _AUDIT)
+    register(USER_SUSPENDED, _AUDIT)
+    register(USER_REACTIVATED, _AUDIT)
+    register(USER_IMPERSONATED, _AUDIT)
+    register(USER_PROFILE_UPDATED, _AUDIT)
     register(SYSTEM_ERROR, _AUDIT)
+
+    # WhatsApp public contract — audit the full lifecycle. Consumers like
+    # ingestion/records subscribe to ``voice_note.received`` via @on handlers
+    # registered in their own apps rather than here.
+    register(WHATSAPP_MESSAGE_RECEIVED, _AUDIT)
+    register(WHATSAPP_MESSAGE_SENT, _AUDIT)
+    register(WHATSAPP_MESSAGE_DELIVERED, _AUDIT)
+    register(WHATSAPP_MESSAGE_READ, _AUDIT)
+    register(WHATSAPP_MESSAGE_FAILED, _AUDIT)
+    register(WHATSAPP_MESSAGE_FAILED, _NOTIFICATIONS)
+    register(WHATSAPP_STATUS_UPDATED, _AUDIT)
+    register(VOICE_NOTE_RECEIVED, _AUDIT)
+
+    # Memberships
+    register(MEMBERSHIP_INVITED, _AUDIT)
+    register(MEMBERSHIP_INVITED, _NOTIFICATIONS)
+    register(MEMBERSHIP_ACCEPTED, _AUDIT)
+    register(MEMBERSHIP_ACCEPTED, _NOTIFICATIONS)
+    register(MEMBERSHIP_ACCEPTED, _ANALYTICS)
+    register(MEMBERSHIP_REVOKED, _AUDIT)
+    register(MEMBERSHIP_REMOVED, _AUDIT)
+    register(MEMBERSHIP_ROLE_CHANGED, _AUDIT)
 
 
 def publish_after_commit(event: DomainEvent) -> None:

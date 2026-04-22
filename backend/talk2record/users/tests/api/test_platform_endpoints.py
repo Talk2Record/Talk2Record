@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
@@ -183,11 +185,14 @@ class TestPlatformEndpoints:
         global_stripe_settings: StripeSettings,
     ):
         assert global_stripe_settings.enabled
-        response = authed_client.post(
-            reverse("api:billing-checkout"),
-            {"plan": subscription.plan.code, "acceptedBillingTerms": True},
-            format="json",
-        )
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/pay/cs_test_mock"
+        with patch("stripe.checkout.Session.create", return_value=mock_session):
+            response = authed_client.post(
+                reverse("api:billing-checkout"),
+                {"plan": subscription.plan.code, "acceptedBillingTerms": True},
+                format="json",
+            )
 
         assert response.status_code == status.HTTP_200_OK
         assert "checkoutUrl" in response.data

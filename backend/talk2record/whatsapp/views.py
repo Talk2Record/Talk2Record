@@ -18,6 +18,7 @@ from talk2record.ingestion.observability import request_id_from_request
 from talk2record.ingestion.quotas import IngestionQuotaService
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
+from talk2record.whatsapp.services.inbound import WhatsAppInboundService
 from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 from talk2record.records.models import Record
 from talk2record.whatsapp.webhook import InboundWhatsAppMessage
@@ -75,6 +76,20 @@ class WhatsAppWebhookView(APIView):
             return response
 
         payload = request.data if isinstance(request.data, dict) else {}
+
+        # Always persist a WhatsAppMessage / WhatsAppConversation trail and
+        # publish the ``whatsapp.*`` + ``voice_note.received`` event contract.
+        # This runs independently of the legacy ``WhatsAppRawPayload`` + Record
+        # ingestion flow below so existing consumers keep working.
+        try:
+            WhatsAppInboundService.process_webhook(payload)
+        except Exception as exc:  # noqa: BLE001
+            log_ingestion_event(
+                "ingestion.whatsapp.inbound_service_error",
+                request_id=request_id,
+                error=str(exc),
+            )
+
         inbound_messages = WhatsAppWebhookService.extract_messages(payload)
         if not inbound_messages:
             response = Response(

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from talk2record.audit.models import AuditLog
 from talk2record.organizations.models import Membership
+from talk2record.organizations.models import MembershipInvitation
 from talk2record.organizations.models import Organization
 from talk2record.organizations.models import OrganizationAPIKey
 from talk2record.organizations.services import OrganizationAPIKeyService
@@ -23,10 +24,59 @@ class OrganizationSerializer(serializers.ModelSerializer[Organization]):
 
 class MembershipSerializer(serializers.ModelSerializer[Membership]):
     organization = OrganizationSerializer(read_only=True)
+    userEmail = serializers.EmailField(source="user.email", read_only=True)
+    userName = serializers.CharField(source="user.name", read_only=True)
 
     class Meta:
         model = Membership
-        fields = ["id", "organization", "role", "status", "joined_at"]
+        fields = [
+            "id",
+            "organization",
+            "role",
+            "status",
+            "joined_at",
+            "userEmail",
+            "userName",
+        ]
+
+
+class MembershipInvitationSerializer(serializers.ModelSerializer[MembershipInvitation]):
+    organization = OrganizationSerializer(read_only=True)
+    invitedByEmail = serializers.EmailField(source="invited_by.email", read_only=True)
+
+    class Meta:
+        model = MembershipInvitation
+        fields = [
+            "id",
+            "organization",
+            "email",
+            "role",
+            "status",
+            "invitedByEmail",
+            "expires_at",
+            "accepted_at",
+            "revoked_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class InviteMembershipSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(
+        choices=[(r.value, r.label) for r in Membership.Role],
+        default=Membership.Role.OPERATOR,
+    )
+
+
+class ChangeMembershipRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(
+        choices=[(r.value, r.label) for r in Membership.Role],
+    )
+
+
+class AcceptInvitationSerializer(serializers.Serializer):
+    token = serializers.CharField()
 
 
 class OrganizationAPIKeySerializer(serializers.ModelSerializer[OrganizationAPIKey]):

@@ -36,3 +36,4 @@ class SubscriptionSerializer(serializers.ModelSerializer[Subscription]):
 class BillingCheckoutSerializer(serializers.Serializer):
     plan = serializers.CharField()
     acceptedBillingTerms = serializers.BooleanField()
+    provider = serializers.CharField(required=False, allow_blank=True)

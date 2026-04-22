@@ -3,6 +3,10 @@ from __future__ import annotations
 # Users
 USER_REGISTERED = "user.registered"
 USER_ONBOARDING_COMPLETED = "user.onboarding_completed"
+USER_SUSPENDED = "user.suspended"
+USER_REACTIVATED = "user.reactivated"
+USER_IMPERSONATED = "user.impersonated"
+USER_PROFILE_UPDATED = "user.profile.updated"
 
 # Legal
 LEGAL_ACCEPTED = "legal.accepted"
@@ -10,11 +14,28 @@ LEGAL_ATTESTED = "legal.attested"
 
 # Memberships
 MEMBERSHIP_INVITED = "membership.invited"
+MEMBERSHIP_ACCEPTED = "membership.accepted"
+MEMBERSHIP_REVOKED = "membership.revoked"
+MEMBERSHIP_REMOVED = "membership.removed"
+MEMBERSHIP_ROLE_CHANGED = "membership.role_changed"
 
 # Ingestion lifecycle
 INGESTION_RECEIVED = "ingestion.received"
 INGESTION_VALIDATED = "ingestion.validated"
 INGESTION_FAILED = "ingestion.failed"
+
+# WhatsApp app public contract
+# ``whatsapp.*`` events describe the low-level WhatsApp message lifecycle.
+# ``voice_note.received`` is the decoupled, app-agnostic contract that the
+# ingestion app subscribes to (instead of importing from ``whatsapp``).
+WHATSAPP_MESSAGE_RECEIVED = "whatsapp.message.received"
+WHATSAPP_MESSAGE_SENT = "whatsapp.message.sent"
+WHATSAPP_MESSAGE_DELIVERED = "whatsapp.message.delivered"
+WHATSAPP_MESSAGE_READ = "whatsapp.message.read"
+WHATSAPP_MESSAGE_FAILED = "whatsapp.message.failed"
+WHATSAPP_STATUS_UPDATED = "whatsapp.status.updated"
+WHATSAPP_SEND_REQUESTED = "whatsapp.send.requested"
+VOICE_NOTE_RECEIVED = "voice_note.received"
 
 # Record lifecycle
 RECORD_CREATED = "record.created"

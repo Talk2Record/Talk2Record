@@ -1,35 +1,25 @@
 from __future__ import annotations
 
-from django.conf import settings
+from typing import TYPE_CHECKING
 
+from talk2record.ai.models import AITask
 from talk2record.ai.providers.base import ExtractionResult
 from talk2record.ai.providers.mock import MockExtractionProvider
+from talk2record.ai.resolver import resolve
 from talk2record.ai.services.prompts import PromptTemplateService
 from talk2record.ai.validation.schemas import validate_extraction_payload
-from talk2record.ai.runtime import get_active_ai_settings
-from talk2record.ai.runtime import get_ai_credential_plaintext
+
+if TYPE_CHECKING:
+    from talk2record.organizations.models import Organization
 
 
 class ExtractionService:
-    _providers: dict[str, object] = {
-        "mock": MockExtractionProvider(),
-    }
-
     @classmethod
-    def _provider(cls):
-        settings_row = get_active_ai_settings()
-        configured = ""
-        if settings_row is not None:
-            cfg = settings_row.config if isinstance(settings_row.config, dict) else {}
-            configured = str(
-                cfg.get("extraction_provider")
-                or cfg.get("provider")
-                or "",
-            ).strip()
-            get_ai_credential_plaintext()
-        if not configured:
-            configured = getattr(settings, "AI_EXTRACTION_PROVIDER", "mock")
-        return cls._providers.get(configured, cls._providers["mock"])
+    def _provider(cls, organization: Organization | None = None):
+        resolution = resolve(task=AITask.EXTRACTION, organization=organization)
+        if resolution is None or resolution.spec.chat_factory is None:
+            return MockExtractionProvider()
+        return resolution.build_chat_provider()
 
     @classmethod
     def extract(
@@ -37,8 +27,9 @@ class ExtractionService:
         *,
         transcript: str,
         context: dict | None = None,
+        organization: Organization | None = None,
     ) -> ExtractionResult:
-        provider = cls._provider()
+        provider = cls._provider(organization=organization)
         prompt_version = PromptTemplateService.resolve_extraction_prompt_version(
             provider=provider.provider_name,
             model=provider.model_name,

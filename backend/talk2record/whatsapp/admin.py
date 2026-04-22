@@ -6,8 +6,12 @@ from unfold.admin import ModelAdmin
 
 from talk2record.whatsapp.credentials_admin import save_whatsapp_api_credential
 from talk2record.whatsapp.forms import WhatsAppSettingsAdminForm
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
 from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.models import WhatsAppSettings
+from talk2record.whatsapp.models import WhatsAppTemplate
 
 
 @admin.register(WhatsAppSettings)
@@ -90,3 +94,109 @@ class WhatsAppInboundRouteAdmin(ModelAdmin):
             },
         ),
     )
+
+
+@admin.register(WhatsAppAccount)
+class WhatsAppAccountAdmin(ModelAdmin):
+    list_display = [
+        "phone_number_id",
+        "display_number",
+        "organization",
+        "status",
+        "verified_at",
+        "created_at",
+    ]
+    list_select_related = ("organization",)
+    list_filter = ("status",)
+    search_fields = [
+        "phone_number_id",
+        "display_number",
+        "organization__name",
+        "organization__slug",
+    ]
+    ordering = ("phone_number_id",)
+
+
+@admin.register(WhatsAppConversation)
+class WhatsAppConversationAdmin(ModelAdmin):
+    list_display = [
+        "contact_wa_id",
+        "contact_name",
+        "account",
+        "organization",
+        "last_message_at",
+    ]
+    list_select_related = ("account", "organization")
+    search_fields = [
+        "contact_wa_id",
+        "contact_name",
+        "account__phone_number_id",
+        "organization__name",
+    ]
+    readonly_fields = [
+        "account",
+        "organization",
+        "contact_wa_id",
+        "last_message_at",
+        "last_inbound_at",
+        "last_outbound_at",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ("-last_message_at",)
+
+
+@admin.register(WhatsAppMessage)
+class WhatsAppMessageAdmin(ModelAdmin):
+    list_display = [
+        "wa_message_id",
+        "direction",
+        "message_type",
+        "status",
+        "organization",
+        "created_at",
+    ]
+    list_select_related = ("organization", "conversation")
+    list_filter = ("direction", "message_type", "status")
+    search_fields = [
+        "wa_message_id",
+        "body",
+        "conversation__contact_wa_id",
+        "organization__name",
+    ]
+    readonly_fields = [
+        "conversation",
+        "organization",
+        "wa_message_id",
+        "direction",
+        "message_type",
+        "status",
+        "body",
+        "media_id",
+        "media_url",
+        "media_mime",
+        "media_sha256",
+        "raw_payload",
+        "error_code",
+        "error_message",
+        "timestamp",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ("-created_at",)
+
+
+@admin.register(WhatsAppTemplate)
+class WhatsAppTemplateAdmin(ModelAdmin):
+    list_display = [
+        "name",
+        "language",
+        "category",
+        "status",
+        "organization",
+        "updated_at",
+    ]
+    list_select_related = ("organization",)
+    list_filter = ("category", "status")
+    search_fields = ["name", "language", "organization__name", "provider_id"]
+    ordering = ("name", "language")

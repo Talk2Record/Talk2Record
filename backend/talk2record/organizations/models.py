@@ -66,6 +66,68 @@ class Membership(models.Model):
         return f"{self.user.email} -> {self.organization.name}"
 
 
+class MembershipInvitation(models.Model):
+    """Pending invitation for a user to join an organization.
+
+    The invitation is consumed by a short-lived signed token; only a ``token_hash``
+    is persisted so the raw token is usable exactly once (it is emailed to the
+    invitee by the invitation service at creation time).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        ACCEPTED = "accepted", _("Accepted")
+        REVOKED = "revoked", _("Revoked")
+        EXPIRED = "expired", _("Expired")
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="invitations",
+    )
+    email = models.EmailField()
+    role = models.CharField(
+        max_length=32,
+        choices=Membership.Role.choices,
+        default=Membership.Role.OPERATOR,
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_invitations",
+    )
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accepted_invitations",
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "status"], name="org_invite_org_status_idx"),
+            models.Index(fields=["email"], name="org_invite_email_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.email} -> {self.organization.slug} ({self.status})"
+
+
 class OrganizationAPIKey(models.Model):
     organization = models.ForeignKey(
         Organization,

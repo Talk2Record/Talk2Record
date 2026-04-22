@@ -2,6 +2,7 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 
 from .models import Membership
+from .models import MembershipInvitation
 from .models import Organization
 from .models import OrganizationAPIKey
 
@@ -20,6 +21,24 @@ class MembershipAdmin(ModelAdmin):
     list_select_related = ("user", "organization")
     search_fields = ["user__email", "organization__name"]
     list_filter = ["role", "status"]
+
+
+@admin.register(MembershipInvitation)
+class MembershipInvitationAdmin(ModelAdmin):
+    list_display = [
+        "email",
+        "organization",
+        "role",
+        "status",
+        "invited_by",
+        "expires_at",
+        "accepted_at",
+        "created_at",
+    ]
+    list_select_related = ("organization", "invited_by", "accepted_by")
+    search_fields = ["email", "organization__name", "organization__slug"]
+    list_filter = ["status", "role", "created_at"]
+    readonly_fields = ["token_hash", "created_at", "updated_at", "accepted_at", "revoked_at"]
 
 
 @admin.register(OrganizationAPIKey)

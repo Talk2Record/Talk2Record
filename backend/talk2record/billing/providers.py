@@ -4,6 +4,11 @@ from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
 
+from talk2record.billing.runtime import (
+    get_billing_provider_config,
+    get_provider_api_key,
+    get_provider_config_blob,
+)
 from talk2record.billing.stripe_runtime import get_active_stripe_settings
 from talk2record.billing.stripe_runtime import get_stripe_secret_plaintext
 
@@ -73,29 +78,65 @@ class MockBillingProvider(BillingProvider):
 
 
 class BillingProviderRegistry:
-    _providers = {
-        "stripe": MockBillingProvider("stripe"),
-        "paddle": MockBillingProvider("paddle"),
+    _mock_providers: dict[str, BillingProvider] = {
         "paypal": MockBillingProvider("paypal"),
     }
 
     @classmethod
     def get(cls, provider: str) -> BillingProvider:
-        return cls._providers[provider]
+        """Return a live provider adapter if credentials exist, else a mock."""
+
+        api_key = get_provider_api_key(provider)
+        if provider == "stripe" and api_key:
+            from talk2record.billing.stripe_provider import StripeBillingProvider  # noqa: PLC0415
+
+            return StripeBillingProvider(api_key=api_key)
+
+        if provider == "paddle" and api_key:
+            from talk2record.billing.paddle_provider import PaddleBillingProvider  # noqa: PLC0415
+
+            config = get_billing_provider_config("paddle")
+            blob = get_provider_config_blob("paddle")
+            return PaddleBillingProvider(
+                api_key=api_key,
+                environment=(config.environment if config else "sandbox"),
+                default_price_id=str(blob.get("default_price_id", "")),
+            )
+
+        return cls._mock_providers.get(provider, MockBillingProvider(provider))
 
     @classmethod
     def get_global_provider(cls) -> BillingProvider | None:
+        """Return the platform's primary billing provider, or ``None``.
+
+        Preference order:
+        1. The first enabled ``BillingProviderConfig`` row.
+        2. Legacy Stripe singleton (``StripeSettings``).
+        """
+
+        from talk2record.billing.models import BillingProviderConfig
+
+        first_enabled = (
+            BillingProviderConfig.objects.filter(enabled=True)
+            .order_by("created_at")
+            .first()
+        )
+        if first_enabled is not None:
+            return cls.get(first_enabled.provider)
+
         stripe_settings = get_active_stripe_settings()
         if stripe_settings is None:
             return None
 
         cfg = stripe_settings.config if isinstance(stripe_settings.config, dict) else {}
         provider = str(cfg.get("provider", "stripe")).strip().lower()
-        if provider not in cls._providers:
-            return None
 
-        # Force runtime credential resolution to ensure admin updates are effective.
         secret = get_stripe_secret_plaintext()
         if secret is None:
             return None
-        return cls._providers[provider]
+
+        if provider == "stripe":
+            from talk2record.billing.stripe_provider import StripeBillingProvider  # noqa: PLC0415
+
+            return StripeBillingProvider(api_key=secret)
+        return cls._mock_providers.get(provider)

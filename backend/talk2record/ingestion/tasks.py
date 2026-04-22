@@ -4,6 +4,8 @@ from time import monotonic
 from uuid import uuid4
 
 from celery import shared_task
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils import timezone
 
 from talk2record.ai.services.extraction import ExtractionService
@@ -29,6 +31,7 @@ from talk2record.records.services import RecordProcessingService
 from talk2record.usage.models import AIUsage
 from talk2record.usage.services import AIUsageQuotaExceededError
 from talk2record.usage.services import UsageTrackingService
+from talk2record.whatsapp.media import WhatsAppMediaService
 
 MAX_STEP_RETRIES = 3
 
@@ -54,7 +57,8 @@ class ProcessingStepRunner:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-        """Execute all three pipeline steps in order."""
+        """Execute pipeline steps in order: download → transcribe → extract → store."""
+        self._execute_with_retries("download_media")
         self._execute_with_retries("transcribe")
         self._execute_with_retries("extract")
         self._execute_with_retries("store")
@@ -64,7 +68,9 @@ class ProcessingStepRunner:
     # ------------------------------------------------------------------
 
     def _run_step(self, step: str) -> None:
-        if step == "transcribe":
+        if step == "download_media":
+            self._step_download_media()
+        elif step == "transcribe":
             self._step_transcribe()
         elif step == "extract":
             self._step_extract()
@@ -73,6 +79,34 @@ class ProcessingStepRunner:
         else:
             msg = f"Unsupported processing step: {step}"
             raise ValueError(msg)
+
+    def _step_download_media(self) -> None:
+        """Download WhatsApp voice note from the Graph API and persist to storage.
+
+        Skipped when:
+        - The record is not from WhatsApp.
+        - The record already has an audio_url (downloaded previously or supplied directly).
+        - WhatsApp access token is not configured (graceful skip; mock transcription proceeds).
+        """
+        from talk2record.whatsapp.config import load_whatsapp_cloud_settings  # noqa: PLC0415
+
+        record = self.record
+        if record.source != Record.Source.WHATSAPP:
+            return
+        if not record.media_id or record.audio_url:
+            return
+
+        wa_settings = load_whatsapp_cloud_settings()
+        if wa_settings is None or not wa_settings.access_token:
+            return
+
+        signed_url = WhatsAppMediaService.resolve_and_get_url(record.media_id)
+        audio_bytes = WhatsAppMediaService.download_media(signed_url)
+
+        filename = f"voice_notes/{record.organization_id}/{record.pk}.ogg"
+        saved_path = default_storage.save(filename, ContentFile(audio_bytes))
+        record.audio_url = default_storage.url(saved_path)
+        record.save(update_fields=["audio_url", "updated_at"])
 
     def _step_transcribe(self) -> None:
         record = self.record
@@ -142,7 +176,10 @@ class ProcessingStepRunner:
 
         transcript = RecordProcessingService.get_transcript(record)
         started = monotonic()
-        result = ExtractionService.extract(transcript=transcript)
+        result = ExtractionService.extract(
+            transcript=transcript,
+            organization=record.organization,
+        )
         duration = monotonic() - started
 
         RecordProcessingService.save_extraction_artifact(record, result)

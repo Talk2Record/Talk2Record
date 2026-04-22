@@ -5,7 +5,10 @@ from unfold.admin import ModelAdmin
 from unfold.widgets import UnfoldAdminPasswordToggleWidget
 from unfold.widgets import UnfoldBooleanSwitchWidget
 
+from talk2record.billing.models import BillingProviderConfig
 from talk2record.billing.models import Plan
+from talk2record.billing.models import PlanEntitlement
+from talk2record.billing.models import PlanProviderPrice
 from talk2record.billing.models import StripeSettings
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
@@ -74,6 +77,71 @@ class SubscriptionAdmin(ModelAdmin):
     ]
     search_fields = ["organization__name", "provider_subscription_id"]
     list_filter = ["provider", "status", "currency"]
+
+
+class BillingProviderConfigForm(forms.ModelForm):
+    api_key = forms.CharField(
+        label=_("API key"),
+        required=False,
+        widget=UnfoldAdminPasswordToggleWidget(render_value=False),
+        help_text=_("Leave blank to keep the current encrypted credential."),
+    )
+    webhook_secret = forms.CharField(
+        label=_("Webhook signing secret"),
+        required=False,
+        widget=UnfoldAdminPasswordToggleWidget(render_value=False),
+        help_text=_("Leave blank to keep the current encrypted webhook secret."),
+    )
+
+    class Meta:
+        model = BillingProviderConfig
+        fields = [
+            "provider",
+            "display_name",
+            "enabled",
+            "environment",
+            "config",
+        ]
+
+
+@admin.register(BillingProviderConfig)
+class BillingProviderConfigAdmin(ModelAdmin):
+    form = BillingProviderConfigForm
+    list_display = ("provider", "display_name", "enabled", "environment", "updated_at")
+    list_filter = ("enabled", "environment")
+    search_fields = ("provider", "display_name")
+    ordering = ("provider",)
+
+    def save_model(self, request, obj, form, change) -> None:
+        super().save_model(request, obj, form, change)
+        api_key = (form.cleaned_data.get("api_key") or "").strip()
+        webhook_secret = (form.cleaned_data.get("webhook_secret") or "").strip()
+        fields: list[str] = []
+        if api_key:
+            obj.encrypted_api_key = SecretVault.encrypt(api_key)
+            fields.append("encrypted_api_key")
+        if webhook_secret:
+            obj.encrypted_webhook_secret = SecretVault.encrypt(webhook_secret)
+            fields.append("encrypted_webhook_secret")
+        if fields:
+            fields.append("updated_at")
+            obj.save(update_fields=fields)
+
+
+@admin.register(PlanProviderPrice)
+class PlanProviderPriceAdmin(ModelAdmin):
+    list_display = ("plan", "provider", "provider_price_id", "interval", "active")
+    list_filter = ("provider", "interval", "active")
+    search_fields = ("plan__code", "provider_price_id")
+    ordering = ("plan_id", "provider")
+
+
+@admin.register(PlanEntitlement)
+class PlanEntitlementAdmin(ModelAdmin):
+    list_display = ("plan", "feature_key", "enabled", "limit", "period")
+    list_filter = ("enabled", "period")
+    search_fields = ("plan__code", "feature_key")
+    ordering = ("plan_id", "feature_key")
 
 
 @admin.register(Transaction)
