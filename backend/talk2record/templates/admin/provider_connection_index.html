@@ -4,45 +4,268 @@
 {# Must not be named admin/index.html — DIRS would shadow Unfold and break extends. #}
 
 {% block content %}
-<div class="bg-white mb-6 rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-    <h2 class="mb-1 font-semibold text-sm text-font-important-light dark:text-font-important-dark">
-        {% translate "Provider connections" %}
-    </h2>
-    <p class="mb-4 text-sm text-font-subtle-light dark:text-font-subtle-dark">
-        {% translate "Run a quick check: Meta Graph (WhatsApp), Stripe balance, and AI credential presence. Results appear as messages at the top of the page." %}
-    </p>
-    <div class="flex flex-wrap gap-3">
-        <form method="post" action="{% url 'admin_test_whatsapp_connection' %}">
-            {% csrf_token %}
-            <button
-                type="submit"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800"
-            >
-                <span class="material-symbols-outlined text-base leading-none">chat</span>
-                {% translate "Test WhatsApp" %}
+<div class="space-y-6">
+    {# Onboarding checklist #}
+    <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+                <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
+                    {% if onboarding_complete %}
+                        {% translate "Onboarding complete" %}
+                    {% else %}
+                        {% translate "Finish setting up Talk2Record" %}
+                    {% endif %}
+                </h2>
+                <p class="text-sm text-font-subtle-light dark:text-font-subtle-dark">
+                    {% blocktranslate with completed=onboarding_completed total=onboarding_total %}{{ completed }} of {{ total }} required steps complete{% endblocktranslate %}
+                    {% if onboarding_report.optional_total %}
+                        &middot;
+                        {% blocktranslate with oc=onboarding_report.optional_completed ot=onboarding_report.optional_total %}{{ oc }}/{{ ot }} optional{% endblocktranslate %}
+                    {% endif %}
+                </p>
+            </div>
+            <div class="shrink-0 text-right">
+                <div class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ onboarding_percent }}%</div>
+            </div>
+        </div>
+        <div class="h-2 w-full rounded-full bg-base-100 dark:bg-base-800 overflow-hidden mb-5">
+            <div class="h-2 rounded-full bg-primary-500" style="width: {{ onboarding_percent }}%"></div>
+        </div>
+
+        {% for group, steps in onboarding_groups %}
+            <div class="mb-4 last:mb-0">
+                <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-font-subtle-light dark:text-font-subtle-dark">
+                    {{ group }}
+                </h3>
+                <ul class="space-y-2">
+                    {% for step in steps %}
+                        <li class="flex items-start justify-between gap-4 rounded-default border border-base-100 bg-base-50/60 px-3 py-2 dark:border-base-800 dark:bg-base-900/60">
+                            <div class="flex items-start gap-3 min-w-0">
+                                {% if step.complete %}
+                                    <span class="material-symbols-outlined text-base leading-6 text-green-600 dark:text-green-400">check_circle</span>
+                                {% elif step.blocked_by %}
+                                    <span class="material-symbols-outlined text-base leading-6 text-amber-600 dark:text-amber-400">lock</span>
+                                {% else %}
+                                    <span class="material-symbols-outlined text-base leading-6 text-base-400 dark:text-base-500">radio_button_unchecked</span>
+                                {% endif %}
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-medium text-sm text-font-important-light dark:text-font-important-dark">{{ step.title }}</span>
+                                        {% if step.optional %}
+                                            <span class="rounded-default bg-base-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-font-subtle-light dark:bg-base-800 dark:text-font-subtle-dark">{% translate "Optional" %}</span>
+                                        {% endif %}
+                                        {% if step.blocked_by %}
+                                            <span class="rounded-default bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:bg-amber-900 dark:text-amber-200">{% translate "Blocked" %}</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-0.5">{{ step.description }}</p>
+                                    {% if step.blocked_by %}
+                                        <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">{% translate "Requires:" %} <code>{{ step.blocked_by }}</code></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="shrink-0">
+                                {% if step.admin_url %}
+                                    {% if step.complete %}
+                                        <a href="{{ step.admin_url }}" class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-1.5 text-xs font-medium text-base-700 shadow-xs hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+                                            {% translate "Review" %}
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ step.admin_url }}" class="inline-flex items-center gap-1 rounded-default bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-primary-700">
+                                            {% translate "Set up" %}
+                                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    </div>
+
+    {# Filters #}
+    <form method="get" action="{% url 'admin:index' %}" class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="flex flex-wrap items-end gap-3">
+            <label class="flex flex-col gap-1 text-xs">
+                <span class="font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Date range" %}</span>
+                <select name="range" class="rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900">
+                    {% for choice in range_choices %}
+                        <option value="{{ choice.value }}" {% if choice.value == filters.range %}selected{% endif %}>{{ choice.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="flex flex-col gap-1 text-xs">
+                <span class="font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Organization" %}</span>
+                <select name="organization" class="rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900">
+                    <option value="">{% translate "All organizations" %}</option>
+                    {% for org in available_organizations %}
+                        <option value="{{ org.id }}" {% if filters.organization == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="flex flex-col gap-1 text-xs">
+                <span class="font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Record source" %}</span>
+                <select name="source" class="rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900">
+                    {% for choice in source_choices %}
+                        <option value="{{ choice.value }}" {% if choice.value == filters.source %}selected{% endif %}>{{ choice.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="inline-flex items-center gap-2 rounded-default bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-primary-700">
+                <span class="material-symbols-outlined text-base leading-none">tune</span>
+                {% translate "Apply filters" %}
             </button>
-        </form>
-        <form method="post" action="{% url 'admin_test_stripe_connection' %}">
-            {% csrf_token %}
-            <button
-                type="submit"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800"
-            >
-                <span class="material-symbols-outlined text-base leading-none">payments</span>
-                {% translate "Test Stripe" %}
-            </button>
-        </form>
-        <form method="post" action="{% url 'admin_test_ai_connection' %}">
-            {% csrf_token %}
-            <button
-                type="submit"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800"
-            >
-                <span class="material-symbols-outlined text-base leading-none">psychology</span>
-                {% translate "Test AI credential" %}
-            </button>
-        </form>
+            <a href="{% url 'admin:index' %}" class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-2 text-sm text-base-700 hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+                {% translate "Reset" %}
+            </a>
+        </div>
+    </form>
+
+    {# KPI cards #}
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {% for card in kpi_cards %}
+            <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+                <div class="text-xs uppercase tracking-wide font-medium text-font-subtle-light dark:text-font-subtle-dark">{{ card.title }}</div>
+                <div class="mt-2 text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ card.metric }}</div>
+                {% if card.footer %}
+                    <div class="mt-1 text-xs text-font-subtle-light dark:text-font-subtle-dark">{{ card.footer }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    {# Charts #}
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Records per day" %}</h3>
+            <canvas id="chart-records-per-day" height="160"></canvas>
+        </div>
+        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Records by status" %}</h3>
+            <canvas id="chart-records-by-status" height="160"></canvas>
+        </div>
+        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Revenue per month" %}</h3>
+            <canvas id="chart-revenue-per-month" height="160"></canvas>
+        </div>
+        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Top organizations" %}</h3>
+            <canvas id="chart-top-organizations" height="160"></canvas>
+        </div>
+        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900 xl:col-span-2">
+            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Record source mix" %}</h3>
+            <canvas id="chart-provider-mix" height="160"></canvas>
+        </div>
+    </div>
+
+    {# System checks (legacy provider connection tests) #}
+    <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h2 class="mb-1 font-semibold text-sm text-font-important-light dark:text-font-important-dark">
+            {% translate "System checks" %}
+        </h2>
+        <p class="mb-4 text-sm text-font-subtle-light dark:text-font-subtle-dark">
+            {% translate "Quick connectivity checks: Meta Graph (WhatsApp), Paddle billing API, and AI credential presence. Results appear as messages at the top of the page." %}
+        </p>
+        <div class="flex flex-wrap gap-3">
+            <form method="post" action="{% url 'admin_test_whatsapp_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+                    <span class="material-symbols-outlined text-base leading-none">chat</span>
+                    {% translate "Test WhatsApp" %}
+                </button>
+            </form>
+            <form method="post" action="{% url 'admin_test_paddle_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+                    <span class="material-symbols-outlined text-base leading-none">payments</span>
+                    {% translate "Test Paddle" %}
+                </button>
+            </form>
+            <form method="post" action="{% url 'admin_test_ai_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+                    <span class="material-symbols-outlined text-base leading-none">psychology</span>
+                    {% translate "Test AI credential" %}
+                </button>
+            </form>
+        </div>
     </div>
 </div>
+
 {{ block.super }}
+
+<script id="t2r-dashboard-data" type="application/json">
+    {
+        "recordsPerDay": {{ records_per_day_json|safe }},
+        "recordsByStatus": {{ records_by_status_json|safe }},
+        "revenuePerMonth": {{ revenue_per_month_json|safe }},
+        "topOrganizations": {{ top_organizations_json|safe }},
+        "providerMix": {{ provider_mix_json|safe }}
+    }
+</script>
+<script>
+(function () {
+    function initCharts() {
+        if (typeof Chart === "undefined") {
+            return;
+        }
+        var dataEl = document.getElementById("t2r-dashboard-data");
+        if (!dataEl) { return; }
+        var data;
+        try { data = JSON.parse(dataEl.textContent || "{}"); }
+        catch (err) { return; }
+
+        function asXY(rows) {
+            rows = rows || [];
+            return {
+                labels: rows.map(function (r) { return r.label; }),
+                values: rows.map(function (r) { return r.value; }),
+            };
+        }
+
+        function render(id, type, rows, opts) {
+            var el = document.getElementById(id);
+            if (!el) { return; }
+            var xy = asXY(rows);
+            if (xy.labels.length === 0) {
+                var ctx = el.getContext("2d");
+                ctx.font = "12px system-ui";
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText("No data for selected filters.", 10, 24);
+                return;
+            }
+            new Chart(el, {
+                type: type,
+                data: {
+                    labels: xy.labels,
+                    datasets: [{
+                        label: (opts && opts.label) || "",
+                        data: xy.values,
+                        borderWidth: 1,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: (opts && opts.legend) || false } },
+                },
+            });
+        }
+
+        render("chart-records-per-day", "line", data.recordsPerDay, { label: "Records" });
+        render("chart-records-by-status", "doughnut", data.recordsByStatus, { legend: true });
+        render("chart-revenue-per-month", "bar", data.revenuePerMonth, { label: "Revenue" });
+        render("chart-top-organizations", "bar", data.topOrganizations, { label: "Records" });
+        render("chart-provider-mix", "bar", data.providerMix, { label: "Records" });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initCharts);
+    } else {
+        initCharts();
+    }
+})();
+</script>
 {% endblock %}

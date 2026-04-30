@@ -489,7 +489,6 @@ class TestJWTAuthAPI:
         subscription = Subscription.objects.create(
             organization=organization,
             plan=plan,
-            provider=Subscription.Provider.STRIPE,
             status=Subscription.Status.ACTIVE,
             currency="USD",
             amount=99,

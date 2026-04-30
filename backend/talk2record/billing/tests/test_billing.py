@@ -5,12 +5,11 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from talk2record.billing.providers import BillingProviderRegistry
+from talk2record.billing.models import PaddleSettings
 from talk2record.billing.tasks import handle_domain_event_for_billing
+from talk2record.core.vault import SecretVault
 from talk2record.events.names import BILLING_PAYMENT_FAILED
 from talk2record.events.names import BILLING_SUBSCRIPTION_CREATED
-from talk2record.billing.models import StripeSettings
-from talk2record.core.vault import SecretVault
 from talk2record.notifications.models import Notification
 
 
@@ -24,30 +23,12 @@ def test_plan_subscription_and_transaction_str(plan, subscription):
 
 
 @pytest.mark.django_db
-def test_mock_billing_provider_methods(plan, subscription):
-    provider = BillingProviderRegistry.get("stripe")
-
-    checkout = provider.create_checkout(
-        organization=subscription.organization,
-        plan=plan,
-    )
-    canceled = provider.cancel_subscription(subscription=subscription)
-    snapshot = provider.get_subscription(subscription=subscription)
-    invoices = provider.list_invoices(subscription=subscription)
-
-    assert checkout.checkout_url.endswith("/stripe/growth")
-    assert canceled.status == "canceled"
-    assert snapshot.status == subscription.status
-    assert invoices[0]["invoice_number"] == "inv_1"
-
-
-@pytest.mark.django_db
 def test_billing_admin_pages(admin_client, subscription):
     urls = [
         reverse("admin:billing_plan_changelist"),
         reverse("admin:billing_subscription_changelist"),
         reverse("admin:billing_transaction_changelist"),
-        reverse("admin:billing_stripesettings_changelist"),
+        reverse("admin:billing_paddlesettings_changelist"),
     ]
 
     for url in urls:
@@ -56,22 +37,44 @@ def test_billing_admin_pages(admin_client, subscription):
 
 
 @pytest.mark.django_db
-def test_global_stripe_provider_requires_enabled_settings_with_credential():
-    assert BillingProviderRegistry.get_global_provider() is None
+def test_paddle_settings_singleton_persists_environment_and_secrets():
+    settings = PaddleSettings.get_solo()
+    settings.environment = PaddleSettings.Environment.PRODUCTION
+    settings.encrypted_api_key = SecretVault.encrypt("pdl_live_secret")
+    settings.save(
+        update_fields=["environment", "encrypted_api_key", "updated_at"],
+    )
 
-    s = StripeSettings.get_solo()
-    s.enabled = True
-    s.config = {"provider": "stripe"}
-    s.encrypted_credential = SecretVault.encrypt("stripe-secret")
-    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
+    from talk2record.billing.paddle_client import PaddleClient
 
-    provider = BillingProviderRegistry.get_global_provider()
-    assert provider is not None
+    client = PaddleClient()
+    assert client.base_url() == PaddleClient.PRODUCTION_BASE_URL
+    assert client.api_key() == "pdl_live_secret"
+
+
+@pytest.mark.django_db
+def test_paddle_settings_environment_toggle_changes_base_url():
+    settings = PaddleSettings.get_solo()
+    settings.environment = PaddleSettings.Environment.SANDBOX
+    settings.encrypted_api_key = SecretVault.encrypt("pdl_sandbox")
+    settings.save(
+        update_fields=["environment", "encrypted_api_key", "updated_at"],
+    )
+
+    from talk2record.billing.paddle_client import PaddleClient
+
+    client = PaddleClient()
+    assert client.base_url() == PaddleClient.SANDBOX_BASE_URL
+
+    settings.environment = PaddleSettings.Environment.PRODUCTION
+    settings.save(update_fields=["environment", "updated_at"])
+
+    assert client.base_url() == PaddleClient.PRODUCTION_BASE_URL
 
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_billing_payment_failed_creates_notifications(
-    workspace_user, organization
+    workspace_user, organization,
 ):
     event_payload = {
         "event_id": "billing-test-uuid-001",
@@ -79,8 +82,8 @@ def test_handle_domain_event_for_billing_payment_failed_creates_notifications(
         "organization_id": organization.pk,
         "user_id": None,
         "resource_type": "billing_webhook",
-        "resource_id": "stripe",
-        "metadata": {"provider": "stripe"},
+        "resource_id": "paddle",
+        "metadata": {"provider": "paddle"},
     }
 
     handle_domain_event_for_billing(event_payload)
@@ -93,7 +96,7 @@ def test_handle_domain_event_for_billing_payment_failed_creates_notifications(
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_billing_subscription_created_creates_notifications(
-    workspace_user, organization
+    workspace_user, organization,
 ):
     event_payload = {
         "event_id": "billing-test-uuid-002",
@@ -101,8 +104,8 @@ def test_handle_domain_event_for_billing_subscription_created_creates_notificati
         "organization_id": organization.pk,
         "user_id": None,
         "resource_type": "billing_webhook",
-        "resource_id": "stripe",
-        "metadata": {"provider": "stripe"},
+        "resource_id": "paddle",
+        "metadata": {"provider": "paddle"},
     }
 
     handle_domain_event_for_billing(event_payload)
@@ -121,7 +124,7 @@ def test_handle_domain_event_for_billing_is_idempotent(workspace_user, organizat
         "organization_id": organization.pk,
         "user_id": None,
         "resource_type": "billing_webhook",
-        "resource_id": "stripe",
+        "resource_id": "paddle",
         "metadata": {},
     }
 
@@ -141,11 +144,22 @@ def test_billing_webhook_view_emits_payment_failed_event(settings, subscription)
     client = APIClient()
     published: list[str] = []
 
+    payload = {
+        "event_type": "transaction.payment_failed",
+        "data": {
+            "id": "txn_failed_1",
+            "subscription_id": subscription.provider_subscription_id,
+            "currency_code": "USD",
+            "details": {"totals": {"grand_total": "4900"}},
+            "custom_data": {"organization_id": str(subscription.organization_id)},
+        },
+    }
+
     with patch("talk2record.billing.views.EventBus.publish") as mock_publish:
         mock_publish.side_effect = lambda event: published.append(event.name)
         response = client.post(
-            reverse("api-billing-webhook", kwargs={"provider": "stripe"}),
-            data={"type": "payment_failed", "organization_id": subscription.organization_id},
+            reverse("api-billing-webhook"),
+            data=payload,
             format="json",
         )
 
@@ -159,11 +173,21 @@ def test_billing_webhook_view_emits_subscription_created_event(settings, subscri
     client = APIClient()
     published: list[str] = []
 
+    payload = {
+        "event_type": "subscription.created",
+        "data": {
+            "id": "sub_xyz",
+            "status": "active",
+            "items": [],
+            "custom_data": {"organization_id": str(subscription.organization_id)},
+        },
+    }
+
     with patch("talk2record.billing.views.EventBus.publish") as mock_publish:
         mock_publish.side_effect = lambda event: published.append(event.name)
         response = client.post(
-            reverse("api-billing-webhook", kwargs={"provider": "stripe"}),
-            data={"type": "subscription_created", "organization_id": subscription.organization_id},
+            reverse("api-billing-webhook"),
+            data=payload,
             format="json",
         )
 

@@ -80,7 +80,7 @@ def subscription(organization: Organization, plan: Plan) -> Subscription:
     subscription = Subscription.objects.create(
         organization=organization,
         plan=plan,
-        provider=Subscription.Provider.STRIPE,
+        provider_subscription_id="sub_growth_test",
         status=Subscription.Status.ACTIVE,
         currency="USD",
         amount=Decimal("49.00"),

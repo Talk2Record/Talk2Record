@@ -57,8 +57,8 @@ def test_onboarding_complete():
 
 
 def test_billing_webhook():
-    assert reverse("api-billing-webhook", kwargs={"provider": "stripe"}) == "/api/billing/webhooks/stripe/"
-    assert resolve("/api/billing/webhooks/stripe/").view_name == "api-billing-webhook"
+    assert reverse("api-billing-webhook") == "/api/billing/webhooks/paddle/"
+    assert resolve("/api/billing/webhooks/paddle/").view_name == "api-billing-webhook"
 
 
 def test_whatsapp_webhook():

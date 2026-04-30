@@ -4,72 +4,55 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class BillingProviderConfig(models.Model):
-    """Per-provider platform-level credentials for a billing integration.
+class PaddleSettings(models.Model):
+    """Singleton (``pk=1``) holding the Paddle integration credentials.
 
-    Unlike ``AIProviderConfig`` this is **not** org-scoped: billing providers
-    (Stripe, Paddle, …) are configured globally by platform staff and shared
-    across all organisations.
+    The platform talks to a single Paddle account at a time: switching
+    ``environment`` from sandbox to production immediately re-points the
+    REST adapter at the live API on the next call.
     """
 
-    provider = models.CharField(
-        max_length=32,
-        unique=True,
-        help_text="Provider slug (stripe, paddle, paypal, ...).",
-    )
-    display_name = models.CharField(max_length=120, blank=True)
+    class Environment(models.TextChoices):
+        SANDBOX = "sandbox", _("Sandbox")
+        PRODUCTION = "production", _("Production")
+
     enabled = models.BooleanField(default=True)
     environment = models.CharField(
-        max_length=32,
-        blank=True,
-        default="sandbox",
-        help_text="sandbox | production — provider specific.",
+        max_length=16,
+        choices=Environment.choices,
+        default=Environment.SANDBOX,
     )
     encrypted_api_key = models.TextField(
         blank=True,
-        help_text="Server-side API key encrypted via SecretVault.",
+        help_text=_("Paddle API key encrypted via SecretVault."),
     )
     encrypted_webhook_secret = models.TextField(
         blank=True,
-        help_text="Webhook signing secret encrypted via SecretVault.",
+        help_text=_("Webhook signing secret encrypted via SecretVault."),
     )
+    default_success_url = models.URLField(blank=True)
+    default_cancel_url = models.URLField(blank=True)
+    paddle_notification_setting_id = models.CharField(max_length=64, blank=True)
     config = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _("Billing provider config")
-        verbose_name_plural = _("Billing provider configs")
-        ordering = ["provider"]
+        verbose_name = _("Paddle settings")
+        verbose_name_plural = _("Paddle settings")
 
     def __str__(self) -> str:
-        return self.display_name or self.provider
-
-
-class StripeSettings(models.Model):
-    """Singleton (``pk=1``) for Stripe (or configured provider) secrets and options."""
-
-    enabled = models.BooleanField(default=True)
-    config = models.JSONField(default=dict, blank=True)
-    encrypted_credential = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = _("Stripe / billing provider settings")
-        verbose_name_plural = _("Stripe / billing provider settings")
-
-    def __str__(self) -> str:
-        return "Stripe"
+        return f"Paddle ({self.environment})"
 
     @classmethod
-    def get_solo(cls) -> StripeSettings:
-        obj, _ = cls.objects.get_or_create(
+    def get_solo(cls) -> "PaddleSettings":
+        obj, _created = cls.objects.get_or_create(
             pk=1,
             defaults={
                 "enabled": True,
-                "config": {"provider": "stripe"},
-                "encrypted_credential": "",
+                "environment": cls.Environment.SANDBOX,
+                "encrypted_api_key": "",
+                "encrypted_webhook_secret": "",
             },
         )
         return obj
@@ -82,6 +65,7 @@ class Plan(models.Model):
     currency = models.CharField(max_length=8, default="USD")
     region = models.CharField(max_length=64, blank=True)
     features = models.JSONField(default=list, blank=True)
+    paddle_product_id = models.CharField(max_length=64, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -93,43 +77,45 @@ class Plan(models.Model):
         return f"{self.name} ({self.currency})"
 
 
-class PlanProviderPrice(models.Model):
-    """Maps a ``Plan`` to a provider's price/product identifier.
+class PlanPrice(models.Model):
+    """A Paddle price tied to a ``Plan``.
 
-    Lets a single plan be sold via multiple providers (Stripe + Paddle) by
-    pointing at the provider-native price object.
+    Stored locally so plan/price metadata, billing intervals and amounts can be
+    edited inside Django admin and pushed to Paddle as a side effect.
     """
 
     plan = models.ForeignKey(
         Plan,
         on_delete=models.CASCADE,
-        related_name="provider_prices",
+        related_name="prices",
     )
-    provider = models.CharField(max_length=32)
-    provider_price_id = models.CharField(max_length=255)
+    paddle_price_id = models.CharField(max_length=64, blank=True)
     interval = models.CharField(
         max_length=16,
         default="month",
-        help_text="month | year | one_time",
+        help_text=_("month | year | one_time"),
     )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    currency = models.CharField(max_length=8, default="USD")
     active = models.BooleanField(default=True)
+    billing_cycle = models.JSONField(default=dict, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _("Plan provider price")
-        verbose_name_plural = _("Plan provider prices")
-        ordering = ["plan_id", "provider"]
+        verbose_name = _("Plan price")
+        verbose_name_plural = _("Plan prices")
+        ordering = ["plan_id", "interval"]
         constraints = [
             models.UniqueConstraint(
-                fields=["plan", "provider", "interval"],
-                name="unique_plan_provider_interval",
+                fields=["plan", "interval", "currency"],
+                name="unique_plan_interval_currency",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.plan.code}/{self.provider}={self.provider_price_id}"
+        return f"{self.plan.code}/{self.interval}={self.paddle_price_id or '<unsynced>'}"
 
 
 class PlanEntitlement(models.Model):
@@ -153,12 +139,12 @@ class PlanEntitlement(models.Model):
     )
     feature_key = models.CharField(
         max_length=64,
-        help_text="Dotted-key identifier (e.g. ai.usage, whatsapp.numbers).",
+        help_text=_("Dotted-key identifier (e.g. ai.usage, whatsapp.numbers)."),
     )
     enabled = models.BooleanField(default=True)
     limit = models.PositiveIntegerField(
         default=0,
-        help_text="0 = unlimited / feature flag only.",
+        help_text=_("0 = unlimited / feature flag only."),
     )
     period = models.CharField(
         max_length=16,
@@ -185,14 +171,10 @@ class PlanEntitlement(models.Model):
 
 
 class Subscription(models.Model):
-    class Provider(models.TextChoices):
-        STRIPE = "stripe", _("Stripe")
-        PADDLE = "paddle", _("Paddle")
-        PAYPAL = "paypal", _("PayPal")
-
     class Status(models.TextChoices):
         TRIALING = "trialing", _("Trialing")
         ACTIVE = "active", _("Active")
+        PAUSED = "paused", _("Paused")
         PAST_DUE = "past_due", _("Past due")
         CANCELED = "canceled", _("Canceled")
 
@@ -202,8 +184,8 @@ class Subscription(models.Model):
         related_name="subscriptions",
     )
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="subscriptions")
-    provider = models.CharField(max_length=32, choices=Provider.choices)
     provider_subscription_id = models.CharField(max_length=255, blank=True)
+    paddle_customer_id = models.CharField(max_length=64, blank=True)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.TRIALING)
     currency = models.CharField(max_length=8, default="USD")
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)

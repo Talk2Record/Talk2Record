@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
@@ -10,40 +11,34 @@ from rest_framework.test import APIClient
 
 from talk2record.billing.entitlements import EntitlementService
 from talk2record.billing.models import (
-    BillingProviderConfig,
+    PaddleSettings,
     Plan,
     PlanEntitlement,
-    PlanProviderPrice,
+    PlanPrice,
     Subscription,
     Transaction,
 )
-from talk2record.billing.paddle_provider import PaddleBillingProvider
-from talk2record.billing.providers import BillingProviderRegistry
+from talk2record.billing.paddle_client import PaddleClient
+from talk2record.billing.paddle_service import PaddleBillingService
 from talk2record.core.vault import SecretVault
 
 
-@pytest.mark.django_db
-class TestBillingProviderRegistry:
-    def test_paddle_config_returns_paddle_provider(self):
-        BillingProviderConfig.objects.create(
-            provider="paddle",
-            display_name="Paddle",
-            enabled=True,
-            environment="sandbox",
-            encrypted_api_key=SecretVault.encrypt("pdl_live_123"),
-            config={"default_price_id": "pri_123"},
-        )
-        provider = BillingProviderRegistry.get("paddle")
-        assert isinstance(provider, PaddleBillingProvider)
-
-    def test_global_provider_prefers_enabled_config(self):
-        BillingProviderConfig.objects.create(
-            provider="paddle",
-            enabled=True,
-            encrypted_api_key=SecretVault.encrypt("pdl_api"),
-        )
-        provider = BillingProviderRegistry.get_global_provider()
-        assert isinstance(provider, PaddleBillingProvider)
+def _configure_paddle(env: str = "sandbox") -> PaddleSettings:
+    settings = PaddleSettings.get_solo()
+    settings.enabled = True
+    settings.environment = env
+    settings.encrypted_api_key = SecretVault.encrypt("pdl_test_secret")
+    settings.encrypted_webhook_secret = SecretVault.encrypt("whsec_test")
+    settings.save(
+        update_fields=[
+            "enabled",
+            "environment",
+            "encrypted_api_key",
+            "encrypted_webhook_secret",
+            "updated_at",
+        ],
+    )
+    return settings
 
 
 @pytest.mark.django_db
@@ -52,7 +47,6 @@ class TestEntitlements:
         Subscription.objects.create(
             organization=organization,
             plan=plan,
-            provider=Subscription.Provider.STRIPE,
             status=Subscription.Status.ACTIVE,
             currency="USD",
             amount=Decimal("49.00"),
@@ -97,11 +91,12 @@ class TestPaddleWebhook:
         organization,
         plan,
     ):
-        PlanProviderPrice.objects.create(
+        PlanPrice.objects.create(
             plan=plan,
-            provider="paddle",
-            provider_price_id="pri_growth",
+            paddle_price_id="pri_growth",
             interval="month",
+            amount=Decimal("49.00"),
+            currency="USD",
         )
         payload = {
             "event_type": "subscription.created",
@@ -115,7 +110,7 @@ class TestPaddleWebhook:
                 },
             },
         }
-        url = reverse("api-billing-webhook", kwargs={"provider": "paddle"})
+        url = reverse("api-billing-webhook")
         response = api_client.post(
             url,
             data=json.dumps(payload),
@@ -124,7 +119,6 @@ class TestPaddleWebhook:
         assert response.status_code == 202
         subscription = Subscription.objects.get(provider_subscription_id="sub_001")
         assert subscription.organization_id == organization.pk
-        assert subscription.provider == Subscription.Provider.PADDLE
 
     def test_transaction_completed_records_invoice(
         self,
@@ -135,7 +129,6 @@ class TestPaddleWebhook:
         subscription = Subscription.objects.create(
             organization=organization,
             plan=plan,
-            provider=Subscription.Provider.PADDLE,
             provider_subscription_id="sub_abc",
             status=Subscription.Status.ACTIVE,
         )
@@ -151,7 +144,7 @@ class TestPaddleWebhook:
                 "custom_data": {"organization_id": str(organization.pk)},
             },
         }
-        url = reverse("api-billing-webhook", kwargs={"provider": "paddle"})
+        url = reverse("api-billing-webhook")
         response = api_client.post(
             url,
             data=json.dumps(payload),
@@ -167,12 +160,8 @@ class TestPaddleWebhook:
         self,
         api_client: APIClient,
     ):
-        BillingProviderConfig.objects.create(
-            provider="paddle",
-            enabled=True,
-            encrypted_webhook_secret=SecretVault.encrypt("sekret"),
-        )
-        url = reverse("api-billing-webhook", kwargs={"provider": "paddle"})
+        _configure_paddle()
+        url = reverse("api-billing-webhook")
         response = api_client.post(
             url,
             data=json.dumps({"event_type": "subscription.created", "data": {}}),
@@ -182,41 +171,148 @@ class TestPaddleWebhook:
         assert response.status_code == 400
 
 
-@pytest.mark.django_db
-class TestPaddleProvider:
-    def test_create_checkout_uses_plan_price(self, organization, plan):
-        PlanProviderPrice.objects.create(
-            plan=plan,
-            provider="paddle",
-            provider_price_id="pri_abc",
-            interval="month",
-        )
-        provider = PaddleBillingProvider(api_key="pdl_key", environment="sandbox")
+def _fake_response(status_code: int, payload: dict | None = None):
+    response = MagicMock()
+    response.status_code = status_code
+    response.content = b"{}"
+    response.text = ""
+    response.json.return_value = payload or {}
+    return response
 
-        fake_response = type(
-            "Resp",
-            (),
-            {
-                "status_code": 201,
-                "content": b"{}",
-                "text": "",
-                "json": staticmethod(
-                    lambda: {
-                        "data": {"checkout": {"url": "https://pay.example/123"}},
-                    },
-                ),
-            },
-        )()
+
+@pytest.mark.django_db
+class TestPaddleService:
+    def test_create_checkout_uses_plan_price(self, organization, plan):
+        _configure_paddle()
+        PlanPrice.objects.create(
+            plan=plan,
+            paddle_price_id="pri_abc",
+            interval="month",
+            amount=Decimal("49.00"),
+            currency="USD",
+        )
+        service = PaddleBillingService()
 
         with patch(
-            "talk2record.billing.paddle_provider.requests.request",
-            return_value=fake_response,
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(
+                201,
+                {"data": {"checkout": {"url": "https://pay.example/123"}}},
+            ),
         ) as mock_request:
-            session = provider.create_checkout(organization=organization, plan=plan)
+            session = service.create_checkout(organization=organization, plan=plan)
 
         assert session.checkout_url == "https://pay.example/123"
-        args, kwargs = mock_request.call_args
+        kwargs = mock_request.call_args.kwargs
         assert kwargs["json"]["items"][0]["price_id"] == "pri_abc"
+
+    def test_test_credentials_calls_paddle_event_types(self):
+        _configure_paddle()
+        service = PaddleBillingService()
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(200, {"data": []}),
+        ) as mock_request:
+            ok, detail = service.test_credentials()
+        assert ok is True
+        assert "sandbox" in detail
+        assert mock_request.call_args.args[1].endswith("/event-types")
+
+    def test_push_plan_creates_product_when_no_paddle_id(self, plan):
+        _configure_paddle()
+        service = PaddleBillingService()
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(201, {"data": {"id": "pro_123"}}),
+        ) as mock_request:
+            service.push_plan(plan)
+        assert mock_request.call_args.args[0] == "POST"
+        assert mock_request.call_args.args[1].endswith("/products")
+        plan.refresh_from_db()
+        assert plan.paddle_product_id == "pro_123"
+
+    def test_push_plan_updates_existing_product(self, plan):
+        _configure_paddle()
+        plan.paddle_product_id = "pro_existing"
+        plan.save(update_fields=["paddle_product_id"])
+
+        service = PaddleBillingService()
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(200, {"data": {"id": "pro_existing"}}),
+        ) as mock_request:
+            service.push_plan(plan)
+        assert mock_request.call_args.args[0] == "PATCH"
+        assert mock_request.call_args.args[1].endswith("/products/pro_existing")
+
+    def test_cancel_calls_paddle_endpoint(self, organization, plan):
+        _configure_paddle()
+        sub = Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            provider_subscription_id="sub_42",
+            status=Subscription.Status.ACTIVE,
+        )
+        service = PaddleBillingService()
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(200, {"data": {"id": "sub_42"}}),
+        ) as mock_request:
+            service.cancel(sub)
+        assert mock_request.call_args.args[1].endswith("/subscriptions/sub_42/cancel")
+
+
+@pytest.mark.django_db
+class TestPaddleAdminPushes:
+    def test_plan_admin_save_pushes_to_paddle(self, admin_client):
+        _configure_paddle()
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(201, {"data": {"id": "pro_42"}}),
+        ) as mock_request:
+            response = admin_client.post(
+                reverse("admin:billing_plan_add"),
+                {
+                    "name": "Pro",
+                    "code": "pro",
+                    "base_price": "29.00",
+                    "currency": "USD",
+                    "region": "US",
+                    "features": "[]",
+                    "is_active": "on",
+                },
+            )
+        assert response.status_code in (200, 302)
+        assert Plan.objects.filter(code="pro", paddle_product_id="pro_42").exists()
+        assert mock_request.called
+
+    def test_subscription_admin_cancel_action_calls_paddle(
+        self, admin_client, organization, plan,
+    ):
+        _configure_paddle()
+        sub = Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            provider_subscription_id="sub_admin",
+            status=Subscription.Status.ACTIVE,
+        )
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=_fake_response(200, {"data": {"id": sub.provider_subscription_id}}),
+        ) as mock_request:
+            response = admin_client.post(
+                reverse("admin:billing_subscription_changelist"),
+                {
+                    "action": "cancel_now",
+                    "_selected_action": [str(sub.pk)],
+                    "index": 0,
+                },
+            )
+        assert response.status_code in (200, 302)
+        assert any(
+            call.args[1].endswith("/subscriptions/sub_admin/cancel")
+            for call in mock_request.call_args_list
+        )
 
 
 @pytest.mark.django_db
@@ -230,7 +326,6 @@ class TestEntitlementsAPI:
         Subscription.objects.create(
             organization=organization,
             plan=plan,
-            provider=Subscription.Provider.STRIPE,
             status=Subscription.Status.ACTIVE,
         )
         PlanEntitlement.objects.create(

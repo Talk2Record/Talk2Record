@@ -16,8 +16,8 @@ from talk2record.analytics.models import DailyMetric
 from talk2record.audit.models import AuditLog
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
+from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Transaction
-from talk2record.billing.models import StripeSettings
 from talk2record.core.vault import SecretVault
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
@@ -80,7 +80,7 @@ def subscription(workspace_user: User) -> Subscription:
     subscription = Subscription.objects.create(
         organization=workspace_user.current_organization,
         plan=plan,
-        provider=Subscription.Provider.STRIPE,
+        provider_subscription_id="sub_platform_test",
         status=Subscription.Status.ACTIVE,
         currency="USD",
         amount=Decimal("49.00"),
@@ -125,12 +125,21 @@ def daily_metric(workspace_user: User) -> DailyMetric:
 
 
 @pytest.fixture
-def global_stripe_settings() -> StripeSettings:
-    s = StripeSettings.get_solo()
+def global_paddle_settings() -> PaddleSettings:
+    s = PaddleSettings.get_solo()
     s.enabled = True
-    s.config = {"provider": "stripe"}
-    s.encrypted_credential = SecretVault.encrypt("stripe-secret")
-    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
+    s.environment = PaddleSettings.Environment.SANDBOX
+    s.encrypted_api_key = SecretVault.encrypt("pdl_test_secret")
+    s.encrypted_webhook_secret = SecretVault.encrypt("whsec_test")
+    s.save(
+        update_fields=[
+            "enabled",
+            "environment",
+            "encrypted_api_key",
+            "encrypted_webhook_secret",
+            "updated_at",
+        ],
+    )
     return s
 
 
@@ -165,9 +174,9 @@ class TestPlatformEndpoints:
         self,
         authed_client: APIClient,
         subscription: Subscription,
-        global_stripe_settings: StripeSettings,
+        global_paddle_settings: PaddleSettings,
     ):
-        assert global_stripe_settings.enabled
+        assert global_paddle_settings.enabled
         response = authed_client.post(
             reverse("api:billing-checkout"),
             {"plan": subscription.plan.code, "acceptedBillingTerms": False},
@@ -182,12 +191,29 @@ class TestPlatformEndpoints:
         workspace_user: User,
         subscription: Subscription,
         legal_versions: dict[str, LegalDocumentVersion],
-        global_stripe_settings: StripeSettings,
+        global_paddle_settings: PaddleSettings,
     ):
-        assert global_stripe_settings.enabled
-        mock_session = MagicMock()
-        mock_session.url = "https://checkout.stripe.com/pay/cs_test_mock"
-        with patch("stripe.checkout.Session.create", return_value=mock_session):
+        from talk2record.billing.models import PlanPrice
+
+        PlanPrice.objects.create(
+            plan=subscription.plan,
+            paddle_price_id="pri_growth_checkout",
+            interval="month",
+            amount=Decimal("49.00"),
+            currency="USD",
+        )
+        assert global_paddle_settings.enabled
+        fake_response = MagicMock()
+        fake_response.status_code = 201
+        fake_response.content = b"{}"
+        fake_response.text = ""
+        fake_response.json.return_value = {
+            "data": {"checkout": {"url": "https://pay.paddle.com/checkout/123"}},
+        }
+        with patch(
+            "talk2record.billing.paddle_client.requests.request",
+            return_value=fake_response,
+        ):
             response = authed_client.post(
                 reverse("api:billing-checkout"),
                 {"plan": subscription.plan.code, "acceptedBillingTerms": True},
@@ -208,10 +234,10 @@ class TestPlatformEndpoints:
         assert AuditLog.objects.filter(action="billing.checkout.started").exists()
 
     def test_billing_webhook(self, api_client: APIClient):
-        response = api_client.post(reverse("api-billing-webhook", kwargs={"provider": "stripe"}), format="json")
+        response = api_client.post(reverse("api-billing-webhook"), format="json")
 
         assert response.status_code == status.HTTP_202_ACCEPTED
-        assert AuditLog.objects.filter(action="billing.webhook.received", resource_id="stripe").exists()
+        assert AuditLog.objects.filter(action="billing.webhook.received", resource_id="paddle").exists()
 
     def test_legal_documents_and_status(self, authed_client: APIClient, legal_versions: dict[str, LegalDocumentVersion]):
         documents_response = authed_client.get(reverse("api:legal-document-list"))

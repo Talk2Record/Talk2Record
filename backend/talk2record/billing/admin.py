@@ -1,87 +1,36 @@
+from __future__ import annotations
+
+import logging
+
 from django import forms
 from django.contrib import admin
+from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 from unfold.widgets import UnfoldAdminPasswordToggleWidget
 from unfold.widgets import UnfoldBooleanSwitchWidget
 
-from talk2record.billing.models import BillingProviderConfig
+from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Plan
 from talk2record.billing.models import PlanEntitlement
-from talk2record.billing.models import PlanProviderPrice
-from talk2record.billing.models import StripeSettings
+from talk2record.billing.models import PlanPrice
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
+from talk2record.billing.paddle_client import PaddleAPIError
+from talk2record.billing.paddle_service import PaddleBillingService
 from talk2record.core.vault import SecretVault
 
-
-class StripeSettingsAdminForm(forms.ModelForm):
-    secret_key = forms.CharField(
-        label=_("Stripe secret key"),
-        required=False,
-        widget=UnfoldAdminPasswordToggleWidget(render_value=False),
-        help_text=_("Leave blank to keep the current encrypted credential."),
-    )
-
-    class Meta:
-        model = StripeSettings
-        fields = ["enabled", "config"]
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        if "enabled" in self.fields:
-            self.fields["enabled"].widget = UnfoldBooleanSwitchWidget()
+logger = logging.getLogger(__name__)
 
 
-@admin.register(StripeSettings)
-class StripeSettingsAdmin(ModelAdmin):
-    form = StripeSettingsAdminForm
-    list_display = ["__str__", "enabled", "updated_at"]
-    ordering = ("pk",)
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).filter(pk=1)
-
-    def has_add_permission(self, request) -> bool:
-        return False
-
-    def has_delete_permission(self, request, obj=None) -> bool:
-        return False
-
-    def save_model(self, request, obj, form, change) -> None:
-        super().save_model(request, obj, form, change)
-        secret = (form.cleaned_data.get("secret_key") or "").strip()
-        if secret:
-            obj.encrypted_credential = SecretVault.encrypt(secret)
-            obj.save(update_fields=["encrypted_credential", "updated_at"])
+# ---------------------------------------------------------------------------
+# PaddleSettings (singleton)
+# ---------------------------------------------------------------------------
 
 
-@admin.register(Plan)
-class PlanAdmin(ModelAdmin):
-    list_display = ["name", "code", "base_price", "currency", "region", "is_active"]
-    search_fields = ["name", "code", "region"]
-    list_filter = ["currency", "is_active"]
-    ordering = ("code",)
-
-
-@admin.register(Subscription)
-class SubscriptionAdmin(ModelAdmin):
-    list_display = [
-        "organization",
-        "plan",
-        "provider",
-        "status",
-        "amount",
-        "currency",
-        "current_period_end",
-    ]
-    search_fields = ["organization__name", "provider_subscription_id"]
-    list_filter = ["provider", "status", "currency"]
-
-
-class BillingProviderConfigForm(forms.ModelForm):
+class PaddleSettingsAdminForm(forms.ModelForm):
     api_key = forms.CharField(
-        label=_("API key"),
+        label=_("Paddle API key"),
         required=False,
         widget=UnfoldAdminPasswordToggleWidget(render_value=False),
         help_text=_("Leave blank to keep the current encrypted credential."),
@@ -94,23 +43,40 @@ class BillingProviderConfigForm(forms.ModelForm):
     )
 
     class Meta:
-        model = BillingProviderConfig
+        model = PaddleSettings
         fields = [
-            "provider",
-            "display_name",
             "enabled",
             "environment",
+            "default_success_url",
+            "default_cancel_url",
+            "paddle_notification_setting_id",
             "config",
         ]
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if "enabled" in self.fields:
+            self.fields["enabled"].widget = UnfoldBooleanSwitchWidget()
 
-@admin.register(BillingProviderConfig)
-class BillingProviderConfigAdmin(ModelAdmin):
-    form = BillingProviderConfigForm
-    list_display = ("provider", "display_name", "enabled", "environment", "updated_at")
-    list_filter = ("enabled", "environment")
-    search_fields = ("provider", "display_name")
-    ordering = ("provider",)
+
+@admin.register(PaddleSettings)
+class PaddleSettingsAdmin(ModelAdmin):
+    form = PaddleSettingsAdminForm
+    list_display = ["__str__", "enabled", "environment", "updated_at"]
+    ordering = ("pk",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(pk=1)
+
+    def has_add_permission(self, request) -> bool:
+        return not PaddleSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PaddleSettings.get_solo()
+        return super().changelist_view(request, extra_context)
 
     def save_model(self, request, obj, form, change) -> None:
         super().save_model(request, obj, form, change)
@@ -128,12 +94,71 @@ class BillingProviderConfigAdmin(ModelAdmin):
             obj.save(update_fields=fields)
 
 
-@admin.register(PlanProviderPrice)
-class PlanProviderPriceAdmin(ModelAdmin):
-    list_display = ("plan", "provider", "provider_price_id", "interval", "active")
-    list_filter = ("provider", "interval", "active")
-    search_fields = ("plan__code", "provider_price_id")
-    ordering = ("plan_id", "provider")
+# ---------------------------------------------------------------------------
+# Plans + Prices
+# ---------------------------------------------------------------------------
+
+
+@admin.register(Plan)
+class PlanAdmin(ModelAdmin):
+    list_display = [
+        "name",
+        "code",
+        "base_price",
+        "currency",
+        "region",
+        "paddle_product_id",
+        "is_active",
+    ]
+    search_fields = ["name", "code", "region", "paddle_product_id"]
+    list_filter = ["currency", "is_active"]
+    readonly_fields = ("paddle_product_id",)
+    ordering = ("code",)
+
+    def save_model(self, request, obj, form, change) -> None:
+        super().save_model(request, obj, form, change)
+        try:
+            PaddleBillingService().push_plan(obj)
+        except PaddleAPIError as exc:
+            logger.warning("Paddle push_plan failed for %s: %s", obj.code, exc)
+            messages.warning(
+                request,
+                _("Plan saved locally, but Paddle sync failed: %(detail)s")
+                % {"detail": str(exc)},
+            )
+
+
+@admin.register(PlanPrice)
+class PlanPriceAdmin(ModelAdmin):
+    list_display = (
+        "plan",
+        "interval",
+        "amount",
+        "currency",
+        "paddle_price_id",
+        "active",
+    )
+    list_filter = ("interval", "currency", "active")
+    search_fields = ("plan__code", "paddle_price_id")
+    readonly_fields = ("paddle_price_id",)
+    ordering = ("plan_id", "interval")
+
+    def save_model(self, request, obj, form, change) -> None:
+        super().save_model(request, obj, form, change)
+        try:
+            PaddleBillingService().push_price(obj)
+        except PaddleAPIError as exc:
+            logger.warning(
+                "Paddle push_price failed for %s/%s: %s",
+                obj.plan.code,
+                obj.interval,
+                exc,
+            )
+            messages.warning(
+                request,
+                _("Price saved locally, but Paddle sync failed: %(detail)s")
+                % {"detail": str(exc)},
+            )
 
 
 @admin.register(PlanEntitlement)
@@ -142,6 +167,103 @@ class PlanEntitlementAdmin(ModelAdmin):
     list_filter = ("enabled", "period")
     search_fields = ("plan__code", "feature_key")
     ordering = ("plan_id", "feature_key")
+
+
+# ---------------------------------------------------------------------------
+# Subscriptions
+# ---------------------------------------------------------------------------
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(ModelAdmin):
+    list_display = [
+        "organization",
+        "plan",
+        "status",
+        "amount",
+        "currency",
+        "seats",
+        "current_period_end",
+    ]
+    search_fields = [
+        "organization__name",
+        "provider_subscription_id",
+        "paddle_customer_id",
+    ]
+    list_filter = ["status", "currency"]
+    readonly_fields = ("provider_subscription_id", "paddle_customer_id", "canceled_at")
+    actions = ["cancel_now", "pause", "resume", "sync_from_paddle"]
+
+    def save_model(self, request, obj, form, change) -> None:
+        before: dict = {}
+        if change and obj.pk:
+            previous = Subscription.objects.filter(pk=obj.pk).first()
+            if previous is not None:
+                before = {
+                    "plan_id": previous.plan_id,
+                    "seats": previous.seats,
+                    "status": previous.status,
+                }
+        super().save_model(request, obj, form, change)
+        if not change:
+            return
+        try:
+            PaddleBillingService().push_subscription_change(obj, before=before)
+        except PaddleAPIError as exc:
+            logger.warning(
+                "Paddle subscription change failed for %s: %s",
+                obj.provider_subscription_id,
+                exc,
+            )
+            messages.warning(
+                request,
+                _("Subscription saved locally, but Paddle sync failed: %(detail)s")
+                % {"detail": str(exc)},
+            )
+
+    @admin.action(description=_("Cancel selected subscriptions in Paddle"))
+    def cancel_now(self, request, queryset) -> None:
+        service = PaddleBillingService()
+        for sub in queryset:
+            try:
+                service.cancel(sub)
+                queryset.filter(pk=sub.pk).update(status=Subscription.Status.CANCELED)
+            except PaddleAPIError as exc:
+                messages.warning(request, f"{sub}: {exc}")
+
+    @admin.action(description=_("Pause selected subscriptions in Paddle"))
+    def pause(self, request, queryset) -> None:
+        service = PaddleBillingService()
+        for sub in queryset:
+            try:
+                service.pause(sub)
+                queryset.filter(pk=sub.pk).update(status=Subscription.Status.PAUSED)
+            except PaddleAPIError as exc:
+                messages.warning(request, f"{sub}: {exc}")
+
+    @admin.action(description=_("Resume selected subscriptions in Paddle"))
+    def resume(self, request, queryset) -> None:
+        service = PaddleBillingService()
+        for sub in queryset:
+            try:
+                service.resume(sub)
+                queryset.filter(pk=sub.pk).update(status=Subscription.Status.ACTIVE)
+            except PaddleAPIError as exc:
+                messages.warning(request, f"{sub}: {exc}")
+
+    @admin.action(description=_("Sync selected subscriptions from Paddle"))
+    def sync_from_paddle(self, request, queryset) -> None:
+        service = PaddleBillingService()
+        for sub in queryset:
+            try:
+                service.sync_subscription(sub)
+            except PaddleAPIError as exc:
+                messages.warning(request, f"{sub}: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Transactions
+# ---------------------------------------------------------------------------
 
 
 @admin.register(Transaction)
