@@ -52,7 +52,7 @@ UNFOLD = {
             "whatsapp.whatsappmessage",
             "whatsapp.whatsapptemplate",
             "ai.aisettings",
-            "ai.aiproviderconfig",
+            "ai.aiprovider",
             "ai.aimodel",
             "ai.aitaskbinding",
             "billing.paddlesettings",
@@ -107,7 +107,7 @@ UNFOLD = {
                     {
                         "title": _("4. AI providers"),
                         "icon": "psychology",
-                        "link": reverse_lazy("admin:ai_aiproviderconfig_changelist"),
+                        "link": reverse_lazy("admin:ai_aiprovider_changelist"),
                     },
                     {
                         "title": _("5. WhatsApp settings"),
@@ -176,7 +176,7 @@ UNFOLD = {
                     {
                         "title": _("Provider configs"),
                         "icon": "settings_input_component",
-                        "link": reverse_lazy("admin:ai_aiproviderconfig_changelist"),
+                        "link": reverse_lazy("admin:ai_aiprovider_changelist"),
                     },
                     {
                         "title": _("AI models"),

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import logging
-
-import requests
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -11,8 +8,6 @@ from django.utils.translation import gettext_lazy as _
 from talk2record.whatsapp.client import WhatsAppCloudClient
 from talk2record.whatsapp.client import WhatsAppCloudClientError
 from talk2record.whatsapp.config import load_whatsapp_cloud_settings
-
-logger = logging.getLogger(__name__)
 
 
 def _test_whatsapp() -> tuple[bool, str]:
@@ -29,7 +24,9 @@ def _test_whatsapp() -> tuple[bool, str]:
     is_valid = data_ok.get("is_valid")
     app_id = data_ok.get("app_id", "")
     if is_valid is True:
-        return True, str(_("Graph accepted the access token (app_id=%s).") % app_id)
+        return True, str(
+            _("Meta Graph API validated the access token (app_id=%s).") % app_id,
+        )
     return False, str(_("Token debug response: %s") % data)
 
 
@@ -41,5 +38,5 @@ def test_whatsapp_connection_view(request):
     if ok:
         messages.success(request, msg)
     else:
-        messages.warning(request, msg)
+        messages.error(request, msg)
     return redirect(reverse("admin:index"))

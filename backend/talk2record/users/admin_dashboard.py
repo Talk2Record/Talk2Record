@@ -26,7 +26,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from talk2record.ai.models import AIProviderConfig
+from talk2record.ai.models import AIProvider
 from talk2record.ai.models import AISettings
 from talk2record.ai.models import AITaskBinding
 from talk2record.analytics.models import Event
@@ -104,7 +104,7 @@ def dashboard_callback(request, context):
     revenue_total = transactions_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
     records_total = records_qs.count()
     whatsapp_messages_total = whatsapp_messages_qs.count()
-    ai_bindings_total = AITaskBinding.objects.filter(active=True).count()
+    ai_bindings_total = AITaskBinding.objects.count()
 
     kpi_cards = [
         {
@@ -175,7 +175,7 @@ def dashboard_callback(request, context):
         },
         {
             "title": _("AI provider configs"),
-            "link": reverse_lazy("admin:ai_aiproviderconfig_changelist"),
+            "link": reverse_lazy("admin:ai_aiprovider_changelist"),
         },
         {
             "title": _("Paddle settings"),
@@ -286,7 +286,7 @@ def _count_enabled_providers() -> int:
             count += 1
     except Exception:
         pass
-    count += AIProviderConfig.objects.filter(active=True).count()
+    count += AIProvider.objects.filter(is_active=True).count()
     return count
 
 

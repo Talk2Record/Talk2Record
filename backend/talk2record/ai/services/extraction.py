@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 class ExtractionService:
     @classmethod
-    def _provider(cls, organization: Organization | None = None):
-        resolution = resolve(task=AITask.EXTRACTION, organization=organization)
+    def _provider(cls):
+        resolution = resolve(task=AITask.EXTRACTION)
         if resolution is None or resolution.spec.chat_factory is None:
             return MockExtractionProvider()
         return resolution.build_chat_provider()
@@ -29,7 +29,8 @@ class ExtractionService:
         context: dict | None = None,
         organization: Organization | None = None,
     ) -> ExtractionResult:
-        provider = cls._provider(organization=organization)
+        del organization  # Provider configuration is global; arg kept for compat.
+        provider = cls._provider()
         prompt_version = PromptTemplateService.resolve_extraction_prompt_version(
             provider=provider.provider_name,
             model=provider.model_name,

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from talk2record.ai.models import (
+    AICategory,
     AIModel,
-    AIProviderConfig,
+    AIProvider,
     AITask,
     AITaskBinding,
-    OrgAIConfig,
 )
 from talk2record.ai.providers.registry import AIProviderRegistry
 from talk2record.ai.resolver import resolve
@@ -20,61 +21,113 @@ from talk2record.organizations.models import Membership
 
 @pytest.mark.django_db
 class TestResolver:
-    def test_task_binding_wins_over_legacy(self, organization, workspace_user):
-        AIProviderConfig.objects.create(
-            organization=organization,
-            provider="openrouter",
-            encrypted_credential=SecretVault.encrypt("sk-openrouter"),
+    def test_resolves_active_chat_provider(self):
+        AIProvider.objects.create(
+            name="OpenRouter prod",
+            slug="openrouter",
+            category=AICategory.CHAT,
             base_url="https://openrouter.ai/api/v1",
+            encrypted_credential=SecretVault.encrypt("sk-openrouter"),
+            models_available=["openai/gpt-4o-mini", "openrouter/auto"],
+            default_model="openrouter/auto",
+            is_active=True,
         )
         AITaskBinding.objects.create(
-            organization=organization,
             task=AITask.EXTRACTION,
-            provider="openrouter",
-            model_id="openai/gpt-4o-mini",
-        )
-        OrgAIConfig.objects.create(
-            organization=organization,
-            provider="openai",
-            encrypted_credential=SecretVault.encrypt("sk-openai"),
-            model_extraction="gpt-4o",
-            active=True,
+            category=AICategory.CHAT,
+            model="openai/gpt-4o-mini",
         )
 
-        resolution = resolve(task=AITask.EXTRACTION, organization=organization)
+        resolution = resolve(task=AITask.EXTRACTION)
+
         assert resolution is not None
         assert resolution.provider_slug == "openrouter"
         assert resolution.model_id == "openai/gpt-4o-mini"
         assert resolution.api_key == "sk-openrouter"
         assert resolution.base_url == "https://openrouter.ai/api/v1"
 
-    def test_falls_back_to_legacy_config(self, organization):
-        OrgAIConfig.objects.create(
-            organization=organization,
-            provider="openai",
-            encrypted_credential=SecretVault.encrypt("sk-legacy"),
-            model_extraction="gpt-4o-mini",
-            model_transcription="whisper-1",
-            active=True,
+    def test_falls_back_to_default_model_when_no_binding(self):
+        AIProvider.objects.create(
+            name="OpenRouter prod",
+            slug="openrouter",
+            category=AICategory.CHAT,
+            encrypted_credential=SecretVault.encrypt("sk-x"),
+            models_available=["openrouter/auto"],
+            default_model="openrouter/auto",
+            is_active=True,
         )
-        resolution = resolve(task=AITask.EXTRACTION, organization=organization)
+        resolution = resolve(task=AITask.SUMMARIZATION)
         assert resolution is not None
-        assert resolution.provider_slug == "openai"
-        assert resolution.model_id == "gpt-4o-mini"
-        assert resolution.api_key == "sk-legacy"
+        assert resolution.model_id == "openrouter/auto"
 
-    def test_unknown_provider_slug_falls_through_to_global(self, organization):
-        AITaskBinding.objects.create(
-            organization=organization,
-            task=AITask.EXTRACTION,
-            provider="does-not-exist",
-            model_id="foo",
+    def test_returns_none_when_no_active_provider(self):
+        assert resolve(task=AITask.EXTRACTION) is None
+
+    def test_saving_active_provider_deactivates_same_category(self):
+        first = AIProvider.objects.create(
+            name="OpenRouter",
+            slug="openrouter",
+            category=AICategory.CHAT,
+            models_available=["openrouter/auto"],
+            default_model="openrouter/auto",
+            is_active=True,
         )
-        resolution = resolve(task=AITask.EXTRACTION, organization=organization)
-        # Unknown binding should not be used; we fall through to global defaults
-        # (which is ``mock`` in tests). We just assert we don't return the bogus
-        # binding and get a registered provider back.
-        assert resolution is None or resolution.provider_slug != "does-not-exist"
+        AIProvider.objects.create(
+            name="Groq",
+            slug="groq",
+            category=AICategory.CHAT,
+            models_available=["llama-3.3-70b-versatile"],
+            default_model="llama-3.3-70b-versatile",
+            is_active=True,
+        )
+        first.refresh_from_db()
+        assert first.is_active is False
+
+    def test_active_provider_in_other_category_unaffected(self):
+        AIProvider.objects.create(
+            name="OpenAI Whisper",
+            slug="openai",
+            category=AICategory.TRANSCRIPTION,
+            models_available=["whisper-1"],
+            default_model="whisper-1",
+            is_active=True,
+        )
+        AIProvider.objects.create(
+            name="OpenRouter",
+            slug="openrouter",
+            category=AICategory.CHAT,
+            models_available=["openrouter/auto"],
+            default_model="openrouter/auto",
+            is_active=True,
+        )
+        assert AIProvider.objects.filter(is_active=True).count() == 2
+
+    def test_provider_slug_must_support_category(self):
+        with pytest.raises(ValidationError):
+            AIProvider.objects.create(
+                name="OpenRouter (transcription)",
+                slug="openrouter",
+                category=AICategory.TRANSCRIPTION,
+                models_available=["whisper-1"],
+                default_model="whisper-1",
+                is_active=True,
+            )
+
+    def test_task_binding_model_validated_against_active_provider(self):
+        AIProvider.objects.create(
+            name="OpenRouter",
+            slug="openrouter",
+            category=AICategory.CHAT,
+            models_available=["openrouter/auto"],
+            default_model="openrouter/auto",
+            is_active=True,
+        )
+        with pytest.raises(ValidationError):
+            AITaskBinding.objects.create(
+                task=AITask.EXTRACTION,
+                category=AICategory.CHAT,
+                model="not-in-list",
+            )
 
 
 @pytest.mark.django_db
@@ -90,28 +143,29 @@ class TestAIAPIs:
         slugs = {row["slug"] for row in response.data}
         assert {"openai", "openrouter", "groq", "anthropic"}.issubset(slugs)
 
-    def test_admin_can_create_provider_config(self, api_client, workspace_user):
+    def test_staff_can_create_provider(self, api_client, workspace_user):
+        workspace_user.is_staff = True
+        workspace_user.save(update_fields=["is_staff"])
         api_client.force_authenticate(user=workspace_user)
         response = api_client.post(
             reverse("api:ai-provider-config-list"),
             data={
-                "provider": "openrouter",
-                "display_name": "OpenRouter (prod)",
+                "name": "OpenRouter prod",
+                "slug": "openrouter",
+                "category": AICategory.CHAT.value,
+                "models_available": ["openai/gpt-4o-mini"],
+                "default_model": "openai/gpt-4o-mini",
                 "api_key": "sk-or-123456",
-                "active": True,
+                "is_active": True,
             },
             format="json",
         )
-        assert response.status_code == status.HTTP_201_CREATED
-        config = AIProviderConfig.objects.get(pk=response.data["id"])
-        assert config.provider == "openrouter"
-        assert SecretVault.decrypt(config.encrypted_credential) == "sk-or-123456"
+        assert response.status_code == status.HTTP_201_CREATED, response.data
+        provider = AIProvider.objects.get(pk=response.data["id"])
+        assert provider.slug == "openrouter"
+        assert SecretVault.decrypt(provider.encrypted_credential) == "sk-or-123456"
 
-    def test_operator_cannot_create_provider_config(
-        self,
-        api_client,
-        organization,
-    ):
+    def test_non_staff_member_cannot_create_provider(self, api_client, organization):
         from talk2record.users.tests.factories import UserFactory
 
         operator = UserFactory.create()
@@ -124,36 +178,56 @@ class TestAIAPIs:
         operator.current_organization = organization
         operator.save(update_fields=["current_organization"])
         api_client.force_authenticate(user=operator)
-
         response = api_client.post(
             reverse("api:ai-provider-config-list"),
-            data={"provider": "openai", "api_key": "sk-x"},
+            data={
+                "name": "x",
+                "slug": "openai",
+                "category": AICategory.CHAT.value,
+                "api_key": "sk-x",
+            },
             format="json",
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_rejects_unknown_provider_slug(self, api_client, workspace_user):
+        workspace_user.is_staff = True
+        workspace_user.save(update_fields=["is_staff"])
         api_client.force_authenticate(user=workspace_user)
         response = api_client.post(
             reverse("api:ai-provider-config-list"),
-            data={"provider": "not-a-real-provider", "api_key": "x"},
+            data={
+                "name": "x",
+                "slug": "not-a-real-provider",
+                "category": AICategory.CHAT.value,
+                "api_key": "x",
+            },
             format="json",
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_admin_can_create_task_binding(self, api_client, workspace_user):
+    def test_staff_can_create_task_binding(self, api_client, workspace_user):
+        workspace_user.is_staff = True
+        workspace_user.save(update_fields=["is_staff"])
+        AIProvider.objects.create(
+            name="OpenRouter",
+            slug="openrouter",
+            category=AICategory.CHAT,
+            models_available=["openai/gpt-4o-mini"],
+            default_model="openai/gpt-4o-mini",
+            is_active=True,
+        )
         api_client.force_authenticate(user=workspace_user)
         response = api_client.post(
             reverse("api:ai-task-binding-list"),
             data={
                 "task": AITask.EXTRACTION,
-                "provider": "openrouter",
-                "model_id": "openai/gpt-4o-mini",
-                "active": True,
+                "category": AICategory.CHAT.value,
+                "model": "openai/gpt-4o-mini",
             },
             format="json",
         )
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == status.HTTP_201_CREATED, response.data
 
     def test_list_models_filters_by_provider(self, api_client, workspace_user):
         AIModel.objects.create(

@@ -1,79 +1,36 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
-class OrgAIConfig(models.Model):
-    """Per-organisation AI provider configuration with encrypted API credentials."""
-
-    class Provider(models.TextChoices):
-        OPENAI = "openai", _("OpenAI")
-        ANTHROPIC = "anthropic", _("Anthropic")
-        MOCK = "mock", _("Mock (testing)")
-
-    organization = models.OneToOneField(
-        "organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="ai_config",
-    )
-    provider = models.CharField(
-        max_length=50,
-        choices=Provider.choices,
-        default=Provider.OPENAI,
-    )
-    model_transcription = models.CharField(
-        max_length=100,
-        default="whisper-1",
-        help_text="Model used for audio-to-text transcription (e.g. whisper-1).",
-    )
-    model_extraction = models.CharField(
-        max_length=100,
-        default="gpt-4o",
-        help_text="Model used for structured data extraction from transcripts.",
-    )
-    encrypted_credential = models.TextField(
-        blank=True,
-        help_text="API key encrypted via SecretVault. Never stored in plaintext.",
-    )
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = _("Organisation AI config")
-        verbose_name_plural = _("Organisation AI configs")
-
-    def __str__(self) -> str:
-        return f"{self.organization.name} / {self.provider}"
-
-
 class AISettings(models.Model):
-    """Singleton (``pk=1``) for AI provider config and encrypted API credential."""
+    """Singleton (``pk=1``) global kill-switch for AI features.
+
+    The provider, credentials, models, and task routing live in
+    :class:`AIProvider` and :class:`AITaskBinding` (both global). This
+    singleton only exposes a master ``enabled`` flag so an operator can
+    pause all AI activity without deleting configuration.
+    """
 
     enabled = models.BooleanField(default=True)
-    config = models.JSONField(default=dict, blank=True)
-    encrypted_credential = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _("AI provider settings")
-        verbose_name_plural = _("AI provider settings")
+        verbose_name = _("AI settings")
+        verbose_name_plural = _("AI settings")
 
     def __str__(self) -> str:
         return "AI"
 
     @classmethod
     def get_solo(cls) -> AISettings:
-        obj, _ = cls.objects.get_or_create(
-            pk=1,
-            defaults={
-                "enabled": True,
-                "config": {},
-                "encrypted_credential": "",
-            },
-        )
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={"enabled": True})
         return obj
 
 
@@ -87,23 +44,53 @@ class AITask(models.TextChoices):
     EMBEDDING = "embedding", _("Embedding")
 
 
-class AIProviderConfig(models.Model):
-    """Per-organisation, per-provider credentials and connection overrides.
+class AICategory(models.TextChoices):
+    """Capability buckets used to group providers and tasks.
 
-    One row per ``(organization, provider)`` pair. Providers are identified by
-    a ``slug`` (``openai``, ``openrouter``, ``groq``, ``anthropic``, ...) matched
-    against the provider registry. An organisation may have several active
-    configs (for instance OpenAI for transcription and OpenRouter for chat).
+    Each :class:`AIProvider` belongs to exactly one category. The resolver
+    maps every task to a category and then selects the active provider for
+    that category app-wide.
     """
 
-    organization = models.ForeignKey(
-        "organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="ai_provider_configs",
+    CHAT = "chat", _("Chat / extraction / summarization")
+    TRANSCRIPTION = "transcription", _("Transcription")
+    EMBEDDING = "embedding", _("Embedding")
+
+
+TASK_TO_CATEGORY: dict[str, str] = {
+    AITask.TRANSCRIPTION.value: AICategory.TRANSCRIPTION.value,
+    AITask.EXTRACTION.value: AICategory.CHAT.value,
+    AITask.SUMMARIZATION.value: AICategory.CHAT.value,
+    AITask.CHAT.value: AICategory.CHAT.value,
+    AITask.EMBEDDING.value: AICategory.EMBEDDING.value,
+}
+
+
+class AIProvider(models.Model):
+    """Application-wide AI provider configuration.
+
+    One row per (category, provider) configuration. At most one row per
+    category can be active at a time; saving a row with ``is_active=True``
+    auto-deactivates other rows in the same category.
+
+    The ``slug`` must match an entry in ``AIProviderRegistry`` (e.g.
+    ``openai``, ``openrouter``, ``groq``, ``anthropic``, ``mock``); the
+    registry tells the resolver how to build a runtime client.
+    """
+
+    name = models.CharField(
+        max_length=120,
+        unique=True,
+        help_text="Human label, e.g. 'OpenRouter (prod)'.",
     )
-    provider = models.CharField(
+    slug = models.CharField(
         max_length=50,
         help_text="Provider slug; must match an entry in the AI provider registry.",
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=AICategory.choices,
+        help_text="Capability bucket. The resolver picks the active provider per category.",
     )
     display_name = models.CharField(max_length=120, blank=True)
     base_url = models.URLField(
@@ -114,32 +101,92 @@ class AIProviderConfig(models.Model):
         blank=True,
         help_text="API key encrypted via SecretVault.",
     )
+    models_available = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of model identifiers this provider exposes.",
+    )
+    default_model = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Fallback model id when no AITaskBinding row applies.",
+    )
     extra_config = models.JSONField(default=dict, blank=True)
-    active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = _("AI provider config")
-        verbose_name_plural = _("AI provider configs")
-        ordering = ["organization_id", "provider"]
+        verbose_name = _("AI provider")
+        verbose_name_plural = _("AI providers")
+        ordering = ["category", "name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["organization", "provider"],
-                name="unique_org_ai_provider",
+                fields=["category"],
+                condition=Q(is_active=True),
+                name="unique_active_ai_provider_per_category",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.organization_id}/{self.provider}"
+        return f"{self.name} ({self.category})"
+
+    def clean(self) -> None:
+        super().clean()
+        from talk2record.ai.providers.registry import AIProviderRegistry  # noqa: PLC0415
+
+        spec = AIProviderRegistry.get(self.slug)
+        if spec is None:
+            raise ValidationError({"slug": f"Unknown provider slug: {self.slug!r}."})
+
+        capability_map = {
+            AICategory.CHAT.value: "chat",
+            AICategory.TRANSCRIPTION.value: "transcription",
+            AICategory.EMBEDDING.value: "embedding",
+        }
+        capability = capability_map.get(self.category)
+        if capability and not spec.supports(capability):
+            raise ValidationError(
+                {
+                    "category": (
+                        f"Provider {self.slug!r} does not support {capability!r}."
+                    ),
+                },
+            )
+
+        if not isinstance(self.models_available, list):
+            raise ValidationError(
+                {"models_available": "Must be a JSON list of strings."},
+            )
+        if self.default_model and self.models_available:
+            if self.default_model not in self.models_available:
+                raise ValidationError(
+                    {
+                        "default_model": (
+                            "Default model must be present in models_available."
+                        ),
+                    },
+                )
+
+    def save(self, *args, **kwargs) -> None:
+        with transaction.atomic():
+            if self.is_active:
+                others = AIProvider.objects.filter(
+                    category=self.category,
+                    is_active=True,
+                )
+                if self.pk:
+                    others = others.exclude(pk=self.pk)
+                others.update(is_active=False, updated_at=timezone.now())
+            self.full_clean()
+            super().save(*args, **kwargs)
 
 
 class AIModel(models.Model):
     """Catalog of AI models known to the platform.
 
-    Rows are shared across organisations; they describe a model's provider,
-    capabilities and pricing. An admin curates this catalog; organisations
-    then pick a model via ``AITaskBinding``.
+    Curated by an admin; surfaces in the API so tenants/UI can pick from a
+    known list. Independent of the active :class:`AIProvider`.
     """
 
     class Capability(models.TextChoices):
@@ -198,33 +245,75 @@ class AIModel(models.Model):
 
 
 class AITaskBinding(models.Model):
-    """Maps an AI task to a provider/model pair for a specific organisation."""
+    """Application-wide map of an AI task to a model.
 
-    organization = models.ForeignKey(
-        "organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="ai_task_bindings",
+    The provider for the task is determined by the task's category and the
+    currently active :class:`AIProvider` for that category. ``model`` must
+    appear in that active provider's ``models_available`` list.
+    """
+
+    task = models.CharField(
+        max_length=40,
+        choices=AITask.choices,
+        unique=True,
     )
-    task = models.CharField(max_length=40, choices=AITask.choices)
-    provider = models.CharField(max_length=50)
-    model_id = models.CharField(max_length=120)
-    active = models.BooleanField(default=True)
+    category = models.CharField(
+        max_length=20,
+        choices=AICategory.choices,
+    )
+    model = models.CharField(
+        max_length=120,
+        help_text="Model id forwarded to the active provider for this task's category.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = _("AI task binding")
         verbose_name_plural = _("AI task bindings")
-        ordering = ["organization_id", "task"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["organization", "task"],
-                name="unique_org_ai_task",
-            ),
-        ]
+        ordering = ["category", "task"]
 
     def __str__(self) -> str:
-        return f"{self.organization_id}/{self.task}={self.provider}:{self.model_id}"
+        return f"{self.task} -> {self.category}:{self.model}"
+
+    def clean(self) -> None:
+        super().clean()
+        expected_category = TASK_TO_CATEGORY.get(self.task)
+        if expected_category and self.category and self.category != expected_category:
+            raise ValidationError(
+                {
+                    "category": (
+                        f"Task {self.task!r} must use category "
+                        f"{expected_category!r}."
+                    ),
+                },
+            )
+        if not self.category and expected_category:
+            self.category = expected_category
+
+        if self.model:
+            provider = (
+                AIProvider.objects
+                .filter(category=self.category, is_active=True)
+                .first()
+            )
+            if provider is not None:
+                models_list = provider.models_available or []
+                if models_list and self.model not in models_list:
+                    raise ValidationError(
+                        {
+                            "model": (
+                                f"Model {self.model!r} is not in the active "
+                                f"{self.category} provider's models_available list."
+                            ),
+                        },
+                    )
+
+    def save(self, *args, **kwargs) -> None:
+        if not self.category:
+            self.category = TASK_TO_CATEGORY.get(self.task, "")
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class AIPromptTemplate(models.Model):

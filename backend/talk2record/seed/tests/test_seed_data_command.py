@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 from django.core.management import call_command
 
+from talk2record.ai.models import AIModel
+from talk2record.ai.models import AIProvider
 from talk2record.ai.models import AISettings
+from talk2record.ai.models import AITaskBinding
 from talk2record.analytics.models import DailyMetric
 from talk2record.analytics.models import Event
 from talk2record.audit.models import AuditLog
@@ -19,6 +22,9 @@ from talk2record.legal.models import UserLegalAttestation
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
 from talk2record.records.models import Record
+from talk2record.seed.constants import AI_MODEL_CATALOG
+from talk2record.seed.constants import AI_PROVIDER_DEFINITIONS
+from talk2record.seed.constants import AI_TASK_BINDING_DEFINITIONS
 from talk2record.seed.constants import INTEGRATION_DEFINITIONS
 from talk2record.seed.constants import PLAN_DEFINITIONS
 from talk2record.users.models import User
@@ -31,6 +37,9 @@ EXPECTED_ENTITLEMENTS = sum(
     len(plan.get("entitlements", ())) for plan in PLAN_DEFINITIONS
 )
 EXPECTED_INTEGRATIONS = len(INTEGRATION_DEFINITIONS)
+EXPECTED_AI_PROVIDERS = len(AI_PROVIDER_DEFINITIONS)
+EXPECTED_AI_TASK_BINDINGS = len(AI_TASK_BINDING_DEFINITIONS)
+EXPECTED_AI_MODELS = len(AI_MODEL_CATALOG)
 
 
 def _admin_counts() -> dict[str, int]:
@@ -40,6 +49,9 @@ def _admin_counts() -> dict[str, int]:
         "plan_entitlements": PlanEntitlement.objects.count(),
         "whatsapp_settings": WhatsAppSettings.objects.count(),
         "ai_settings": AISettings.objects.count(),
+        "ai_providers": AIProvider.objects.count(),
+        "ai_task_bindings": AITaskBinding.objects.count(),
+        "ai_models": AIModel.objects.count(),
         "paddle_settings": PaddleSettings.objects.count(),
         "legal_versions": LegalDocumentVersion.objects.count(),
     }
@@ -73,7 +85,22 @@ def test_seed_data_provisions_admin_records_only() -> None:
     assert admin["whatsapp_settings"] == 1
     assert admin["paddle_settings"] == 1
     assert admin["ai_settings"] == 1
+    assert admin["ai_providers"] == EXPECTED_AI_PROVIDERS
+    assert admin["ai_task_bindings"] == EXPECTED_AI_TASK_BINDINGS
+    assert admin["ai_models"] == EXPECTED_AI_MODELS
     assert admin["legal_versions"] >= 1
+
+    # Seeded providers must not include any plaintext credentials.
+    for provider in AIProvider.objects.all():
+        assert provider.encrypted_credential == ""
+
+    # First seed row per category should be active so the resolver works
+    # immediately after seeding (admins still need to add the API key).
+    assert AIProvider.objects.filter(category="chat", is_active=True).count() == 1
+    assert (
+        AIProvider.objects.filter(category="transcription", is_active=True).count()
+        == 1
+    )
 
     # Tenant data must never be touched by the seed command.
     assert _tenant_counts() == {
@@ -119,6 +146,31 @@ def test_seed_data_updates_existing_plans_in_place() -> None:
     # rely on `seed_data` as a "reset to known state" tool for reference data.
     assert plan.name == "Growth"
     assert plan.is_active is True
+
+
+@pytest.mark.django_db(transaction=True)
+def test_seed_data_preserves_admin_ai_provider_tweaks() -> None:
+    call_command("seed_data")
+
+    chat_provider = AIProvider.objects.get(name="OpenRouter")
+    chat_provider.encrypted_credential = "preserved-encrypted-key"
+    chat_provider.default_model = "openrouter/auto"
+    chat_provider.save(
+        update_fields=[
+            "encrypted_credential",
+            "default_model",
+            "updated_at",
+        ],
+    )
+
+    AITaskBinding.objects.filter(task="extraction").update(model="openrouter/auto")
+
+    call_command("seed_data")
+
+    chat_provider.refresh_from_db()
+    assert chat_provider.encrypted_credential == "preserved-encrypted-key"
+    assert chat_provider.default_model == "openrouter/auto"
+    assert AITaskBinding.objects.get(task="extraction").model == "openrouter/auto"
 
 
 @pytest.mark.django_db(transaction=True)

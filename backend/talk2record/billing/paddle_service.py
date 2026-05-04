@@ -65,7 +65,7 @@ class PaddleBillingService:
         except PaddleAPIError as exc:
             return False, str(exc)
         env = self.client._settings().environment  # noqa: SLF001
-        return True, f"Paddle {env} API accepted the credentials."
+        return True, f"Paddle Billing API ({env}) responded successfully to a live ping."
 
     # ------------------------------------------------------------------
     # Checkout

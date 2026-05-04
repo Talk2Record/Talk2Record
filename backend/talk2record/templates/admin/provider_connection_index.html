@@ -5,8 +5,46 @@
 
 {% block content %}
 <div class="space-y-6">
+    {# Quick connection tests #}
+    <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+                <h2 class="font-semibold text-sm text-font-important-light dark:text-font-important-dark">
+                    {% translate "Quick connection tests" %}
+                </h2>
+                <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                    {% translate "Each button calls the real provider (AI chat completion, Meta Graph token debug, Paddle Billing API ping). Results appear in the admin messages area." %}
+                </p>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <form method="post" action="{% url 'admin_test_ai_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-xs transition hover:bg-violet-700">
+                    <span class="material-symbols-outlined text-base leading-none">psychology</span>
+                    {% translate "Test AI" %}
+                </button>
+            </form>
+            <form method="post" action="{% url 'admin_test_whatsapp_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-xs transition hover:bg-emerald-700">
+                    <span class="material-symbols-outlined text-base leading-none">chat</span>
+                    {% translate "Test WhatsApp" %}
+                </button>
+            </form>
+            <form method="post" action="{% url 'admin_test_paddle_connection' %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-xs transition hover:bg-sky-700">
+                    <span class="material-symbols-outlined text-base leading-none">payments</span>
+                    {% translate "Test Paddle" %}
+                </button>
+            </form>
+        </div>
+    </div>
+
     {# Onboarding checklist #}
-    <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+    <details class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900" {% if not onboarding_complete %}open{% endif %}>
+        <summary class="list-none cursor-pointer">
         <div class="flex items-start justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
@@ -26,8 +64,13 @@
             </div>
             <div class="shrink-0 text-right">
                 <div class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ onboarding_percent }}%</div>
+                <div class="mt-1 inline-flex items-center gap-1 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                    <span class="material-symbols-outlined text-sm">expand_more</span>
+                    {% translate "Expand/collapse" %}
+                </div>
             </div>
         </div>
+        </summary>
         <div class="h-2 w-full rounded-full bg-base-100 dark:bg-base-800 overflow-hidden mb-5">
             <div class="h-2 rounded-full bg-primary-500" style="width: {{ onboarding_percent }}%"></div>
         </div>
@@ -83,7 +126,7 @@
                 </ul>
             </div>
         {% endfor %}
-    </div>
+    </details>
 
     {# Filters #}
     <form method="get" action="{% url 'admin:index' %}" class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
@@ -140,61 +183,36 @@
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Records per day" %}</h3>
-            <canvas id="chart-records-per-day" height="160"></canvas>
+            <div class="relative h-64">
+                <canvas id="chart-records-per-day"></canvas>
+            </div>
         </div>
         <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Records by status" %}</h3>
-            <canvas id="chart-records-by-status" height="160"></canvas>
+            <div class="relative h-64">
+                <canvas id="chart-records-by-status"></canvas>
+            </div>
         </div>
         <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Revenue per month" %}</h3>
-            <canvas id="chart-revenue-per-month" height="160"></canvas>
+            <div class="relative h-64">
+                <canvas id="chart-revenue-per-month"></canvas>
+            </div>
         </div>
         <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Top organizations" %}</h3>
-            <canvas id="chart-top-organizations" height="160"></canvas>
+            <div class="relative h-64">
+                <canvas id="chart-top-organizations"></canvas>
+            </div>
         </div>
         <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900 xl:col-span-2">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Record source mix" %}</h3>
-            <canvas id="chart-provider-mix" height="160"></canvas>
-        </div>
-    </div>
-
-    {# System checks (legacy provider connection tests) #}
-    <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h2 class="mb-1 font-semibold text-sm text-font-important-light dark:text-font-important-dark">
-            {% translate "System checks" %}
-        </h2>
-        <p class="mb-4 text-sm text-font-subtle-light dark:text-font-subtle-dark">
-            {% translate "Quick connectivity checks: Meta Graph (WhatsApp), Paddle billing API, and AI credential presence. Results appear as messages at the top of the page." %}
-        </p>
-        <div class="flex flex-wrap gap-3">
-            <form method="post" action="{% url 'admin_test_whatsapp_connection' %}">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    <span class="material-symbols-outlined text-base leading-none">chat</span>
-                    {% translate "Test WhatsApp" %}
-                </button>
-            </form>
-            <form method="post" action="{% url 'admin_test_paddle_connection' %}">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    <span class="material-symbols-outlined text-base leading-none">payments</span>
-                    {% translate "Test Paddle" %}
-                </button>
-            </form>
-            <form method="post" action="{% url 'admin_test_ai_connection' %}">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default border border-base-200 bg-white px-4 py-2 text-sm font-medium text-base-700 shadow-xs transition hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    <span class="material-symbols-outlined text-base leading-none">psychology</span>
-                    {% translate "Test AI credential" %}
-                </button>
-            </form>
+            <div class="relative h-64">
+                <canvas id="chart-provider-mix"></canvas>
+            </div>
         </div>
     </div>
 </div>
-
-{{ block.super }}
 
 <script id="t2r-dashboard-data" type="application/json">
     {

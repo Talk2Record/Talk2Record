@@ -17,13 +17,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from talk2record.ai.models import AIModel
+from talk2record.ai.models import AIProvider
 from talk2record.ai.models import AISettings
+from talk2record.ai.models import AITaskBinding
 from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Plan
 from talk2record.billing.models import PlanEntitlement
 from talk2record.billing.models import PlanPrice
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.services import LegalAcceptanceService
+from talk2record.seed.constants import AI_MODEL_CATALOG
+from talk2record.seed.constants import AI_PROVIDER_DEFINITIONS
+from talk2record.seed.constants import AI_TASK_BINDING_DEFINITIONS
 from talk2record.seed.constants import INTEGRATION_DEFINITIONS
 from talk2record.seed.constants import PLAN_DEFINITIONS
 from talk2record.whatsapp.models import WhatsAppSettings
@@ -39,6 +45,9 @@ def sync_reference_data(summary) -> ReferenceData:
     legal_versions = _sync_legal_documents(summary)
     plans = _sync_plans(summary)
     _sync_integrations(summary)
+    _sync_ai_models(summary)
+    _sync_ai_providers(summary)
+    _sync_ai_task_bindings(summary)
     return ReferenceData(legal_versions=legal_versions, plans=plans)
 
 
@@ -145,16 +154,16 @@ def _sync_integrations(summary) -> None:
             )
 
         elif slug == "ai":
-            _upsert_singleton(
-                model=AISettings,
-                summary=summary,
-                config=config,
-                create_defaults={
-                    "enabled": True,
-                    "config": config,
-                    "encrypted_credential": "",
-                },
+            obj, created = AISettings.objects.get_or_create(
+                pk=1,
+                defaults={"enabled": True},
             )
+            if created:
+                summary.bump("integration_singletons", created=True)
+            elif not obj.enabled:
+                obj.enabled = True
+                obj.save(update_fields=["enabled", "updated_at"])
+                summary.bump("integration_singletons", updated=True)
 
 
 def _upsert_singleton(*, model, summary, config: dict, create_defaults: dict) -> None:
@@ -175,3 +184,88 @@ def _upsert_singleton(*, model, summary, config: dict, create_defaults: dict) ->
         updated_fields.append("updated_at")
         obj.save(update_fields=updated_fields)
         summary.bump("integration_singletons", updated=True)
+
+
+def _sync_ai_models(summary) -> None:
+    """Refresh the curated :class:`AIModel` catalog rows.
+
+    These are pure reference data; ``display_name``, ``capabilities`` and
+    ``context_window`` are kept up to date with the seed definitions on every
+    run.
+    """
+
+    for definition in AI_MODEL_CATALOG:
+        _, created = AIModel.objects.update_or_create(
+            provider=definition["provider"],
+            model_id=definition["model_id"],
+            defaults={
+                "display_name": definition.get("display_name", ""),
+                "capabilities": list(definition.get("capabilities", []) or []),
+                "context_window": int(definition.get("context_window", 0) or 0),
+                "active": True,
+            },
+        )
+        summary.bump("ai_models", created=created, updated=not created)
+
+
+def _sync_ai_providers(summary) -> None:
+    """Provision baseline :class:`AIProvider` rows without credentials.
+
+    Idempotent and admin-friendly:
+
+    * A row is only created when no row with the same ``name`` exists.
+    * Existing rows are never overwritten -- secrets, custom models, and the
+      ``is_active`` flag set by an operator survive re-runs.
+    * On a fresh database the first seed row per category is marked active so
+      the resolver can pick it up immediately. If a different row already
+      occupies that category, the new seed row is created inactive so it
+      never displaces the operator's choice.
+    """
+
+    for definition in AI_PROVIDER_DEFINITIONS:
+        if AIProvider.objects.filter(name=definition["name"]).exists():
+            continue
+
+        category = definition["category"]
+        category_has_active = AIProvider.objects.filter(
+            category=category,
+            is_active=True,
+        ).exists()
+
+        AIProvider.objects.create(
+            name=definition["name"],
+            slug=definition["slug"],
+            category=category,
+            display_name=definition.get("display_name", ""),
+            base_url=definition.get("base_url", ""),
+            models_available=list(definition.get("models_available", []) or []),
+            default_model=definition.get("default_model", ""),
+            extra_config=dict(definition.get("extra_config", {}) or {}),
+            is_active=not category_has_active,
+        )
+        summary.bump("ai_providers", created=True)
+
+
+def _sync_ai_task_bindings(summary) -> None:
+    """Provision default :class:`AITaskBinding` rows.
+
+    Each binding is created only when the task does not yet have one, so any
+    admin override is preserved on re-runs. Bindings whose target model is
+    not in the active provider's ``models_available`` are skipped silently
+    (validated by ``AITaskBinding.clean()`` on save) so a partial AI setup
+    never aborts the seed.
+    """
+
+    for definition in AI_TASK_BINDING_DEFINITIONS:
+        task = definition["task"]
+        if AITaskBinding.objects.filter(task=task).exists():
+            continue
+        try:
+            AITaskBinding.objects.create(
+                task=task,
+                category=definition["category"],
+                model=definition["model"],
+            )
+        except Exception:  # noqa: BLE001 - validation failures are non-fatal here.
+            continue
+        summary.bump("ai_task_bindings", created=True)

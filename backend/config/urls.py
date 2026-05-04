@@ -12,7 +12,6 @@ from rest_framework_simplejwt.views import TokenVerifyView
 
 from talk2record.admin_unfold import ensure_unfold_admin_site
 from talk2record.ai.connection_tests import test_ai_connection_view
-from talk2record.ai.views import OrgAIConfigView
 from talk2record.billing.connection_tests import test_paddle_connection_view
 from talk2record.whatsapp.connection_tests import test_whatsapp_connection_view
 from talk2record.analytics.views import AnalyticsSnapshotView
@@ -100,7 +99,6 @@ urlpatterns += [
     path("api/onboarding/", OnboardingStepsView.as_view(), name="api-onboarding-steps"),
     path("api/onboarding/complete/", CompleteOnboardingView.as_view(), name="api-onboarding-complete"),
     path("api/settings/", SettingsProfileView.as_view(), name="api-settings-profile"),
-    path("api/ai/config/", OrgAIConfigView.as_view(), name="api-ai-config"),
     path("api/billing/webhooks/paddle/", BillingWebhookView.as_view(), name="api-billing-webhook"),
     path("api/webhooks/whatsapp/", WhatsAppWebhookView.as_view(), name="api-whatsapp-webhook"),
     path("api/public/ingestion/records/", PublicRecordIngestionView.as_view(), name="api-public-ingestion-records"),

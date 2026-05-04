@@ -5,8 +5,9 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
+from talk2record.ai.models import AICategory
 from talk2record.ai.models import AIModel
-from talk2record.ai.models import AIProviderConfig
+from talk2record.ai.models import AIProvider
 from talk2record.ai.models import AITask
 from talk2record.ai.models import AITaskBinding
 from talk2record.billing.models import PaddleSettings
@@ -57,21 +58,17 @@ class TestOnboardingDefaults:
 
 @pytest.mark.django_db
 class TestDependencies:
-    def test_ai_task_bindings_blocked_until_provider_exists(self, organization):
+    def test_ai_task_bindings_blocked_until_provider_exists(self):
         WhatsAppSettings.objects.all().delete()
         AITaskBinding.objects.create(
-            organization=organization,
             task=AITask.TRANSCRIPTION,
-            provider="openai",
-            model_id="whisper-1",
-            active=True,
+            category=AICategory.TRANSCRIPTION,
+            model="whisper-1",
         )
         AITaskBinding.objects.create(
-            organization=organization,
             task=AITask.EXTRACTION,
-            provider="openai",
-            model_id="gpt-4o",
-            active=True,
+            category=AICategory.CHAT,
+            model="gpt-4o",
         )
         report = OnboardingService.report()
         steps = _steps_by_key(report)
@@ -79,27 +76,34 @@ class TestDependencies:
         assert steps["ai.provider_config"].complete is False
         assert steps["ai.task_bindings"].blocked_by == "ai.provider_config"
 
-    def test_ai_task_bindings_unblocked_with_provider_config(self, organization):
+    def test_ai_task_bindings_unblocked_with_provider_config(self):
         WhatsAppSettings.objects.all().delete()
-        AIProviderConfig.objects.create(
-            organization=organization,
-            provider="openai",
+        AIProvider.objects.create(
+            name="OpenAI chat",
+            slug="openai",
+            category=AICategory.CHAT,
             display_name="OpenAI",
-            active=True,
+            models_available=["gpt-4o"],
+            default_model="gpt-4o",
+            is_active=True,
+        )
+        AIProvider.objects.create(
+            name="OpenAI Whisper",
+            slug="openai",
+            category=AICategory.TRANSCRIPTION,
+            models_available=["whisper-1"],
+            default_model="whisper-1",
+            is_active=True,
         )
         AITaskBinding.objects.create(
-            organization=organization,
             task=AITask.TRANSCRIPTION,
-            provider="openai",
-            model_id="whisper-1",
-            active=True,
+            category=AICategory.TRANSCRIPTION,
+            model="whisper-1",
         )
         AITaskBinding.objects.create(
-            organization=organization,
             task=AITask.EXTRACTION,
-            provider="openai",
-            model_id="gpt-4o",
-            active=True,
+            category=AICategory.CHAT,
+            model="gpt-4o",
         )
         report = OnboardingService.report()
         steps = _steps_by_key(report)
@@ -204,20 +208,23 @@ class TestStepCompletion:
         steps = _steps_by_key(OnboardingService.report())
         assert steps["ai.models_seeded"].complete is True
 
-    def test_first_organization_requires_active_owner(self):
+    def test_first_organization_complete_when_org_exists(self):
         WhatsAppSettings.objects.all().delete()
         steps = _steps_by_key(OnboardingService.report())
         assert steps["organizations.first_org"].complete is False
 
-        org = Organization.objects.create(name="Example", slug="example")
+        Organization.objects.create(name="Example", slug="example")
         steps = _steps_by_key(OnboardingService.report())
-        assert steps["organizations.first_org"].complete is False
+        assert steps["organizations.first_org"].complete is True
 
-        owner = UserFactory.create()
+    def test_first_organization_complete_with_active_non_owner_member(self):
+        WhatsAppSettings.objects.all().delete()
+        org = Organization.objects.create(name="Example", slug="example")
+        operator = UserFactory.create()
         Membership.objects.create(
-            user=owner,
+            user=operator,
             organization=org,
-            role=Membership.Role.OWNER,
+            role=Membership.Role.OPERATOR,
             status=Membership.Status.ACTIVE,
         )
         steps = _steps_by_key(OnboardingService.report())

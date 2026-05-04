@@ -1,38 +1,29 @@
-"""Resolves AI provider/model/credential for a given task + organisation.
+"""Resolves the AI provider/model/credential for a given task.
 
 Resolution order for an AI task:
-  1. Organisation-level ``AITaskBinding`` (if active)
-  2. Organisation-level ``OrgAIConfig`` legacy fallback (transcription/extraction only)
-  3. Global ``AISettings`` fallback
-  4. Hard-coded defaults from ``settings``
 
-The returned ``AIResolution`` bundles everything the caller needs to build
-a provider instance without talking to the database again.
+1. Map the task to a category via :data:`TASK_TO_CATEGORY`.
+2. Look up the unique active :class:`AIProvider` for that category.
+3. Determine the model: prefer an :class:`AITaskBinding` row for the task,
+   else fall back to ``AIProvider.default_model``.
+4. If anything is missing, return ``None``; the caller decides whether to
+   raise or fall back to a mock provider.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from django.conf import settings
 from django.core import signing
 
 from talk2record.ai.models import (
-    AIProviderConfig,
-    AITask,
+    TASK_TO_CATEGORY,
+    AIProvider,
+    AISettings,
     AITaskBinding,
-    OrgAIConfig,
 )
 from talk2record.ai.providers.registry import AIProviderRegistry, ProviderSpec
-from talk2record.ai.runtime import (
-    get_active_ai_settings,
-    get_ai_credential_plaintext,
-)
 from talk2record.core.vault import SecretVault
-
-if TYPE_CHECKING:
-    from talk2record.organizations.models import Organization
 
 
 @dataclass(frozen=True)
@@ -78,137 +69,51 @@ def _decrypt(raw: str) -> str:
         return ""
 
 
-def _lookup_provider_config(
-    organization: Organization,
-    provider: str,
-) -> AIProviderConfig | None:
-    return AIProviderConfig.objects.filter(
-        organization=organization,
-        provider=provider,
-        active=True,
-    ).first()
-
-
-def _resolution_from_binding(
-    organization: Organization,
-    binding: AITaskBinding,
-) -> AIResolution | None:
-    spec = AIProviderRegistry.get(binding.provider)
-    if spec is None:
-        return None
-    config = _lookup_provider_config(organization, binding.provider)
-    api_key = _decrypt(config.encrypted_credential) if config else ""
-    base_url = (config.base_url if config and config.base_url else spec.default_base_url) or ""
-    return AIResolution(
-        provider_slug=binding.provider,
-        model_id=binding.model_id,
-        api_key=api_key,
-        base_url=base_url,
-        spec=spec,
-    )
-
-
-def _resolution_from_legacy_org_config(
-    organization: Organization,
-    task: str,
-) -> AIResolution | None:
+def _ai_enabled() -> bool:
     try:
-        legacy = OrgAIConfig.objects.get(organization=organization, active=True)
-    except OrgAIConfig.DoesNotExist:
-        return None
-
-    spec = AIProviderRegistry.get(legacy.provider)
-    if spec is None:
-        return None
-
-    if task == AITask.TRANSCRIPTION:
-        model_id = legacy.model_transcription
-        if not spec.supports("transcription"):
-            return None
-    elif task in {AITask.EXTRACTION, AITask.SUMMARIZATION, AITask.CHAT}:
-        model_id = legacy.model_extraction
-        if not spec.supports("chat"):
-            return None
-    else:
-        return None
-
-    api_key = _decrypt(legacy.encrypted_credential) or (
-        get_ai_credential_plaintext() or ""
-    )
-    return AIResolution(
-        provider_slug=legacy.provider,
-        model_id=model_id,
-        api_key=api_key,
-        base_url=spec.default_base_url,
-        spec=spec,
-    )
+        return AISettings.get_solo().enabled
+    except Exception:  # noqa: BLE001 - defensive: never block resolution on settings IO.
+        return True
 
 
-def _resolution_from_global(task: str) -> AIResolution | None:
-    row = get_active_ai_settings()
-    cfg: dict = row.config if row and isinstance(row.config, dict) else {}
-
-    if task == AITask.TRANSCRIPTION:
-        provider = str(
-            cfg.get("transcription_provider")
-            or cfg.get("provider")
-            or getattr(settings, "AI_TRANSCRIPTION_PROVIDER", "")
-            or "",
-        )
-        model = str(cfg.get("transcription_model") or "")
-    else:
-        provider = str(
-            cfg.get("extraction_provider")
-            or cfg.get("provider")
-            or getattr(settings, "AI_EXTRACTION_PROVIDER", "")
-            or "",
-        )
-        model = str(cfg.get("extraction_model") or "")
-
-    spec = AIProviderRegistry.get(provider)
-    if spec is None:
-        return None
-
-    api_key = get_ai_credential_plaintext() or ""
-    return AIResolution(
-        provider_slug=provider,
-        model_id=model,
-        api_key=api_key,
-        base_url=spec.default_base_url,
-        spec=spec,
-    )
-
-
-def resolve(
-    *,
-    task: str,
-    organization: Organization | None = None,
-) -> AIResolution | None:
+def resolve(*, task: str) -> AIResolution | None:
     """Return the best available resolution for ``task`` or ``None``."""
 
-    if organization is not None:
-        binding = AITaskBinding.objects.filter(
-            organization=organization,
-            task=task,
-            active=True,
-        ).first()
-        if binding is not None:
-            resolution = _resolution_from_binding(organization, binding)
-            if resolution is not None:
-                return resolution
-        legacy = _resolution_from_legacy_org_config(organization, task)
-        if legacy is not None:
-            return legacy
+    if not _ai_enabled():
+        return None
 
-    return _resolution_from_global(task)
+    category = TASK_TO_CATEGORY.get(task)
+    if category is None:
+        return None
+
+    provider = (
+        AIProvider.objects
+        .filter(category=category, is_active=True)
+        .first()
+    )
+    if provider is None:
+        return None
+
+    spec = AIProviderRegistry.get(provider.slug)
+    if spec is None:
+        return None
+
+    binding = AITaskBinding.objects.filter(task=task).first()
+    model_id = (binding.model if binding else "") or provider.default_model
+    if not model_id:
+        return None
+
+    return AIResolution(
+        provider_slug=provider.slug,
+        model_id=model_id,
+        api_key=_decrypt(provider.encrypted_credential),
+        base_url=provider.base_url or spec.default_base_url,
+        spec=spec,
+    )
 
 
-def require(
-    *,
-    task: str,
-    organization: Organization | None = None,
-) -> AIResolution:
-    resolution = resolve(task=task, organization=organization)
+def require(*, task: str) -> AIResolution:
+    resolution = resolve(task=task)
     if resolution is None:
         msg = f"No AI provider is configured for task {task!r}."
         raise AIResolutionError(msg)

@@ -17,7 +17,7 @@ from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 #   User-Access-Token    -> encrypted credential ``access_token`` (JSON) or whole blob (plain)
 #   App Secret (webhook) -> encrypted credential ``app_secret`` (JSON only)
 
-DEFAULT_GRAPH_API_VERSION = "v21.0"
+DEFAULT_GRAPH_API_VERSION = "v25.0"
 
 
 def parse_whatsapp_credential_blob(decrypted: str) -> tuple[str, str]:

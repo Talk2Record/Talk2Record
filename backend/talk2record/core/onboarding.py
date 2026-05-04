@@ -108,9 +108,9 @@ def _check_plan_entitlements() -> bool:
 
 
 def _check_ai_provider_config() -> bool:
-    from talk2record.ai.models import AIProviderConfig
+    from talk2record.ai.models import AIProvider
 
-    return AIProviderConfig.objects.filter(active=True).exists()
+    return AIProvider.objects.filter(is_active=True).exists()
 
 
 def _check_ai_models_seeded() -> bool:
@@ -125,7 +125,7 @@ def _check_ai_task_bindings() -> bool:
 
     required = {AITask.TRANSCRIPTION, AITask.EXTRACTION}
     present = set(
-        AITaskBinding.objects.filter(active=True, task__in=list(required)).values_list(
+        AITaskBinding.objects.filter(task__in=list(required)).values_list(
             "task", flat=True,
         )
     )
@@ -149,13 +149,12 @@ def _check_whatsapp_inbound_route() -> bool:
 
 
 def _check_first_organization() -> bool:
-    from talk2record.organizations.models import Membership
     from talk2record.organizations.models import Organization
 
-    return Organization.objects.filter(
-        memberships__role=Membership.Role.OWNER,
-        memberships__status=Membership.Status.ACTIVE,
-    ).exists()
+    # Any organisation row counts — staff often create the tenant via admin or
+    # the first member may be admin/operator rather than owner; requiring an
+    # active *owner* membership incorrectly left this step incomplete.
+    return Organization.objects.exists()
 
 
 _STEPS: tuple[_StepSpec, ...] = (
@@ -231,8 +230,8 @@ _STEPS: tuple[_StepSpec, ...] = (
         ),
         group="AI",
         check=_check_ai_provider_config,
-        admin_url_name="admin:ai_aiproviderconfig_changelist",
-        admin_url_empty_name="admin:ai_aiproviderconfig_add",
+        admin_url_name="admin:ai_aiprovider_changelist",
+        admin_url_empty_name="admin:ai_aiprovider_add",
     ),
     _StepSpec(
         key="ai.models_seeded",
@@ -287,8 +286,8 @@ _STEPS: tuple[_StepSpec, ...] = (
         key="organizations.first_org",
         title="Create the first organisation",
         description=(
-            "Every record belongs to an organisation. Create one with an owner "
-            "membership to unblock end-to-end flows."
+            "Every record belongs to an organisation. Create at least one "
+            "organisation (add members via Memberships when you are ready)."
         ),
         group="Organizations",
         check=_check_first_organization,

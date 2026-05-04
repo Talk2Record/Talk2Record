@@ -4,8 +4,11 @@ from decimal import Decimal
 
 import pytest
 
-from talk2record.ai.models import AISettings
+from talk2record.ai.models import AICategory
+from talk2record.ai.models import AIProvider
 from talk2record.ai.models import AIPromptTemplate
+from talk2record.ai.models import AITask
+from talk2record.ai.models import AITaskBinding
 from talk2record.core.vault import SecretVault
 from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
@@ -82,12 +85,35 @@ def test_extraction_uses_latest_prompt_template_version(record):
 
 
 @pytest.mark.django_db
-def test_ai_services_use_global_settings_runtime_config(record):
-    s = AISettings.get_solo()
-    s.enabled = True
-    s.config = {"provider": "mock"}
-    s.encrypted_credential = SecretVault.encrypt("ai-secret")
-    s.save(update_fields=["enabled", "config", "encrypted_credential", "updated_at"])
+def test_ai_services_use_global_provider_when_configured(record):
+    AIProvider.objects.create(
+        name="Mock chat",
+        slug="mock",
+        category=AICategory.CHAT,
+        encrypted_credential=SecretVault.encrypt("mock-key"),
+        models_available=["mock-extractor-v1"],
+        default_model="mock-extractor-v1",
+        is_active=True,
+    )
+    AIProvider.objects.create(
+        name="Mock transcription",
+        slug="mock",
+        category=AICategory.TRANSCRIPTION,
+        encrypted_credential=SecretVault.encrypt("mock-key"),
+        models_available=["mock-transcriber-v1"],
+        default_model="mock-transcriber-v1",
+        is_active=True,
+    )
+    AITaskBinding.objects.create(
+        task=AITask.EXTRACTION,
+        category=AICategory.CHAT,
+        model="mock-extractor-v1",
+    )
+    AITaskBinding.objects.create(
+        task=AITask.TRANSCRIPTION,
+        category=AICategory.TRANSCRIPTION,
+        model="mock-transcriber-v1",
+    )
 
     transcription = TranscriptionService.transcribe(record)
     extraction = ExtractionService.extract(transcript=transcription.transcript)

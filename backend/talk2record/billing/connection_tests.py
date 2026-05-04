@@ -26,5 +26,5 @@ def test_paddle_connection_view(request):
     if ok:
         messages.success(request, msg)
     else:
-        messages.warning(request, msg)
+        messages.error(request, msg)
     return redirect(reverse("admin:index"))

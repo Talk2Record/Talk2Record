@@ -3,8 +3,8 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
 from talk2record.ai.views_api import AIModelViewSet
-from talk2record.ai.views_api import AIProviderConfigViewSet
 from talk2record.ai.views_api import AIProviderRegistryViewSet
+from talk2record.ai.views_api import AIProviderViewSet
 from talk2record.ai.views_api import AITaskBindingViewSet
 from talk2record.analytics.views import DailyMetricViewSet
 from talk2record.billing.views import BillingActionViewSet
@@ -51,7 +51,7 @@ router.register("ai/providers", AIProviderRegistryViewSet, basename="ai-provider
 router.register("ai/models", AIModelViewSet, basename="ai-model")
 router.register(
     "ai/provider-configs",
-    AIProviderConfigViewSet,
+    AIProviderViewSet,
     basename="ai-provider-config",
 )
 router.register("ai/task-bindings", AITaskBindingViewSet, basename="ai-task-binding")

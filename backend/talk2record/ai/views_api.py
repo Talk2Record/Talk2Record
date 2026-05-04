@@ -1,11 +1,11 @@
-"""Org-scoped AI configuration APIs.
+"""Global AI configuration APIs (platform-admin only).
 
 Endpoints:
 
-* ``GET  /api/ai/providers/``        — list registered provider specs.
-* ``GET  /api/ai/models/``           — curated model catalog.
-* CRUD ``/api/ai/provider-configs/`` — per-org provider credentials.
-* CRUD ``/api/ai/task-bindings/``    — per-org task → (provider, model) bindings.
+* ``GET  /api/ai/providers/``        -- list registered provider specs.
+* ``GET  /api/ai/models/``           -- curated model catalog.
+* CRUD ``/api/ai/provider-configs/`` -- global provider credentials.
+* CRUD ``/api/ai/task-bindings/``    -- global task -> model bindings.
 """
 
 from __future__ import annotations
@@ -17,21 +17,15 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
 
 from talk2record.ai.models import (
+    AICategory,
     AIModel,
-    AIProviderConfig,
+    AIProvider,
     AITask,
     AITaskBinding,
 )
 from talk2record.ai.providers.registry import AIProviderRegistry
 from talk2record.core.vault import SecretVault
-from talk2record.organizations.permissions import IsOrgAdmin, IsOrgMember
-from talk2record.organizations.services import OrganizationContextService
-
-
-class _OrgScopedMixin:
-    def _organization(self):
-        context = OrganizationContextService.resolve_user_context(self.request.user)
-        return context.organization if context else None
+from talk2record.organizations.permissions import IsOrgMember, IsPlatformStaff
 
 
 class AIProviderRegistrySerializer(serializers.Serializer):
@@ -93,7 +87,7 @@ class AIModelViewSet(ReadOnlyModelViewSet):
         return queryset
 
 
-class AIProviderConfigSerializer(serializers.ModelSerializer[AIProviderConfig]):
+class AIProviderSerializer(serializers.ModelSerializer[AIProvider]):
     api_key = serializers.CharField(
         write_only=True,
         required=False,
@@ -103,14 +97,18 @@ class AIProviderConfigSerializer(serializers.ModelSerializer[AIProviderConfig]):
     api_key_masked = serializers.SerializerMethodField()
 
     class Meta:
-        model = AIProviderConfig
+        model = AIProvider
         fields = [
             "id",
-            "provider",
+            "name",
+            "slug",
+            "category",
             "display_name",
             "base_url",
+            "models_available",
+            "default_model",
             "extra_config",
-            "active",
+            "is_active",
             "api_key",
             "api_key_masked",
             "created_at",
@@ -118,34 +116,31 @@ class AIProviderConfigSerializer(serializers.ModelSerializer[AIProviderConfig]):
         ]
         read_only_fields = ["id", "api_key_masked", "created_at", "updated_at"]
 
-    def get_api_key_masked(self, obj: AIProviderConfig) -> str:
+    def get_api_key_masked(self, obj: AIProvider) -> str:
         return SecretVault.mask(obj.encrypted_credential)
 
-    def validate_provider(self, value: str) -> str:
+    def validate_slug(self, value: str) -> str:
         if AIProviderRegistry.get(value) is None:
             msg = f"Unknown provider slug: {value!r}."
             raise serializers.ValidationError(msg)
         return value
 
+    def validate_category(self, value: str) -> str:
+        valid = {choice.value for choice in AICategory}
+        if value not in valid:
+            raise serializers.ValidationError(f"Unknown category: {value!r}.")
+        return value
 
-class AIProviderConfigViewSet(_OrgScopedMixin, ModelViewSet):
-    permission_classes = [IsAuthenticated, IsOrgAdmin]
-    serializer_class = AIProviderConfigSerializer
 
-    def get_queryset(self):
-        organization = self._organization()
-        if organization is None:
-            return AIProviderConfig.objects.none()
-        return AIProviderConfig.objects.filter(organization=organization).order_by("provider")
+class AIProviderViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated, IsPlatformStaff]
+    serializer_class = AIProviderSerializer
+    queryset = AIProvider.objects.all().order_by("category", "name")
 
     def perform_create(self, serializer):
-        organization = self._organization()
-        if organization is None:
-            msg = "No organisation context available."
-            raise serializers.ValidationError(msg)
         api_key = serializer.validated_data.pop("api_key", "").strip()
         encrypted = SecretVault.encrypt(api_key) if api_key else ""
-        serializer.save(organization=organization, encrypted_credential=encrypted)
+        serializer.save(encrypted_credential=encrypted)
 
     def perform_update(self, serializer):
         api_key = serializer.validated_data.pop("api_key", "").strip()
@@ -157,43 +152,29 @@ class AIProviderConfigViewSet(_OrgScopedMixin, ModelViewSet):
 
 class AITaskBindingSerializer(serializers.ModelSerializer[AITaskBinding]):
     task = serializers.ChoiceField(choices=AITask.choices)
+    category = serializers.ChoiceField(
+        choices=AICategory.choices,
+        required=False,
+        allow_blank=True,
+    )
 
     class Meta:
         model = AITaskBinding
         fields = [
             "id",
             "task",
-            "provider",
-            "model_id",
-            "active",
+            "category",
+            "model",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_provider(self, value: str) -> str:
-        if AIProviderRegistry.get(value) is None:
-            msg = f"Unknown provider slug: {value!r}."
-            raise serializers.ValidationError(msg)
-        return value
 
-
-class AITaskBindingViewSet(_OrgScopedMixin, ModelViewSet):
-    permission_classes = [IsAuthenticated, IsOrgAdmin]
+class AITaskBindingViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated, IsPlatformStaff]
     serializer_class = AITaskBindingSerializer
-
-    def get_queryset(self):
-        organization = self._organization()
-        if organization is None:
-            return AITaskBinding.objects.none()
-        return AITaskBinding.objects.filter(organization=organization).order_by("task")
-
-    def perform_create(self, serializer):
-        organization = self._organization()
-        if organization is None:
-            msg = "No organisation context available."
-            raise serializers.ValidationError(msg)
-        serializer.save(organization=organization)
+    queryset = AITaskBinding.objects.all().order_by("category", "task")
 
     @action(detail=False, methods=["get"], url_path="tasks")
     def tasks(self, request):
