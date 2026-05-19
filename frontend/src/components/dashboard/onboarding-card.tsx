@@ -10,12 +10,6 @@ import { useOnboardingSnapshot } from "@/shared/hooks/use-onboarding";
 
 const DISMISS_KEY = "talk2record:onboarding-card:dismissed-session";
 
-/**
- * Subscribe to sessionStorage in a SSR-safe way without violating the
- * "no setState in effect" rule. We use `useSyncExternalStore` so server
- * renders show "not dismissed" and the client picks up the real flag during
- * hydration.
- */
 function subscribeToStorage(callback: () => void): () => void {
   if (typeof window === "undefined") return () => undefined;
   const handler = (event: StorageEvent) => {
@@ -39,23 +33,12 @@ function readDismissedServer(): boolean {
 }
 
 const stepHref: Record<string, string> = {
+  "company-setup": "/onboarding",
+  "choose-plan": "/onboarding",
   "connect-whatsapp": "/dashboard/integrations",
   "first-voice-note": "/dashboard/records",
-  "company-setup": "/dashboard/settings",
 };
 
-/**
- * Persistent (but dismissible per session) checklist that lives at the top
- * of `/dashboard` while onboarding is incomplete. Steps are server-derived
- * so dismissal is purely a UX nicety — refreshing or signing in next time
- * brings it back if the API still says the user has work to do.
- *
- * Hidden entirely when:
- *   - the user has already finalized onboarding;
- *   - all steps are complete and finalization is pending (a separate "Finish
- *     setup" banner could be added here later, but today we send the user
- *     back to `/onboarding`).
- */
 export function OnboardingCard() {
   const snapshot = useOnboardingSnapshot();
   const dismissed = useSyncExternalStore(subscribeToStorage, readDismissed, readDismissedServer);
@@ -64,8 +47,6 @@ export function OnboardingCard() {
     if (typeof window === "undefined") return;
     try {
       window.sessionStorage.setItem(DISMISS_KEY, "1");
-      // sessionStorage doesn't fire `storage` events within the same tab, so
-      // we synthesise one to notify our own subscriber.
       window.dispatchEvent(new StorageEvent("storage", { key: DISMISS_KEY, newValue: "1" }));
     } catch {
       // Ignore — at worst the dismissal doesn't survive a refresh.
@@ -78,7 +59,10 @@ export function OnboardingCard() {
 
   const completed = snapshot.steps.filter((s) => s.completed).length;
   const total = snapshot.steps.length;
+  const requiredCompleted = snapshot.steps.filter((s) => s.required && s.completed).length;
+  const requiredTotal = snapshot.steps.filter((s) => s.required).length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const canDismiss = snapshot.requiredStepsComplete;
 
   return (
     <Card className="border-primary/30 bg-primary/5">
@@ -91,15 +75,15 @@ export function OnboardingCard() {
           <CardTitle className="mt-2 text-lg">
             {snapshot.status === "ready-to-finalize"
               ? "You're ready to finalize onboarding"
-              : "Welcome — a few quick steps left"}
+              : "Welcome — complete required setup steps"}
           </CardTitle>
           <CardDescription>
             {snapshot.status === "ready-to-finalize"
-              ? "All setup steps are done. Confirm the legal acknowledgements to wrap up."
-              : `${completed} of ${total} steps complete (${percent}%).`}
+              ? "Company profile and plan are set. Confirm the legal acknowledgements to wrap up."
+              : `${requiredCompleted} of ${requiredTotal} required steps done (${completed}/${total} total, ${percent}%).`}
           </CardDescription>
         </div>
-        {snapshot.status !== "ready-to-finalize" ? (
+        {canDismiss && snapshot.status !== "ready-to-finalize" ? (
           <button
             type="button"
             onClick={dismiss}
@@ -131,7 +115,14 @@ export function OnboardingCard() {
                       <Circle className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
                     )}
                     <div>
-                      <p className="text-sm font-medium">{step.title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{step.title}</p>
+                        {step.required ? (
+                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                            Required
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="text-muted-foreground text-xs">{step.description}</p>
                     </div>
                   </div>

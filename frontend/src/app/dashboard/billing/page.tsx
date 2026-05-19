@@ -5,41 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
 import { formatCurrency, formatDate } from "@/lib/format";
+import {
+  comparePlanChange,
+  findHighlightedPlan,
+  type PlanChangeKind,
+} from "@/lib/plan-display";
 import { trackEvent } from "@/lib/analytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import BillingLoading from "@/app/dashboard/billing/loading";
 import { SubscriptionBanner } from "@/components/billing/subscription-banner";
-import { CheckoutConfirmModal } from "@/components/billing/checkout-confirm-modal";
+import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
+import { PlanChangeModal } from "@/components/billing/plan-change-modal";
+import { usePlans } from "@/shared/hooks/use-plans";
 import { toast } from "@/shared/hooks/use-toast";
-import type { SubscriptionStatus } from "@/types/platform";
-
-interface PlanOption {
-  code: string;
-  name: string;
-  priceLabel: string;
-  description: string;
-}
-
-const PLAN_OPTIONS: PlanOption[] = [
-  {
-    code: "starter",
-    name: "Starter",
-    priceLabel: "$29 /mo",
-    description: "Up to 300 voice notes per month, ideal for small teams.",
-  },
-  {
-    code: "growth",
-    name: "Growth",
-    priceLabel: "$99 /mo",
-    description: "1,500 voice notes per month plus advanced analytics.",
-  },
-  {
-    code: "scale",
-    name: "Scale",
-    priceLabel: "$249 /mo",
-    description: "10,000 voice notes per month and team collaboration features.",
-  },
-];
+import type { PlanCatalogItem, SubscriptionStatus } from "@/types/platform";
 
 export default function BillingPage() {
   const queryClient = useQueryClient();
@@ -50,6 +29,7 @@ export default function BillingPage() {
     queryKey: ["billing"],
     queryFn: billingService.getSnapshot,
   });
+  const { plans, isLoading: plansLoading } = usePlans();
   const entitlementsQuery = useQuery({
     queryKey: ["billing", "entitlements"],
     queryFn: () => billingService.listEntitlements(),
@@ -59,7 +39,8 @@ export default function BillingPage() {
     queryFn: () => billingService.listSubscriptions(),
   });
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanOption | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanCatalogItem | null>(null);
+  const [changeKind, setChangeKind] = useState<PlanChangeKind>("new");
 
   // Handle the `?checkout=success|cancelled` return from Paddle.
   useEffect(() => {
@@ -96,6 +77,8 @@ export default function BillingPage() {
     return <BillingLoading />;
   }
   const data = billingQuery.data;
+  const currentPlanCode =
+    data.subscription.planCode ?? currentSubscription?.plan_code ?? null;
 
   const usage =
     data.subscription.includedVoiceNotes > 0
@@ -104,9 +87,16 @@ export default function BillingPage() {
         )
       : 0;
 
-  function openCheckout(plan: PlanOption) {
+  function openPlanChange(plan: PlanCatalogItem, kind: PlanChangeKind) {
     trackEvent("billing_upgrade_clicked", { plan: plan.code });
     setSelectedPlan(plan);
+    setChangeKind(kind);
+  }
+
+  function openHighlightedPlan() {
+    const highlighted = findHighlightedPlan(plans);
+    if (!highlighted) return;
+    openPlanChange(highlighted, comparePlanChange(currentPlanCode, highlighted, plans));
   }
 
   return (
@@ -124,7 +114,7 @@ export default function BillingPage() {
       <SubscriptionBanner
         status={subscriptionStatus}
         periodEnd={subscriptionPeriodEnd}
-        onCta={() => openCheckout(PLAN_OPTIONS[1])}
+        onCta={openHighlightedPlan}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -169,22 +159,17 @@ export default function BillingPage() {
         <CardHeader>
           <CardTitle>Change plan</CardTitle>
           <CardDescription>
-            Pick a new plan to start a secure Paddle checkout session.
+            Pick a new plan to upgrade, downgrade, or start a secure Paddle checkout.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          {PLAN_OPTIONS.map((option) => (
-            <button
-              key={option.code}
-              type="button"
-              onClick={() => openCheckout(option)}
-              className="border-border hover:border-primary/40 hover:bg-muted/30 group rounded-xl border p-4 text-left transition-colors"
-            >
-              <p className="text-sm font-semibold tracking-wide uppercase">{option.name}</p>
-              <p className="mt-1 text-2xl font-semibold">{option.priceLabel}</p>
-              <p className="text-muted-foreground mt-2 text-xs">{option.description}</p>
-            </button>
-          ))}
+        <CardContent>
+          <PlanCatalogGrid
+            plans={plans}
+            isLoading={plansLoading}
+            variant="billing"
+            currentPlanCode={currentPlanCode}
+            onSelectPlan={openPlanChange}
+          />
         </CardContent>
       </Card>
 
@@ -251,9 +236,15 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
-      <CheckoutConfirmModal
+      <PlanChangeModal
         open={selectedPlan !== null}
         plan={selectedPlan}
+        changeKind={changeKind}
+        successUrl={
+          typeof window !== "undefined"
+            ? `${window.location.origin}/dashboard/billing?checkout=success`
+            : undefined
+        }
         onOpenChange={(open) => {
           if (!open) setSelectedPlan(null);
         }}

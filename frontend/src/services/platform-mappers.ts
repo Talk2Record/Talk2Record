@@ -1,4 +1,6 @@
 import type {
+  PlanCatalogItem,
+  PlanPriceRow,
   AnalyticsSnapshot,
   AuthUser,
   BillingSnapshot,
@@ -153,6 +155,61 @@ export function mapAnalyticsSnapshot(snapshot: AnalyticsSnapshot): AnalyticsSnap
   return snapshot;
 }
 
+
+interface BackendPlanPriceRow {
+  interval: string;
+  amount: number | string;
+  currency: string;
+  active: boolean;
+  trialPeriod?: { interval: string; frequency: number } | null;
+}
+
+interface BackendPlanCatalogItem {
+  code: string;
+  name: string;
+  base_price: number | string;
+  currency: string;
+  region: string;
+  features: string[];
+  prices: BackendPlanPriceRow[];
+  entitlements: Array<{
+    feature_key: string;
+    enabled: boolean;
+    limit: number;
+    period: string;
+  }>;
+  monthly_amount: number | string;
+  is_highlighted: boolean;
+}
+
+export function mapPlanCatalogItem(plan: BackendPlanCatalogItem): PlanCatalogItem {
+  return {
+    code: plan.code,
+    name: plan.name,
+    currency: plan.currency as PlanCatalogItem["currency"],
+    basePrice: Number(plan.base_price),
+    monthlyPrice: Number(plan.monthly_amount),
+    region: plan.region,
+    features: plan.features ?? [],
+    prices: (plan.prices ?? []).map(
+      (price): PlanPriceRow => ({
+        interval: price.interval,
+        amount: Number(price.amount),
+        currency: price.currency as PlanPriceRow["currency"],
+        active: price.active,
+        trialPeriod: price.trialPeriod ?? null,
+      })
+    ),
+    entitlements: (plan.entitlements ?? []).map((row) => ({
+      feature_key: row.feature_key,
+      enabled: row.enabled,
+      limit: row.limit,
+      period: row.period as PlanCatalogItem["entitlements"][number]["period"],
+    })),
+    isHighlighted: Boolean(plan.is_highlighted),
+  };
+}
+
 export function mapBillingSnapshot(snapshot: BillingSnapshot): BillingSnapshot {
   return {
     subscription: {
@@ -161,6 +218,7 @@ export function mapBillingSnapshot(snapshot: BillingSnapshot): BillingSnapshot {
       voiceNotesProcessed: Number(snapshot.subscription.voiceNotesProcessed),
       includedVoiceNotes: Number(snapshot.subscription.includedVoiceNotes),
       seats: Number(snapshot.subscription.seats),
+      planCode: snapshot.subscription.planCode ?? null,
     },
     invoices: snapshot.invoices.map((invoice) => ({
       ...invoice,

@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Inter } from "next/font/google";
 import { siteConfig, baseUrl } from "@/shared/lib/config/site";
 import { AppProviders } from "@/shared/components/app-providers";
+import { fetchPlansPricingRange } from "@/lib/fetch-plans-pricing";
 
 import Script from "next/script";
 import "./globals.css";
@@ -80,11 +81,14 @@ export const metadata: Metadata = {
   },
 };
 
-const RootLayout = ({
+const RootLayout = async ({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
+  const dynamicPricing = await fetchPlansPricingRange();
+  const pricing = dynamicPricing ?? siteConfig.pricing;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -179,14 +183,14 @@ const RootLayout = ({
                 offers: siteConfig.pricing.model
                   ? {
                       "@type": "Offer",
-                      price: siteConfig.pricing.minPrice || "0",
-                      priceCurrency: siteConfig.pricing.currency,
-                      priceSpecification: siteConfig.pricing.maxPrice
+                      price: pricing.minPrice || "0",
+                      priceCurrency: pricing.currency,
+                      priceSpecification: pricing.maxPrice
                         ? {
                             "@type": "PriceSpecification",
-                            minPrice: siteConfig.pricing.minPrice,
-                            maxPrice: siteConfig.pricing.maxPrice,
-                            priceCurrency: siteConfig.pricing.currency,
+                            minPrice: pricing.minPrice,
+                            maxPrice: pricing.maxPrice,
+                            priceCurrency: pricing.currency,
                           }
                         : undefined,
                     }

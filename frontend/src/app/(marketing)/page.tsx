@@ -9,8 +9,8 @@ import {
   PlayCircle,
   Sparkles,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
-import { usePreferencesStore } from "@/store/preferences-store";
+import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
+import { usePlans } from "@/shared/hooks/use-plans";
 import { useLanguage } from "@/shared/lib/i18n/language-context";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
@@ -22,12 +22,6 @@ const benefits = [
   "Extract customers, products, quantities, and payment methods",
   "Review low-confidence entries before they hit operations",
   "Push records into billing and integration workflows",
-];
-
-const pricingTiers = [
-  { name: "Starter", monthly: 19, notes: "500 voice notes / month" },
-  { name: "Growth", monthly: 49, notes: "1,500 voice notes / month" },
-  { name: "Scale", monthly: 99, notes: "5,000 voice notes / month" },
 ];
 
 const proofPoints = [
@@ -55,8 +49,8 @@ const workflow = [
 ];
 
 export default function HomePage() {
+  const { plans, isLoading: plansLoading } = usePlans();
   const { locale } = useLanguage();
-  const currency = usePreferencesStore((state) => state.currency);
   const messages = getTranslations(locale);
   const { t } = useTranslations(messages);
 
@@ -196,40 +190,7 @@ export default function HomePage() {
           <p className="text-primary text-sm font-medium">{t("marketing.pricing.title")}</p>
           <h2 className="text-3xl">Localized pricing that maps to your region</h2>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {pricingTiers.map((tier) => (
-            <Card
-              key={tier.name}
-              className={tier.name === "Growth" ? "border-primary/30 shadow-(--shadow-md)" : "border-primary/10"}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle>{tier.name}</CardTitle>
-                  {tier.name === "Growth" ? (
-                    <span className="bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-medium">
-                      Popular
-                    </span>
-                  ) : null}
-                </div>
-                <CardDescription>{tier.notes}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-3xl font-semibold">
-                  {formatCurrency(tier.monthly, currency)}
-                  <span className="text-sm font-normal text-muted-foreground"> / month</span>
-                </p>
-                <Link href="/pricing">
-                  <Button
-                    className="w-full rounded-xl"
-                    variant={tier.name === "Growth" ? "default" : "outline"}
-                  >
-                    View plan details
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <PlanCatalogGrid plans={plans} isLoading={plansLoading} variant="marketing" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">

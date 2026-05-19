@@ -73,6 +73,10 @@ function AuthGateFallback() {
  * Companion to `AuthGate`: redirect already-authenticated users away from
  * pages that should only be shown when logged out (e.g. /login, /register).
  * If a `?redirect=` query is present and safe, it's honored.
+ *
+ * Do **not** wrap post-login flows (e.g. `/onboarding`) in this guard — it
+ * returns `null` for authenticated users, which causes a blank page and a
+ * redirect fight with `LegalGate`. Use `(onboarding)` + `AuthGate` instead.
  */
 interface AuthRedirectGuardProps {
   children: ReactNode;

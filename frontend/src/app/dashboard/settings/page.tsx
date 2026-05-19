@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { settingsService } from "@/services/platform-service";
+import { ONBOARDING_STEPS_QUERY_KEY } from "@/shared/hooks/use-onboarding";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -26,6 +27,7 @@ export default function SettingsPage() {
     mutationFn: settingsService.updateProfile,
     onSuccess: (nextProfile) => {
       queryClient.setQueryData(["settings-profile"], nextProfile);
+      void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY });
       setDraft(null);
       setCurrency(nextProfile.defaultCurrency);
       setStatus("Preferences saved.");

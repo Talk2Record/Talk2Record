@@ -1,5 +1,7 @@
 import { api } from "@/lib/api";
 import type {
+  ChangePlanResponse,
+  PlanCatalogItem,
   AnalyticsSnapshot,
   AuthUser,
   BillingSnapshot,
@@ -18,6 +20,7 @@ import {
   mapAnalyticsSnapshot,
   mapAuthUser,
   mapBillingSnapshot,
+  mapPlanCatalogItem,
   mapDashboardOverview,
   mapOnboardingSteps,
   mapRecord,
@@ -100,6 +103,15 @@ export const recordsService = {
     const response = await api.get<Parameters<typeof mapRecord>[0]>(`/records/${id}/`);
     return mapRecord(response.data);
   },
+
+  async uploadVoice(audio: Blob, filename = "recording.webm") {
+    const formData = new FormData();
+    formData.append("audio", audio, filename);
+    const response = await api.post<{ id: number }>("/records/upload-voice/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
 };
 
 export const analyticsService = {
@@ -116,7 +128,33 @@ export interface EntitlementRow {
   period: "none" | "monthly" | "yearly";
 }
 
+export const PLANS_QUERY_KEY = ["billing", "plans"] as const;
+
 export const billingService = {
+
+  async listPlans(currency?: string) {
+    const response = await api.get<Parameters<typeof mapPlanCatalogItem>[0][]>("/billing/plans/", {
+      params: currency ? { currency } : undefined,
+    });
+    return response.data.map(mapPlanCatalogItem);
+  },
+
+  async changePlan(payload: {
+    plan: string;
+    acceptedBillingTerms: boolean;
+    successUrl?: string;
+  }) {
+    const response = await api.post<ChangePlanResponse>("/billing/change-plan/", payload);
+    return response.data;
+  },
+
+  async getPaddleConfig() {
+    const response = await api.get<{ clientSideToken: string; environment: string }>(
+      "/billing/paddle-config/"
+    );
+    return response.data;
+  },
+
   async getSnapshot() {
     const response = await api.get<BillingSnapshot>("/billing/");
     return mapBillingSnapshot(response.data);
@@ -127,11 +165,13 @@ export const billingService = {
     return response.data;
   },
 
-  async checkout(payload: { plan: string; acceptedBillingTerms: boolean; provider?: string }) {
-    const response = await api.post<{ status: string; checkoutUrl: string }>(
-      "/billing/checkout/",
-      payload
-    );
+  async checkout(payload: {
+    plan: string;
+    acceptedBillingTerms: boolean;
+    provider?: string;
+    successUrl?: string;
+  }) {
+    const response = await api.post<ChangePlanResponse>("/billing/checkout/", payload);
     return response.data;
   },
 

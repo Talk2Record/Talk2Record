@@ -24,12 +24,13 @@ export interface LegalStatusResult {
  * the onboarding stepper, and the billing checkout flow.
  */
 export function useLegalStatus(): LegalStatusResult {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const refreshToken = useAuthStore((state) => state.refreshToken);
 
   const query = useQuery({
     queryKey: LEGAL_STATUS_QUERY_KEY,
     queryFn: legalService.getStatus,
-    enabled: Boolean(refreshToken),
+    enabled: Boolean(accessToken || refreshToken),
     staleTime: 5 * 60_000,
   });
 

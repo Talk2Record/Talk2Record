@@ -21,8 +21,12 @@ export interface OnboardingSnapshot {
   status: OnboardingStatus;
   /** Steps the user still needs to satisfy server-side. */
   pendingSteps: OnboardingStep[];
-  /** True when all backend steps are done so the user can finalize. */
+  /** Required steps still pending. */
+  pendingRequiredSteps: OnboardingStep[];
+  /** True when every step is complete. */
   allStepsComplete: boolean;
+  /** True when all required steps are complete (unlocks final attestations). */
+  requiredStepsComplete: boolean;
 }
 
 /**
@@ -30,10 +34,6 @@ export interface OnboardingSnapshot {
  * backend's view of which steps are complete and combines it with the legal
  * status so the dashboard can decide whether to render the persistent
  * onboarding card.
- *
- * Steps are server-derived: connecting WhatsApp, processing a first voice
- * note, and completing the company setup checklist all flip server-side, so
- * the UI just reflects what the API says rather than guessing.
  */
 export function useOnboardingSnapshot(): OnboardingSnapshot {
   const refreshToken = useAuthStore((state) => state.refreshToken);
@@ -50,14 +50,17 @@ export function useOnboardingSnapshot(): OnboardingSnapshot {
 
   const steps = stepsQuery.data ?? [];
   const pendingSteps = steps.filter((step) => !step.completed);
+  const requiredSteps = steps.filter((step) => step.required);
+  const pendingRequiredSteps = requiredSteps.filter((step) => !step.completed);
   const allStepsComplete = steps.length > 0 && pendingSteps.length === 0;
+  const requiredStepsComplete = requiredSteps.length > 0 && pendingRequiredSteps.length === 0;
 
   let status: OnboardingStatus;
   if (!legal.isSignupCompliant) {
     status = "legal-required";
   } else if (user?.onboardingCompleted) {
     status = "complete";
-  } else if (allStepsComplete) {
+  } else if (requiredStepsComplete) {
     status = "ready-to-finalize";
   } else {
     status = "steps-pending";
@@ -68,6 +71,8 @@ export function useOnboardingSnapshot(): OnboardingSnapshot {
     isLoading: stepsQuery.isLoading || legal.isLoading,
     status,
     pendingSteps,
+    pendingRequiredSteps,
     allStepsComplete,
+    requiredStepsComplete,
   };
 }

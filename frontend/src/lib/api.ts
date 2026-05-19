@@ -7,7 +7,7 @@ import axios, {
 import { useAuthStore } from "@/store/auth-store";
 import { getActiveOrgId } from "@/store/org-store";
 
-function normalizeApiBaseUrl(value?: string) {
+export function normalizeApiBaseUrl(value?: string) {
   const baseUrl = (value || "http://localhost:8000").replace(/\/$/, "");
   return baseUrl.endsWith("/api") ? baseUrl : `${baseUrl}/api`;
 }

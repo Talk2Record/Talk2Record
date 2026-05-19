@@ -14,51 +14,47 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
+import { handleChangePlanSuccess } from "@/shared/hooks/use-change-plan";
 import { notifyApiError } from "@/shared/lib/notify-api-error";
+import { formatPlanFeatureLines, formatPlanMonthlyPrice } from "@/lib/plan-display";
 import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/shared/lib/auth/auth-context";
-
-interface PlanOption {
-  code: string;
-  name: string;
-  priceLabel: string;
-  description: string;
-}
+import { usePreferencesStore } from "@/store/preferences-store";
+import type { PlanCatalogItem } from "@/types/platform";
 
 interface CheckoutConfirmModalProps {
   open: boolean;
-  plan: PlanOption | null;
+  plan: PlanCatalogItem | null;
   onOpenChange: (_open: boolean) => void;
 }
 
-/**
- * Modal that confirms a plan + billing-terms acceptance before redirecting
- * the browser to the Paddle-hosted checkout. Reuses the existing
- * `billingService.checkout` mutation but adds:
- *
- *   - a real billing-terms checkbox (the API enforces this; without it the
- *     server returns 400)
- *   - per-mutation loading + error UX
- *   - analytics event symmetry with the old in-page button
- */
 export function CheckoutConfirmModal({ open, plan, onOpenChange }: CheckoutConfirmModalProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const currency = usePreferencesStore((state) => state.currency);
   const [acceptedBillingTerms, setAcceptedBillingTerms] = useState(
     user?.legal?.has_required_billing_acceptance ?? false
   );
 
+  const checkoutSuccessUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/dashboard/billing?checkout=success`
+      : undefined;
+
   const checkout = useMutation({
     mutationFn: (planCode: string) =>
-      billingService.checkout({ plan: planCode, acceptedBillingTerms }),
-    onSuccess: (response, planCode) => {
+      billingService.checkout({
+        plan: planCode,
+        acceptedBillingTerms,
+        successUrl: checkoutSuccessUrl,
+      }),
+    onSuccess: async (response, planCode) => {
       trackEvent("billing_checkout_redirected", { plan: planCode });
       void queryClient.invalidateQueries({ queryKey: ["billing"] });
-      if (response.checkoutUrl) {
-        window.location.assign(response.checkoutUrl);
-        return;
-      }
-      onOpenChange(false);
+      await handleChangePlanSuccess(response, {
+        onClose: () => onOpenChange(false),
+        successUrl: checkoutSuccessUrl,
+      });
     },
     onError: (error) => notifyApiError(error, { title: "Checkout failed" }),
   });
@@ -73,18 +69,24 @@ export function CheckoutConfirmModal({ open, plan, onOpenChange }: CheckoutConfi
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Upgrade to {plan?.name ?? ""}</DialogTitle>
-          <DialogDescription>{plan?.description}</DialogDescription>
+          <DialogDescription>
+            A secure Paddle checkout will open so you can complete payment.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="border-border bg-muted/30 mt-4 rounded-xl border p-4">
-          <div className="flex items-baseline justify-between">
-            <p className="text-sm font-medium">Plan price</p>
-            <p className="text-2xl font-semibold">{plan?.priceLabel}</p>
+        {plan ? (
+          <div className="border-border bg-muted/30 mt-4 space-y-3 rounded-xl border p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium">Monthly price</p>
+              <p className="text-2xl font-semibold">{formatPlanMonthlyPrice(plan, currency)}</p>
+            </div>
+            <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
+              {formatPlanFeatureLines(plan).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
           </div>
-          <p className="text-muted-foreground mt-1 text-xs">
-            You will be redirected to Paddle to complete payment securely.
-          </p>
-        </div>
+        ) : null}
 
         <label className="border-border mt-4 flex items-start gap-3 rounded-xl border p-3 text-sm">
           <input

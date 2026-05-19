@@ -198,8 +198,50 @@ export interface Invoice {
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "paused" | "canceled";
 
+
+export interface EntitlementRow {
+  feature_key: string;
+  enabled: boolean;
+  limit: number;
+  period: "none" | "monthly" | "yearly";
+}
+
+export interface PlanPriceRow {
+  interval: string;
+  amount: number;
+  currency: SupportedCurrency;
+  active: boolean;
+  trialPeriod?: {
+    interval: string;
+    frequency: number;
+  } | null;
+}
+
+export interface PlanCatalogItem {
+  code: string;
+  name: string;
+  currency: SupportedCurrency;
+  basePrice: number;
+  monthlyPrice: number;
+  region: string;
+  features: string[];
+  prices: PlanPriceRow[];
+  entitlements: EntitlementRow[];
+  isHighlighted: boolean;
+}
+
+export type ChangePlanStatus = "updated" | "checkout_required" | "created";
+
+export interface ChangePlanResponse {
+  status: ChangePlanStatus;
+  plan?: string;
+  checkoutUrl?: string;
+  transactionId?: string;
+}
+
 export interface SubscriptionSnapshot {
   plan: string;
+  planCode: string | null;
   amount: number;
   currency: SupportedCurrency;
   seats: number;
@@ -211,6 +253,7 @@ export interface SubscriptionSnapshot {
 export interface SubscriptionRow {
   id: number;
   plan: string;
+  plan_code?: string;
   status: SubscriptionStatus;
   amount: number;
   currency: SupportedCurrency;
@@ -228,6 +271,7 @@ export interface OnboardingStep {
   title: string;
   description: string;
   completed: boolean;
+  required: boolean;
 }
 
 export interface SettingsProfile {
