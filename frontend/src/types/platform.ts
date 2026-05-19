@@ -113,6 +113,45 @@ export interface DashboardOverview {
   activities: ProcessingActivity[];
 }
 
+/**
+ * Mirrors the backend `Record.Status` enum exactly. Order matters: the
+ * pipeline stepper renders steps in this order.
+ *
+ * Today the Celery pipeline goes `received → transcribing → transcribed →
+ * extracting → extracted → stored`. `review` is reserved for manual review
+ * workflows; `failed`/`dead_letter` are terminal failure states.
+ */
+export type RecordStatus =
+  | "received"
+  | "transcribing"
+  | "transcribed"
+  | "extracting"
+  | "extracted"
+  | "stored"
+  | "review"
+  | "failed"
+  | "dead_letter";
+
+export const RECORD_PIPELINE_STEPS = [
+  "received",
+  "transcribing",
+  "extracting",
+  "stored",
+] as const satisfies readonly RecordStatus[];
+
+export const TERMINAL_RECORD_STATUSES: readonly RecordStatus[] = [
+  "stored",
+  "failed",
+  "dead_letter",
+];
+
+export interface RecordArtifact {
+  id: string | number;
+  kind: string;
+  url: string | null;
+  created_at: string;
+}
+
 export interface RecordItem {
   id: string;
   date: string;
@@ -124,6 +163,16 @@ export interface RecordItem {
   paymentMethod: string;
   transcript: string;
   confidenceScore: number;
+  /** Pipeline status mirrored from the backend. */
+  status: RecordStatus;
+  /** Optional human-readable error message from the pipeline. */
+  processingError: string | null;
+  /** Pipeline step that failed, when `status` is failed/dead_letter. */
+  processingErrorStep: string | null;
+  processingRetryCount: number;
+  lastFailedAt: string | null;
+  deadLetteredAt: string | null;
+  artifacts: RecordArtifact[];
 }
 
 export interface AnalyticsSeriesPoint {
@@ -147,6 +196,8 @@ export interface Invoice {
   issuedAt: string;
 }
 
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "paused" | "canceled";
+
 export interface SubscriptionSnapshot {
   plan: string;
   amount: number;
@@ -155,6 +206,16 @@ export interface SubscriptionSnapshot {
   voiceNotesProcessed: number;
   includedVoiceNotes: number;
   renewalDate: string;
+}
+
+export interface SubscriptionRow {
+  id: number;
+  plan: string;
+  status: SubscriptionStatus;
+  amount: number;
+  currency: SupportedCurrency;
+  seats: number;
+  current_period_end: string | null;
 }
 
 export interface BillingSnapshot {

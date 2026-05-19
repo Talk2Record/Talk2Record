@@ -5,7 +5,9 @@ import type {
   DashboardOverview,
   LegalAcceptanceStatus,
   OnboardingStep,
+  RecordArtifact,
   RecordItem,
+  RecordStatus,
   SettingsProfile,
 } from "@/types/platform";
 
@@ -35,6 +37,13 @@ interface BackendAuthUser {
   legal: BackendLegalAcceptanceStatus;
 }
 
+interface BackendRecordArtifact {
+  id: number | string;
+  kind: string;
+  url?: string | null;
+  created_at?: string;
+}
+
 interface BackendRecord {
   id: number | string;
   customer_name: string;
@@ -46,6 +55,33 @@ interface BackendRecord {
   voice_transcript: string;
   confidence_score: number | string;
   created_at: string;
+  status?: string;
+  processing_error?: string | null;
+  processing_error_step?: string | null;
+  processing_retry_count?: number;
+  last_failed_at?: string | null;
+  dead_lettered_at?: string | null;
+  artifacts?: BackendRecordArtifact[];
+}
+
+const RECORD_STATUS_VALUES: readonly RecordStatus[] = [
+  "received",
+  "transcribing",
+  "transcribed",
+  "extracting",
+  "extracted",
+  "stored",
+  "review",
+  "failed",
+  "dead_letter",
+];
+
+function coerceStatus(value: string | undefined): RecordStatus {
+  if (!value) return "received";
+  const normalized = value.toLowerCase();
+  return (RECORD_STATUS_VALUES as readonly string[]).includes(normalized)
+    ? (normalized as RecordStatus)
+    : "received";
 }
 
 export function mapLegalAcceptanceStatus(
@@ -78,6 +114,15 @@ export function mapAuthUser(user: BackendAuthUser): AuthUser {
   };
 }
 
+function mapArtifact(artifact: BackendRecordArtifact): RecordArtifact {
+  return {
+    id: artifact.id,
+    kind: artifact.kind,
+    url: artifact.url ?? null,
+    created_at: artifact.created_at ?? "",
+  };
+}
+
 export function mapRecord(record: BackendRecord): RecordItem {
   return {
     id: String(record.id),
@@ -90,6 +135,13 @@ export function mapRecord(record: BackendRecord): RecordItem {
     paymentMethod: record.payment_method,
     transcript: record.voice_transcript,
     confidenceScore: Number(record.confidence_score),
+    status: coerceStatus(record.status),
+    processingError: record.processing_error ?? null,
+    processingErrorStep: record.processing_error_step ?? null,
+    processingRetryCount: record.processing_retry_count ?? 0,
+    lastFailedAt: record.last_failed_at ?? null,
+    deadLetteredAt: record.dead_lettered_at ?? null,
+    artifacts: (record.artifacts ?? []).map(mapArtifact),
   };
 }
 

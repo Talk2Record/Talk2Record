@@ -1,19 +1,52 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { trackEvent } from "@/lib/analytics";
-import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import BillingLoading from "@/app/dashboard/billing/loading";
+import { SubscriptionBanner } from "@/components/billing/subscription-banner";
+import { CheckoutConfirmModal } from "@/components/billing/checkout-confirm-modal";
+import { toast } from "@/shared/hooks/use-toast";
+import type { SubscriptionStatus } from "@/types/platform";
 
-type BillingProvider = "stripe" | "paddle";
+interface PlanOption {
+  code: string;
+  name: string;
+  priceLabel: string;
+  description: string;
+}
+
+const PLAN_OPTIONS: PlanOption[] = [
+  {
+    code: "starter",
+    name: "Starter",
+    priceLabel: "$29 /mo",
+    description: "Up to 300 voice notes per month, ideal for small teams.",
+  },
+  {
+    code: "growth",
+    name: "Growth",
+    priceLabel: "$99 /mo",
+    description: "1,500 voice notes per month plus advanced analytics.",
+  },
+  {
+    code: "scale",
+    name: "Scale",
+    priceLabel: "$249 /mo",
+    description: "10,000 voice notes per month and team collaboration features.",
+  },
+];
 
 export default function BillingPage() {
-  const { data, isLoading } = useQuery({
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const billingQuery = useQuery({
     queryKey: ["billing"],
     queryFn: billingService.getSnapshot,
   });
@@ -21,30 +54,48 @@ export default function BillingPage() {
     queryKey: ["billing", "entitlements"],
     queryFn: () => billingService.listEntitlements(),
   });
-  const [status, setStatus] = useState("");
-  const [acceptedBillingTerms, setAcceptedBillingTerms] = useState(false);
-  const [provider, setProvider] = useState<BillingProvider>("stripe");
+  const subscriptionsQuery = useQuery({
+    queryKey: ["billing", "subscriptions"],
+    queryFn: () => billingService.listSubscriptions(),
+  });
 
-  async function checkout(plan: string) {
-    trackEvent("billing_upgrade_started", { plan, provider });
-    try {
-      const response = await billingService.checkout({
-        plan,
-        acceptedBillingTerms,
-        provider,
+  const [selectedPlan, setSelectedPlan] = useState<PlanOption | null>(null);
+
+  // Handle the `?checkout=success|cancelled` return from Paddle.
+  useEffect(() => {
+    const checkoutResult = searchParams?.get("checkout");
+    if (!checkoutResult) return;
+
+    if (checkoutResult === "success") {
+      toast({
+        title: "Subscription updated",
+        description: "Your new plan will appear in a moment.",
       });
-      setStatus(response.status);
-      if (response.checkoutUrl && !response.checkoutUrl.includes("billing.example.com")) {
-        window.location.assign(response.checkoutUrl);
-      }
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to start checkout.");
+      void queryClient.invalidateQueries({ queryKey: ["billing"] });
+      void queryClient.invalidateQueries({ queryKey: ["billing", "entitlements"] });
+      void queryClient.invalidateQueries({ queryKey: ["billing", "subscriptions"] });
+      trackEvent("billing_checkout_returned", { result: "success" });
+    } else {
+      toast({
+        title: "Checkout cancelled",
+        description: "No changes were made to your subscription.",
+        variant: "destructive",
+      });
+      trackEvent("billing_checkout_returned", { result: "cancelled" });
     }
-  }
 
-  if (isLoading || !data) {
+    // Strip the param so refreshes don't re-fire the toast.
+    router.replace("/dashboard/billing");
+  }, [searchParams, queryClient, router]);
+
+  const currentSubscription = subscriptionsQuery.data?.[0];
+  const subscriptionStatus: SubscriptionStatus | undefined = currentSubscription?.status;
+  const subscriptionPeriodEnd = currentSubscription?.current_period_end ?? null;
+
+  if (billingQuery.isLoading || !billingQuery.data) {
     return <BillingLoading />;
   }
+  const data = billingQuery.data;
 
   const usage =
     data.subscription.includedVoiceNotes > 0
@@ -52,6 +103,11 @@ export default function BillingPage() {
           (data.subscription.voiceNotesProcessed / data.subscription.includedVoiceNotes) * 100
         )
       : 0;
+
+  function openCheckout(plan: PlanOption) {
+    trackEvent("billing_upgrade_clicked", { plan: plan.code });
+    setSelectedPlan(plan);
+  }
 
   return (
     <div className="space-y-6">
@@ -61,10 +117,15 @@ export default function BillingPage() {
         </div>
         <h1>Billing</h1>
         <p className="text-muted-foreground">
-          Subscription, invoices, usage, and upgrade flows are scaffolded against the future billing
-          endpoints.
+          Subscription, invoices, and usage for this workspace.
         </p>
       </div>
+
+      <SubscriptionBanner
+        status={subscriptionStatus}
+        periodEnd={subscriptionPeriodEnd}
+        onCta={() => openCheckout(PLAN_OPTIONS[1])}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-primary/10">
@@ -106,61 +167,24 @@ export default function BillingPage() {
 
       <Card className="border-primary/10">
         <CardHeader>
-          <CardTitle>Upgrade or downgrade</CardTitle>
+          <CardTitle>Change plan</CardTitle>
           <CardDescription>
-            Start a provider checkout session from the backend billing API.
+            Pick a new plan to start a secure Paddle checkout session.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <label className="border-primary/10 bg-background/80 text-muted-foreground w-full rounded-xl border p-3 text-sm">
-            <span className="flex items-start gap-3">
-              <input
-                checked={acceptedBillingTerms}
-                className="border-primary/20 mt-1 h-4 w-4 rounded"
-                onChange={(event) => setAcceptedBillingTerms(event.target.checked)}
-                type="checkbox"
-              />
-              <span>
-                You agree to the{" "}
-                <Link
-                  className="text-primary underline-offset-4 hover:underline"
-                  href="/legal/billing-policy"
-                >
-                  Billing Policy
-                </Link>{" "}
-                and understand paid plans renew automatically unless canceled before renewal.
-              </span>
-            </span>
-          </label>
-          <div className="flex w-full items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Provider</span>
-            <div className="flex gap-2">
-              {(["stripe", "paddle"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setProvider(value)}
-                  className={
-                    value === provider
-                      ? "bg-primary text-primary-foreground rounded-full px-3 py-1"
-                      : "border-primary/20 text-muted-foreground hover:bg-muted rounded-full border px-3 py-1"
-                  }
-                >
-                  {value === "stripe" ? "Stripe" : "Paddle"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Button className="rounded-xl" onClick={() => checkout("Starter")} variant="outline">
-            Move to Starter
-          </Button>
-          <Button className="rounded-xl" onClick={() => checkout("Growth")}>
-            Move to Growth
-          </Button>
-          <Button className="rounded-xl" onClick={() => checkout("Scale")} variant="outline">
-            Move to Scale
-          </Button>
-          {status ? <p className="text-muted-foreground w-full text-sm">{status}</p> : null}
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          {PLAN_OPTIONS.map((option) => (
+            <button
+              key={option.code}
+              type="button"
+              onClick={() => openCheckout(option)}
+              className="border-border hover:border-primary/40 hover:bg-muted/30 group rounded-xl border p-4 text-left transition-colors"
+            >
+              <p className="text-sm font-semibold tracking-wide uppercase">{option.name}</p>
+              <p className="mt-1 text-2xl font-semibold">{option.priceLabel}</p>
+              <p className="text-muted-foreground mt-2 text-xs">{option.description}</p>
+            </button>
+          ))}
         </CardContent>
       </Card>
 
@@ -226,6 +250,14 @@ export default function BillingPage() {
           )}
         </CardContent>
       </Card>
+
+      <CheckoutConfirmModal
+        open={selectedPlan !== null}
+        plan={selectedPlan}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPlan(null);
+        }}
+      />
     </div>
   );
 }

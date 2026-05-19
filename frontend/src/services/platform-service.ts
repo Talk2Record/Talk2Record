@@ -10,6 +10,7 @@ import type {
   OrganizationApiKeyAuditEvent,
   OrganizationApiKeyRow,
   SettingsProfile,
+  SubscriptionRow,
 } from "@/types/platform";
 import {
   mapAnalyticsSnapshot,
@@ -92,6 +93,11 @@ export const recordsService = {
     const response = await api.get<Array<Parameters<typeof mapRecord>[0]>>("/records/");
     return response.data.map(mapRecord);
   },
+
+  async get(id: string) {
+    const response = await api.get<Parameters<typeof mapRecord>[0]>(`/records/${id}/`);
+    return mapRecord(response.data);
+  },
 };
 
 export const analyticsService = {
@@ -119,15 +125,16 @@ export const billingService = {
     return response.data;
   },
 
-  async checkout(payload: {
-    plan: string;
-    acceptedBillingTerms: boolean;
-    provider?: string;
-  }) {
+  async checkout(payload: { plan: string; acceptedBillingTerms: boolean; provider?: string }) {
     const response = await api.post<{ status: string; checkoutUrl: string }>(
       "/billing/checkout/",
-      payload,
+      payload
     );
+    return response.data;
+  },
+
+  async listSubscriptions() {
+    const response = await api.get<SubscriptionRow[]>("/subscriptions/");
     return response.data;
   },
 };
