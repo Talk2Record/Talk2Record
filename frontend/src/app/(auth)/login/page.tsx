@@ -10,12 +10,14 @@ import { PasswordInput } from "@/shared/ui/password-input";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
 import { useAuth } from "@/shared/lib/auth/auth-context";
 import { useLanguage } from "@/shared/lib/i18n/language-context";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
+import { sanitizeRedirect } from "@/shared/lib/auth/safe-redirect";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale } = useLanguage();
   const { login, signInWithGoogle, isGoogleEnabled, isLoading } = useAuth();
   const messages = getTranslations(locale);
@@ -24,13 +26,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  const redirectTarget = useMemo(
+    () => sanitizeRedirect(searchParams?.get("redirect")),
+    [searchParams]
+  );
+
+  const sessionReason = searchParams?.get("reason");
+  const expiredNotice =
+    sessionReason === "expired" ? "Your session expired. Please sign in again." : null;
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
     try {
       const user = await login(email, password);
-      router.push(user.onboardingCompleted ? "/dashboard" : "/onboarding");
+      const destination = redirectTarget
+        ? redirectTarget
+        : user.onboardingCompleted
+          ? "/dashboard"
+          : "/onboarding";
+      router.push(destination);
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -53,6 +69,11 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {expiredNotice ? (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            {expiredNotice}
+          </div>
+        ) : null}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="email">{t("auth.login.email")}</Label>
@@ -95,7 +116,14 @@ export default function LoginPage() {
           <Link className="text-primary" href="/forgot-password">
             {t("auth.login.forgotPassword")}
           </Link>
-          <Link className="text-primary" href="/register">
+          <Link
+            className="text-primary"
+            href={
+              redirectTarget
+                ? `/register?redirect=${encodeURIComponent(redirectTarget)}`
+                : "/register"
+            }
+          >
             {t("auth.login.signUp")}
           </Link>
         </div>

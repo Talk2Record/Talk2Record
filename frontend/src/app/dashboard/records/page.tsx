@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { recordsService } from "@/services/platform-service";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import RecordsLoading from "@/app/dashboard/records/loading";
 
 export default function RecordsPage() {
   const { data = [], isLoading } = useQuery({
@@ -26,7 +27,7 @@ export default function RecordsPage() {
   );
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading records...</div>;
+    return <RecordsLoading />;
   }
 
   return (

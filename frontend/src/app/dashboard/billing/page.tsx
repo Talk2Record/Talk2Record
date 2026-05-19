@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import BillingLoading from "@/app/dashboard/billing/loading";
 
 type BillingProvider = "stripe" | "paddle";
 
@@ -42,7 +43,7 @@ export default function BillingPage() {
   }
 
   if (isLoading || !data) {
-    return <div className="text-muted-foreground">Loading billing...</div>;
+    return <BillingLoading />;
   }
 
   const usage =
@@ -141,8 +142,8 @@ export default function BillingPage() {
                   onClick={() => setProvider(value)}
                   className={
                     value === provider
-                      ? "rounded-full bg-primary px-3 py-1 text-primary-foreground"
-                      : "rounded-full border border-primary/20 px-3 py-1 text-muted-foreground hover:bg-muted"
+                      ? "bg-primary text-primary-foreground rounded-full px-3 py-1"
+                      : "border-primary/20 text-muted-foreground hover:bg-muted rounded-full border px-3 py-1"
                   }
                 >
                   {value === "stripe" ? "Stripe" : "Paddle"}
@@ -178,7 +179,7 @@ export default function BillingPage() {
               {entitlementsQuery.data.map((row) => (
                 <li
                   key={row.feature_key}
-                  className="flex items-center justify-between rounded-md border border-primary/10 px-3 py-2"
+                  className="border-primary/10 flex items-center justify-between rounded-md border px-3 py-2"
                 >
                   <span className="font-medium">{row.feature_key}</span>
                   <span className="text-muted-foreground">
@@ -192,9 +193,7 @@ export default function BillingPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground text-sm">
-              No plan features published yet.
-            </p>
+            <p className="text-muted-foreground text-sm">No plan features published yet.</p>
           )}
         </CardContent>
       </Card>

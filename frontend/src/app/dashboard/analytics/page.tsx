@@ -1,9 +1,23 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BarChart, Bar, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  BarChart,
+  Bar,
+  CartesianGrid,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { analyticsService } from "@/services/platform-service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import AnalyticsLoading from "@/app/dashboard/analytics/loading";
 
 const COLORS = ["#2563eb", "#7c3aed", "#06b6d4", "#22c55e"];
 
@@ -14,7 +28,7 @@ export default function AnalyticsPage() {
   });
 
   if (isLoading || !data) {
-    return <div className="text-muted-foreground">Loading analytics...</div>;
+    return <AnalyticsLoading />;
   }
 
   return (
@@ -85,18 +99,23 @@ export default function AnalyticsPage() {
         <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Processing stats</CardTitle>
-            <CardDescription>Heatmap and product analytics remain abstracted behind feature-safe adapters.</CardDescription>
+            <CardDescription>
+              Heatmap and product analytics remain abstracted behind feature-safe adapters.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {data.processingStats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-primary/10 bg-background/80 p-4">
+              <div
+                key={stat.label}
+                className="border-primary/10 bg-background/80 rounded-2xl border p-4"
+              >
                 <p className="font-medium">{stat.label}</p>
                 <p className="text-2xl font-semibold">{stat.value}%</p>
               </div>
             ))}
-            <div className="rounded-2xl border border-primary/10 bg-background/80 p-4">
+            <div className="border-primary/10 bg-background/80 rounded-2xl border p-4">
               <p className="font-medium">Heatmap summary</p>
-              <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+              <ul className="text-muted-foreground mt-2 space-y-2 text-sm">
                 {data.heatmapSummary.map((item) => (
                   <li key={item}>{item}</li>
                 ))}

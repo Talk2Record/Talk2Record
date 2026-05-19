@@ -10,6 +10,8 @@ import { LanguageProvider } from "@/shared/lib/i18n/language-context";
 import { SessionProvider } from "@/shared/lib/auth/session-provider";
 import { initAnalytics } from "@/lib/analytics";
 import { Toaster } from "@/shared/components/toaster";
+import { ErrorBoundary } from "@/shared/components/error-boundary";
+import { AuthEventListener } from "@/shared/components/auth-event-listener";
 
 const isGoogleWorkspaceOAuthStackEnabled =
   process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" &&
@@ -25,6 +27,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const core = (
     <LanguageProvider>
       <AuthProvider>
+        <AuthEventListener />
         {children}
         <Toaster />
       </AuthProvider>
@@ -32,10 +35,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>
-        {isGoogleWorkspaceOAuthStackEnabled ? <SessionProvider>{core}</SessionProvider> : core}
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <QueryClientProvider client={queryClient}>
+          {isGoogleWorkspaceOAuthStackEnabled ? <SessionProvider>{core}</SessionProvider> : core}
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

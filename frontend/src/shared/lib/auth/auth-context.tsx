@@ -2,77 +2,93 @@
 
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuthContext as AuthContextType } from "@/shared/lib/auth/types";
 import { authService } from "@/services/platform-service";
 import { useAuthStore } from "@/store/auth-store";
+import { useAuthStatus } from "@/shared/hooks/use-auth-status";
+import { useSilentRefresh } from "@/shared/hooks/use-silent-refresh";
 import { trackEvent } from "@/lib/analytics";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Query key for the canonical "current user" fetch. Mutations that change
+ * profile fields should `queryClient.setQueryData(AUTH_ME_QUERY_KEY, …)` AND
+ * mirror into the Zustand store via `updateUser`.
+ */
+export const AUTH_ME_QUERY_KEY = ["auth", "me"] as const;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const refreshToken = useAuthStore((state) => state.refreshToken);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const setSession = useAuthStore((state) => state.setSession);
   const setUser = useAuthStore((state) => state.setUser);
   const clearSession = useAuthStore((state) => state.clearSession);
-  const [isLoading, setIsLoading] = useState(false);
-  const isAuthLoading = isLoading || !hasHydrated;
+  const [isMutating, setIsMutating] = useState(false);
+
+  useSilentRefresh();
+
+  const meQuery = useQuery({
+    queryKey: AUTH_ME_QUERY_KEY,
+    queryFn: authService.getCurrentUser,
+    enabled: hasHydrated && Boolean(refreshToken),
+    staleTime: 5 * 60_000,
+    retry: 0,
+  });
+
+  /**
+   * Mirror the React Query result into the Zustand store so synchronous reads
+   * (sidebar, guards) still work without a hook.
+   */
+  useEffect(() => {
+    if (meQuery.data) {
+      setUser(meQuery.data);
+    }
+  }, [meQuery.data, setUser]);
+
+  /**
+   * If `/auth/me/` fails after the axios interceptor has already attempted a
+   * refresh, the session is unrecoverable. Clear local state so the next
+   * paint redirects to /login. We do this in an effect to avoid setState
+   * during a render.
+   */
+  useEffect(() => {
+    if (meQuery.isError && refreshToken) {
+      clearSession();
+      queryClient.removeQueries({ queryKey: AUTH_ME_QUERY_KEY });
+    }
+  }, [meQuery.isError, refreshToken, clearSession, queryClient]);
+
   /** NextAuth Google UI + SessionProvider only when OAuth is explicitly enabled end-to-end (see docs/AUTH.md). */
   const isGoogleEnabled =
     process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" &&
     process.env.NEXT_PUBLIC_GOOGLE_WORKSPACE_LOGIN === "true";
 
-  useEffect(() => {
-    if (!hasHydrated) {
-      return;
-    }
+  const status = useAuthStatus({
+    isFetchingMe: meQuery.isFetching,
+    hadAuthError: meQuery.isError && Boolean(refreshToken),
+  });
 
-    if (!refreshToken) {
-      clearSession();
-      return;
-    }
-
-    let isMounted = true;
-
-    const syncCurrentUser = async () => {
-      setIsLoading(true);
-      try {
-        const currentUser = await authService.getCurrentUser();
-        if (isMounted) {
-          setUser(currentUser);
-        }
-      } catch {
-        if (isMounted) {
-          clearSession();
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void syncCurrentUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [clearSession, hasHydrated, refreshToken, setUser]);
+  const isAuthLoading =
+    isMutating || !hasHydrated || (Boolean(refreshToken) && !user && meQuery.isFetching);
 
   const login = useCallback(
     async (email: string, password: string) => {
-      setIsLoading(true);
+      setIsMutating(true);
       try {
         const session = await authService.login(email, password);
         setSession(session);
+        queryClient.setQueryData(AUTH_ME_QUERY_KEY, session.user);
         trackEvent("auth_login", { emailDomain: email.split("@")[1] });
         return session.user;
       } finally {
-        setIsLoading(false);
+        setIsMutating(false);
       }
     },
-    [setSession]
+    [setSession, queryClient]
   );
 
   const register = useCallback(
@@ -83,25 +99,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: string;
       acceptedDocumentKeys: string[];
     }) => {
-      setIsLoading(true);
+      setIsMutating(true);
       try {
         const session = await authService.register(payload);
         setSession(session);
+        queryClient.setQueryData(AUTH_ME_QUERY_KEY, session.user);
         trackEvent("auth_register", { company: payload.company });
         return session.user;
       } finally {
-        setIsLoading(false);
+        setIsMutating(false);
       }
     },
-    [setSession]
+    [setSession, queryClient]
   );
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    setIsLoading(true);
+    setIsMutating(true);
     try {
       return await authService.forgotPassword(email);
     } finally {
-      setIsLoading(false);
+      setIsMutating(false);
     }
   }, []);
 
@@ -115,20 +132,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setIsLoading(true);
+      setIsMutating(true);
       try {
         const nextUser = await authService.completeOnboarding(payload);
         setUser(nextUser);
+        queryClient.setQueryData(AUTH_ME_QUERY_KEY, nextUser);
         trackEvent("onboarding_completed", { userId: nextUser.id });
       } finally {
-        setIsLoading(false);
+        setIsMutating(false);
       }
     },
-    [setUser, user]
+    [setUser, user, queryClient]
   );
 
   const logout = useCallback(async () => {
-    setIsLoading(true);
+    setIsMutating(true);
     try {
       if (refreshToken) {
         await authService.logout(refreshToken);
@@ -137,9 +155,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clearing local session keeps the client consistent even if the backend token is already expired.
     } finally {
       clearSession();
-      setIsLoading(false);
+      queryClient.clear();
+      setIsMutating(false);
     }
-  }, [clearSession, refreshToken]);
+  }, [clearSession, refreshToken, queryClient]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!isGoogleEnabled) {
@@ -153,13 +172,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       isLoading: isAuthLoading,
+      status,
       login,
       register,
       requestPasswordReset,
       completeOnboarding,
       logout,
       signInWithGoogle,
-      isAuthenticated: Boolean(user),
+      isAuthenticated: status.kind === "authenticated",
       isGoogleEnabled,
     }),
     [
@@ -171,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       requestPasswordReset,
       signInWithGoogle,
+      status,
       user,
     ]
   );

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/platform-service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import DashboardLoading from "@/app/dashboard/loading";
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
@@ -11,7 +12,7 @@ export default function DashboardPage() {
   });
 
   if (isLoading || !data) {
-    return <div className="text-muted-foreground">Loading dashboard...</div>;
+    return <DashboardLoading />;
   }
 
   return (
@@ -22,7 +23,8 @@ export default function DashboardPage() {
         </div>
         <h1>Operations overview</h1>
         <p className="text-muted-foreground">
-          Monitor extraction quality, review queues, and the speed at which voice becomes usable business data.
+          Monitor extraction quality, review queues, and the speed at which voice becomes usable
+          business data.
         </p>
       </div>
 
@@ -35,7 +37,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <span
-                className={metric.tone === "positive" ? "text-sm text-emerald-600" : "text-sm text-muted-foreground"}
+                className={
+                  metric.tone === "positive"
+                    ? "text-sm text-emerald-600"
+                    : "text-muted-foreground text-sm"
+                }
               >
                 {metric.delta}
               </span>
@@ -53,13 +59,13 @@ export default function DashboardPage() {
           {data.activities.map((activity) => (
             <div
               key={activity.id}
-              className="flex flex-col gap-2 rounded-2xl border border-primary/10 bg-background/80 p-4 md:flex-row md:items-center md:justify-between"
+              className="border-primary/10 bg-background/80 flex flex-col gap-2 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
             >
               <div>
                 <p className="font-medium">{activity.customer}</p>
-                <p className="text-sm text-muted-foreground">{activity.transcriptSnippet}</p>
+                <p className="text-muted-foreground text-sm">{activity.transcriptSnippet}</p>
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 <p>{activity.status}</p>
                 <p>{new Date(activity.createdAt).toLocaleString()}</p>
               </div>

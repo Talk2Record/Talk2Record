@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/shared/lib/auth/auth-context";
+import { sanitizeRedirect } from "@/shared/lib/auth/safe-redirect";
 import { useLanguage } from "@/shared/lib/i18n/language-context";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
@@ -15,8 +16,13 @@ import { PasswordInput } from "@/shared/ui/password-input";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale } = useLanguage();
   const { register, isLoading } = useAuth();
+  const redirectTarget = useMemo(
+    () => sanitizeRedirect(searchParams?.get("redirect")),
+    [searchParams]
+  );
   const messages = getTranslations(locale);
   const { t } = useTranslations(messages);
   const [name, setName] = useState("");
@@ -43,14 +49,16 @@ export default function RegisterPage() {
         password,
         acceptedDocumentKeys: ["terms-of-service", "privacy-policy"],
       });
-      router.push("/onboarding");
+      router.push(redirectTarget ?? "/onboarding");
     } catch (submissionError) {
-      setError(submissionError instanceof Error ? submissionError.message : "Unable to create account.");
+      setError(
+        submissionError instanceof Error ? submissionError.message : "Unable to create account."
+      );
     }
   }
 
   return (
-    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
+    <Card className="border-primary/10 w-full max-w-md shadow-(--shadow-lg)">
       <CardHeader>
         <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
           Start your workspace
@@ -64,7 +72,12 @@ export default function RegisterPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="name">Full name</Label>
-            <Input id="name" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input
+              id="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="company">{t("auth.register.company")}</Label>
@@ -94,34 +107,45 @@ export default function RegisterPage() {
               required
             />
           </div>
-          <label className="flex items-start gap-3 rounded-xl border border-primary/10 bg-background/80 p-3 text-sm">
+          <label className="border-primary/10 bg-background/80 flex items-start gap-3 rounded-xl border p-3 text-sm">
             <input
               checked={acceptedRequiredTerms}
-              className="mt-1 h-4 w-4 rounded border-primary/20"
+              className="border-primary/20 mt-1 h-4 w-4 rounded"
               onChange={(event) => setAcceptedRequiredTerms(event.target.checked)}
               type="checkbox"
             />
             <span className="text-muted-foreground">
               I agree to the{" "}
-              <Link className="text-primary underline-offset-4 hover:underline" href="/legal/terms-of-service">
+              <Link
+                className="text-primary underline-offset-4 hover:underline"
+                href="/legal/terms-of-service"
+              >
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link className="text-primary underline-offset-4 hover:underline" href="/legal/privacy-policy">
+              <Link
+                className="text-primary underline-offset-4 hover:underline"
+                href="/legal/privacy-policy"
+              >
                 Privacy Policy
               </Link>
               .
             </span>
           </label>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <p className="text-destructive text-sm">{error}</p> : null}
           <Button className="w-full rounded-xl" disabled={isLoading} type="submit">
             {t("auth.register.submit")}
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-center text-sm">
           Already have an account?{" "}
-          <Link href="/login" className="text-primary">
+          <Link
+            href={
+              redirectTarget ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : "/login"
+            }
+            className="text-primary"
+          >
             {t("navigation.login")}
           </Link>
         </p>

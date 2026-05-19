@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import type { SettingsProfile } from "@/types/platform";
+import SettingsLoading from "@/app/dashboard/settings/loading";
 
 export default function SettingsPage() {
   const setCurrency = usePreferencesStore((state) => state.setCurrency);
@@ -37,7 +38,7 @@ export default function SettingsPage() {
   const form = draft ?? data;
 
   if (isLoading || !form) {
-    return <div className="text-muted-foreground">Loading settings...</div>;
+    return <SettingsLoading />;
   }
 
   return (
