@@ -7,6 +7,7 @@ import { UsersRound } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { EmptyState } from "@/shared/components/empty-state";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { toast } from "@/shared/hooks/use-toast";
@@ -373,7 +374,12 @@ function TeamPageInner() {
                 </div>
               ))}
               {members.length === 0 && membersQuery.isSuccess ? (
-                <p className="text-muted-foreground text-sm">No members yet.</p>
+                <EmptyState
+                  icon={UsersRound}
+                  title="No teammates yet"
+                  description="Invite a teammate above and they'll appear here as soon as they accept the invitation."
+                  variant="compact"
+                />
               ) : null}
             </CardContent>
           </Card>

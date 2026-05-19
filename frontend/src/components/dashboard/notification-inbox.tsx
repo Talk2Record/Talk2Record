@@ -15,6 +15,7 @@ import {
 import { useNotifications } from "@/shared/hooks/use-notifications";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/shared/lib/utils";
+import { EmptyState } from "@/shared/components/empty-state";
 import type { Notification } from "@/services/notification-service";
 
 interface IconFor {
@@ -141,8 +142,13 @@ export function NotificationInbox() {
 
           <div className="max-h-[60vh] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="text-muted-foreground px-4 py-8 text-center text-sm">
-                You have no notifications.
+              <div className="px-4 py-6">
+                <EmptyState
+                  icon={Bell}
+                  title="No notifications"
+                  description="When a record is processed, an invite is sent, or your billing changes, it'll show up here."
+                  variant="compact"
+                />
               </div>
             ) : (
               <>

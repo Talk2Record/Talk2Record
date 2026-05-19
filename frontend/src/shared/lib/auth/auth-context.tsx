@@ -10,6 +10,7 @@ import { useImpersonationStore } from "@/store/impersonation-store";
 import { useOrgStore } from "@/store/org-store";
 import { useAuthStatus } from "@/shared/hooks/use-auth-status";
 import { useSilentRefresh } from "@/shared/hooks/use-silent-refresh";
+import { isGoogleSignInEnabled } from "@/shared/lib/auth/google-auth-flag";
 import { trackEvent } from "@/lib/analytics";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,10 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [meQuery.isError, refreshToken, clearSession, queryClient]);
 
-  /** NextAuth Google UI + SessionProvider only when OAuth is explicitly enabled end-to-end (see docs/AUTH.md). */
-  const isGoogleEnabled =
-    process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" &&
-    process.env.NEXT_PUBLIC_GOOGLE_WORKSPACE_LOGIN === "true";
+  /**
+   * Single source of truth for the Google Workspace login button. See
+   * `google-auth-flag.ts` and docs/AUTH.md for the env switch and migration
+   * notes from the legacy two-variable model.
+   */
+  const isGoogleEnabled = isGoogleSignInEnabled();
 
   const status = useAuthStatus({
     isFetchingMe: meQuery.isFetching,

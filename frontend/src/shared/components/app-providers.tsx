@@ -12,10 +12,9 @@ import { initAnalytics } from "@/lib/analytics";
 import { Toaster } from "@/shared/components/toaster";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { AuthEventListener } from "@/shared/components/auth-event-listener";
+import { isGoogleSignInEnabled } from "@/shared/lib/auth/google-auth-flag";
 
-const isGoogleWorkspaceOAuthStackEnabled =
-  process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" &&
-  process.env.NEXT_PUBLIC_GOOGLE_WORKSPACE_LOGIN === "true";
+const isGoogleWorkspaceOAuthStackEnabled = isGoogleSignInEnabled();
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);

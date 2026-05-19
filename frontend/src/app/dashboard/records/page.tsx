@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Mic, ScrollText } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useRecords } from "@/shared/hooks/use-records";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { EmptyState } from "@/shared/components/empty-state";
 import RecordsLoading from "@/app/dashboard/records/loading";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
 import type { RecordStatus } from "@/types/platform";
@@ -48,6 +50,8 @@ export default function RecordsPage() {
     return <RecordsLoading />;
   }
 
+  const hasAnyRecords = data.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -59,6 +63,32 @@ export default function RecordsPage() {
           Filter extracted records by customer or product before export or downstream automation.
         </p>
       </div>
+
+      {!hasAnyRecords ? (
+        <Card className="border-primary/10">
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={Mic}
+              title="No records yet"
+              description={
+                <>
+                  Send a voice note to your connected WhatsApp number and it will land here
+                  transcribed, extracted, and ready for review.
+                </>
+              }
+              action={
+                <Link
+                  href="/dashboard/integrations"
+                  className="bg-primary text-primary-foreground inline-flex items-center rounded-full px-4 py-2 text-xs font-medium"
+                >
+                  Set up WhatsApp
+                </Link>
+              }
+              variant="compact"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-primary/10">
         <CardHeader>
@@ -121,8 +151,17 @@ export default function RecordsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-muted-foreground py-12 text-center text-sm">
-                    No records match the current filters.
+                  <td colSpan={8} className="py-6">
+                    <EmptyState
+                      icon={ScrollText}
+                      title={hasAnyRecords ? "No matches" : "No records yet"}
+                      description={
+                        hasAnyRecords
+                          ? "Try clearing a filter or broadening the customer or product term."
+                          : "Send a voice note to populate this view."
+                      }
+                      variant="compact"
+                    />
                   </td>
                 </tr>
               ) : (
