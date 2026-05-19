@@ -32,11 +32,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+PADDLE_DEFAULT_CHECKOUT_URL_ERROR = "transaction_default_checkout_url_not_set"
+
 
 @dataclass(frozen=True)
 class CheckoutSession:
     status: str
     checkout_url: str
+    transaction_id: str
+
+
+@dataclass(frozen=True)
+class ChangePlanResult:
+    status: str
+    plan_code: str
 
 
 def _amount_to_paddle_minor_units(amount: Decimal | float | int | str) -> str:
@@ -45,6 +54,34 @@ def _amount_to_paddle_minor_units(amount: Decimal | float | int | str) -> str:
     value = Decimal(str(amount or 0))
     minor = (value * Decimal(100)).quantize(Decimal("1"))
     return str(int(minor))
+
+
+def _normalize_trial_period(raw: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    interval = str(raw.get("interval") or "").strip()
+    frequency = raw.get("frequency")
+    if not interval or frequency in (None, "", 0):
+        return None
+    return {"interval": interval, "frequency": int(frequency)}
+
+
+def _trial_periods_match(
+    local: dict[str, Any] | None,
+    remote: dict[str, Any] | None,
+) -> bool:
+    return _normalize_trial_period(local or {}) == _normalize_trial_period(remote or {})
+
+
+def format_paddle_checkout_error(exc: PaddleAPIError) -> str:
+    message = str(exc)
+    if PADDLE_DEFAULT_CHECKOUT_URL_ERROR in message:
+        return (
+            "Paddle checkout is not configured: set a Default Payment Link in the "
+            "Paddle dashboard (Checkout → Checkout settings) and optionally "
+            "default_payment_link in Django admin Paddle settings."
+        )
+    return message
 
 
 class PaddleBillingService:
@@ -72,7 +109,11 @@ class PaddleBillingService:
     # ------------------------------------------------------------------
 
     def create_checkout(
-        self, *, organization: "Organization", plan: Plan,
+        self,
+        *,
+        organization: "Organization",
+        plan: Plan,
+        success_url: str | None = None,
     ) -> CheckoutSession:
         price = self._resolve_price(plan)
         if price is None or not price.paddle_price_id:
@@ -82,7 +123,7 @@ class PaddleBillingService:
             )
             raise PaddleAPIError(msg)
 
-        success_url = (
+        resolved_success_url = success_url or (
             self.client._settings().default_success_url  # noqa: SLF001
             or getattr(
                 django_settings,
@@ -90,19 +131,57 @@ class PaddleBillingService:
                 "https://app.talk2record.com/billing/success",
             )
         )
+        custom_data: dict[str, str] = {
+            "organization_id": str(organization.pk),
+            "plan_code": plan.code,
+        }
+        if resolved_success_url:
+            custom_data["success_url"] = resolved_success_url
+
         payload: dict[str, Any] = {
             "items": [{"price_id": price.paddle_price_id, "quantity": 1}],
-            "custom_data": {
-                "organization_id": str(organization.pk),
-                "plan_code": plan.code,
-            },
-            "checkout": {"url": success_url},
+            "custom_data": custom_data,
         }
+        payment_link = (self.client._settings().default_payment_link or "").strip()  # noqa: SLF001
+        if payment_link:
+            payload["checkout"] = {"url": payment_link}
+
         data = self.client.create_transaction(payload)
         body = data.get("data") if isinstance(data, dict) else {}
-        checkout = (body or {}).get("checkout") or {}
-        checkout_url = str(checkout.get("url") or success_url)
-        return CheckoutSession(status="created", checkout_url=checkout_url)
+        if not isinstance(body, dict):
+            body = {}
+        transaction_id = str(body.get("id") or "")
+        checkout = body.get("checkout") or {}
+        checkout_url = str(checkout.get("url") or "")
+        if not checkout_url and payment_link and transaction_id:
+            checkout_url = f"{payment_link.rstrip('/')}?_ptxn={transaction_id}"
+        if not checkout_url:
+            checkout_url = resolved_success_url
+        return CheckoutSession(
+            status="created",
+            checkout_url=checkout_url,
+            transaction_id=transaction_id,
+        )
+
+    def change_plan(self, *, subscription: Subscription, new_plan: Plan) -> ChangePlanResult:
+        if subscription.plan_id == new_plan.pk:
+            raise PaddleAPIError("Organization is already on this plan.")
+
+        price = self._resolve_price(new_plan)
+        if price is None or not price.paddle_price_id:
+            msg = (
+                f"Plan {new_plan.code!r} has no synced Paddle price. "
+                "Save the plan price in the admin first."
+            )
+            raise PaddleAPIError(msg)
+
+        before = {"plan_id": subscription.plan_id, "seats": subscription.seats}
+        subscription.plan = new_plan
+        subscription.amount = price.amount or new_plan.base_price
+        subscription.currency = price.currency or new_plan.currency
+        subscription.save(update_fields=["plan", "amount", "currency", "updated_at"])
+        self.push_subscription_change(subscription, before=before)
+        return ChangePlanResult(status="updated", plan_code=new_plan.code)
 
     @staticmethod
     def _resolve_price(plan: Plan) -> PlanPrice | None:
@@ -151,8 +230,7 @@ class PaddleBillingService:
             "interval": price.interval if price.interval != "one_time" else "month",
             "frequency": 1,
         }
-        # Paddle PATCH /prices rejects ``product_id`` (immutable after create),
-        # so we build a base payload + a create-only payload.
+        local_trial = _normalize_trial_period(price.trial_period)
         payload: dict[str, Any] = {
             "description": f"{plan.name} ({price.interval})",
             "unit_price": {
@@ -167,13 +245,26 @@ class PaddleBillingService:
                 "interval": price.interval,
             },
         }
+        if local_trial:
+            payload["trial_period"] = local_trial
+
         if price.paddle_price_id:
-            update_payload = {
-                **payload,
-                "status": "active" if price.active else "archived",
-            }
-            self.client.update_price(price.paddle_price_id, update_payload)
-            return
+            remote_trial = self._remote_trial_period(price.paddle_price_id)
+            if not _trial_periods_match(local_trial, remote_trial):
+                self.client.update_price(
+                    price.paddle_price_id,
+                    {"status": "archived"},
+                )
+                price.paddle_price_id = ""
+                price.save(update_fields=["paddle_price_id", "updated_at"])
+            else:
+                update_payload = {
+                    **payload,
+                    "status": "active" if price.active else "archived",
+                }
+                self.client.update_price(price.paddle_price_id, update_payload)
+                return
+
         create_payload = {**payload, "product_id": plan.paddle_product_id}
         result = self.client.create_price(create_payload)
         body = result.get("data") if isinstance(result, dict) else {}
@@ -183,6 +274,17 @@ class PaddleBillingService:
         if new_id:
             price.paddle_price_id = new_id
             price.save(update_fields=["paddle_price_id", "updated_at"])
+
+    def _remote_trial_period(self, paddle_price_id: str) -> dict[str, Any] | None:
+        try:
+            data = self.client.get_price(paddle_price_id)
+        except PaddleAPIError:
+            return None
+        body = data.get("data") if isinstance(data, dict) else {}
+        if not isinstance(body, dict):
+            return None
+        remote = body.get("trial_period") or body.get("trialPeriod")
+        return remote if isinstance(remote, dict) else None
 
     # ------------------------------------------------------------------
     # Subscription mutations

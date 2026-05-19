@@ -30,6 +30,18 @@ class PaddleSettings(models.Model):
         blank=True,
         help_text=_("Webhook signing secret encrypted via SecretVault."),
     )
+    default_payment_link = models.URLField(
+        blank=True,
+        help_text=_(
+            "Approved Paddle payment-link page (must include Paddle.js). "
+            "Used as checkout.url when creating transactions.",
+        ),
+    )
+    client_side_token = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text=_("Paddle.js client-side token (test_… or live_…). Safe to expose to the browser."),
+    )
     default_success_url = models.URLField(blank=True)
     default_cancel_url = models.URLField(blank=True)
     paddle_notification_setting_id = models.CharField(max_length=64, blank=True)
@@ -99,6 +111,11 @@ class PlanPrice(models.Model):
     currency = models.CharField(max_length=8, default="USD")
     active = models.BooleanField(default=True)
     billing_cycle = models.JSONField(default=dict, blank=True)
+    trial_period = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_('Optional trial, e.g. {"interval": "day", "frequency": 14}.'),
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

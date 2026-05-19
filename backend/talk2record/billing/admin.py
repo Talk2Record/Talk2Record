@@ -47,6 +47,8 @@ class PaddleSettingsAdminForm(forms.ModelForm):
         fields = [
             "enabled",
             "environment",
+            "default_payment_link",
+            "client_side_token",
             "default_success_url",
             "default_cancel_url",
             "paddle_notification_setting_id",

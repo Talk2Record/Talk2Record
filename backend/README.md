@@ -95,3 +95,19 @@ The following details how to deploy this application.
 ### Docker
 
 See detailed [cookiecutter-django Docker documentation](https://cookiecutter-django.readthedocs.io/en/latest/3-deployment/deployment-with-docker.html).
+
+## Paddle billing (local dev)
+
+Checkout requires both Paddle dashboard configuration and Django admin settings:
+
+1. In the **Paddle sandbox** dashboard ([Checkout settings](https://sandbox-vendors.paddle.com/checkout-settings)):
+   - Set **Default payment link** to `http://localhost:3000/checkout`
+   - Approve `http://localhost:3000` under website approval if prompted
+2. Run `uv run python manage.py seed_data` (or configure manually in Django admin → Paddle settings):
+   - `default_payment_link`: `http://localhost:3000/checkout`
+   - `client_side_token`: your Paddle.js token (`test_…` in sandbox)
+   - Paddle API key + webhook secret for server-side calls
+3. Sync plan prices to Paddle from Django admin after changing trial periods.
+
+The frontend opens Paddle.js overlay checkout using `transactionId` from `POST /api/billing/change-plan/`. The `/checkout` page handles payment-link redirects (`?_ptxn=`) from Paddle emails and payment-method updates.
+

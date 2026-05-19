@@ -1,4 +1,5 @@
 import pytest
+from decimal import Decimal
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -256,6 +257,31 @@ class TestJWTAuthAPI:
     def test_complete_onboarding_records_attestations(self, api_client: APIClient):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
+        organization = Organization.objects.create(
+            name="Acme",
+            slug="acme-onboard-complete",
+            profile_setup_completed=True,
+        )
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        plan, _ = Plan.objects.get_or_create(
+            code="starter",
+            defaults={
+                "name": "Starter",
+                "base_price": Decimal("19.00"),
+                "currency": "USD",
+                "region": "US",
+                "features": [],
+            },
+        )
+        Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            status=Subscription.Status.ACTIVE,
+            currency="USD",
+            amount=Decimal("19.00"),
+        )
         login_response = api_client.post(
             reverse("api-auth-login"),
             {"email": user.email, "password": password},
@@ -277,6 +303,33 @@ class TestJWTAuthAPI:
         assert response.status_code == status.HTTP_200_OK
         assert user.onboarding_completed is True
         assert UserLegalAttestation.objects.filter(user=user, context="onboarding").count() == 3
+
+    def test_complete_onboarding_requires_company_and_plan(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(name="Acme", slug="acme-onboard-guard")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.post(
+            reverse("api-onboarding-complete"),
+            {
+                "voiceDataConsent": True,
+                "aiReviewAcknowledged": True,
+                "recordVerificationAcknowledged": True,
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Company profile" in response.data["detail"]
 
     def test_complete_onboarding_requires_all_acknowledgements(self, api_client: APIClient):
         password = "T3stPassword!123"
@@ -350,9 +403,85 @@ class TestJWTAuthAPI:
         response = api_client.get(reverse("api-onboarding-steps"))
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data[0]["completed"] is True
-        assert response.data[1]["completed"] is True
-        assert response.data[2]["completed"] is False
+        assert response.data[0]["id"] == "company-setup"
+        assert response.data[0]["required"] is True
+        assert response.data[0]["completed"] is False
+        assert response.data[1]["id"] == "choose-plan"
+        assert response.data[1]["required"] is True
+        assert response.data[1]["completed"] is False
+        assert response.data[2]["id"] == "connect-whatsapp"
+        assert response.data[2]["completed"] is True
+        assert response.data[3]["id"] == "first-voice-note"
+        assert response.data[3]["completed"] is True
+
+    def test_onboarding_company_setup_completes_after_settings_patch(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password, email="owner@example.com")
+        organization = Organization.objects.create(name="Acme", slug="acme-onboard-settings")
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        api_client.patch(
+            reverse("api-settings-profile"),
+            {
+                "company": "Talk2Record",
+                "contactEmail": "owner@example.com",
+                "timezone": "UTC",
+                "defaultLanguage": "English",
+                "defaultCurrency": "USD",
+            },
+            format="json",
+        )
+
+        response = api_client.get(reverse("api-onboarding-steps"))
+        company_step = next(row for row in response.data if row["id"] == "company-setup")
+        assert company_step["completed"] is True
+
+    def test_onboarding_choose_plan_completes_with_subscription(self, api_client: APIClient):
+        password = "T3stPassword!123"
+        user = UserFactory.create(password=password)
+        organization = Organization.objects.create(
+            name="Acme",
+            slug="acme-onboard-plan",
+            profile_setup_completed=True,
+        )
+        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        user.current_organization = organization
+        user.save(update_fields=["current_organization"])
+        plan, _ = Plan.objects.get_or_create(
+            code="growth",
+            defaults={
+                "name": "Growth",
+                "base_price": Decimal("49.00"),
+                "currency": "USD",
+                "region": "US",
+                "features": [],
+            },
+        )
+        Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            status=Subscription.Status.TRIALING,
+            currency="USD",
+            amount=Decimal("49.00"),
+        )
+        login_response = api_client.post(
+            reverse("api-auth-login"),
+            {"email": user.email, "password": password},
+            format="json",
+        )
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+        response = api_client.get(reverse("api-onboarding-steps"))
+        plan_step = next(row for row in response.data if row["id"] == "choose-plan")
+        assert plan_step["completed"] is True
 
     def test_settings_profile_get_and_patch(self, api_client: APIClient):
         password = "T3stPassword!123"

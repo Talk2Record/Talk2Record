@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 
 from talk2record.legal.models import UserLegalAttestation
 from talk2record.legal.services import LegalAcceptanceService
+from talk2record.users.onboarding import has_active_subscription
+from talk2record.users.onboarding import is_company_setup_complete
 from talk2record.users.serializers import CompleteOnboardingSerializer
 from talk2record.users.serializers import UserSerializer
 
@@ -12,6 +14,19 @@ class CompleteOnboardingView(APIView):
     def post(self, request):
         serializer = CompleteOnboardingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        organization = request.user.current_organization
+        if not is_company_setup_complete(organization):
+            return Response(
+                {"detail": "Company profile must be saved before completing onboarding."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not has_active_subscription(organization):
+            return Response(
+                {"detail": "A subscription plan must be selected before completing onboarding."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         for kind in [
             UserLegalAttestation.Kind.VOICE_DATA_CONSENT,
             UserLegalAttestation.Kind.AI_OUTPUT_REVIEW,

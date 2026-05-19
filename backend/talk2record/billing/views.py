@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,6 +18,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from talk2record.audit.services import AuditService
 from talk2record.billing.entitlements import EntitlementService
+from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Plan
 from talk2record.billing.models import PlanPrice
 from talk2record.billing.models import Subscription
@@ -24,7 +26,9 @@ from talk2record.billing.models import Transaction
 from talk2record.billing.paddle_client import PaddleAPIError
 from talk2record.billing.paddle_client import PaddleClient
 from talk2record.billing.paddle_service import PaddleBillingService
+from talk2record.billing.paddle_service import format_paddle_checkout_error
 from talk2record.billing.serializers import BillingCheckoutSerializer
+from talk2record.billing.serializers import PlanCatalogSerializer
 from talk2record.billing.serializers import SubscriptionSerializer
 from talk2record.events import DomainEvent
 from talk2record.events.bus import EventBus
@@ -74,6 +78,7 @@ class BillingActionViewSet(GenericViewSet):
                         "voiceNotesProcessed": 0,
                         "includedVoiceNotes": 0,
                         "renewalDate": timezone.now(),
+                        "planCode": None,
                     },
                     "invoices": [],
                 },
@@ -101,6 +106,7 @@ class BillingActionViewSet(GenericViewSet):
                         "voiceNotesProcessed": ai_usage_count,
                         "includedVoiceNotes": ai_usage_limit,
                         "renewalDate": timezone.now(),
+                        "planCode": None,
                     },
                     "invoices": [],
                 },
@@ -128,6 +134,7 @@ class BillingActionViewSet(GenericViewSet):
                     "voiceNotesProcessed": ai_usage_count or record_count,
                     "includedVoiceNotes": ai_usage_limit,
                     "renewalDate": subscription.current_period_end or timezone.now(),
+                    "planCode": subscription.plan.code,
                 },
                 "invoices": invoices,
             },
@@ -184,12 +191,14 @@ class BillingActionViewSet(GenericViewSet):
             )
         try:
             session = service.create_checkout(
-                organization=membership.organization, plan=plan,
+                organization=membership.organization,
+                plan=plan,
+                success_url=(serializer.validated_data.get("successUrl") or "").strip() or None,
             )
         except PaddleAPIError as exc:
             logger.warning("Paddle checkout failed: %s", exc)
             return Response(
-                {"detail": str(exc)},
+                {"detail": format_paddle_checkout_error(exc)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -217,9 +226,183 @@ class BillingActionViewSet(GenericViewSet):
             metadata={"provider": "paddle", "plan": plan.code},
         )
         return Response(
-            {"status": session.status, "checkoutUrl": session.checkout_url},
+            {
+                "status": session.status,
+                "checkoutUrl": session.checkout_url,
+                "transactionId": session.transaction_id,
+            },
             status=status.HTTP_200_OK,
         )
+
+
+    def _organization_for_user(self, user):
+        membership = user.memberships.select_related("organization").first()
+        return user.current_organization or (membership.organization if membership else None)
+
+    @staticmethod
+    def _resolve_plan_code(requested: str) -> Plan | None:
+        requested = requested.strip()
+        return Plan.objects.filter(
+            Q(code__iexact=requested) | Q(name__iexact=requested),
+        ).first()
+
+    @staticmethod
+    def _changeable_subscription(organization) -> Subscription | None:
+        if organization is None:
+            return None
+        return (
+            Subscription.objects.filter(
+                organization=organization,
+                provider_subscription_id__gt="",
+                status__in=[
+                    Subscription.Status.ACTIVE,
+                    Subscription.Status.TRIALING,
+                    Subscription.Status.PAST_DUE,
+                ],
+            )
+            .select_related("plan")
+            .first()
+        )
+
+    def _record_billing_legal(self, request, *, plan: Plan, context: str) -> None:
+        LegalAcceptanceService.accept_documents(
+            user=request.user,
+            document_keys=[LegalDocumentVersion.DocumentKey.BILLING_POLICY],
+            source=UserLegalAcceptance.Source.FEATURE_GATE,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        LegalAcceptanceService.record_attestation(
+            user=request.user,
+            kind=UserLegalAttestation.Kind.BILLING_AUTORENEWAL,
+            context=context,
+            metadata={"plan": plan.code},
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+
+    @action(detail=False, methods=["get"], url_path="plans", permission_classes=[AllowAny])
+    def plans(self, request):
+        queryset = (
+            Plan.objects.filter(is_active=True)
+            .prefetch_related("prices", "entitlements")
+            .order_by("base_price")
+        )
+        currency = (request.query_params.get("currency") or "").strip().upper()
+        if currency:
+            queryset = queryset.filter(currency__iexact=currency)
+        plans = list(queryset)
+        highlighted_code = plans[len(plans) // 2].code if plans else None
+        serializer = PlanCatalogSerializer(
+            plans,
+            many=True,
+            context={"highlighted_code": highlighted_code},
+        )
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="change-plan")
+    def change_plan(self, request):
+        serializer = BillingCheckoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not serializer.validated_data["acceptedBillingTerms"]:
+            return Response(
+                {"detail": "Billing terms must be accepted before checkout."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        membership = request.user.memberships.select_related("organization").first()
+        if membership is None:
+            return Response(
+                {"detail": "Organization membership required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        plan = self._resolve_plan_code(serializer.validated_data["plan"])
+        if plan is None:
+            return Response({"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        service = PaddleBillingService()
+        if not service.client.is_configured():
+            return Response(
+                {"detail": "Paddle billing is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        organization = membership.organization
+        subscription = self._changeable_subscription(organization)
+        if subscription is not None:
+            if subscription.plan_id == plan.pk:
+                return Response(
+                    {"detail": "Organization is already on this plan."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                result = service.change_plan(subscription=subscription, new_plan=plan)
+            except PaddleAPIError as exc:
+                logger.warning("Paddle plan change failed: %s", exc)
+                return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+            self._record_billing_legal(request, plan=plan, context="change_plan")
+            AuditService.log(
+                action="billing.plan.changed",
+                resource_type="plan",
+                resource_id=str(plan.pk),
+                actor=request.user,
+                organization=organization,
+                metadata={"provider": "paddle", "plan": plan.code},
+            )
+            return Response({"status": result.status, "plan": result.plan_code})
+
+        try:
+            session = service.create_checkout(
+                organization=organization,
+                plan=plan,
+                success_url=(serializer.validated_data.get("successUrl") or "").strip() or None,
+            )
+        except PaddleAPIError as exc:
+            logger.warning("Paddle checkout failed: %s", exc)
+            return Response(
+                {"detail": format_paddle_checkout_error(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        self._record_billing_legal(request, plan=plan, context="checkout")
+        AuditService.log(
+            action="billing.checkout.started",
+            resource_type="plan",
+            resource_id=str(plan.pk),
+            actor=request.user,
+            organization=organization,
+            metadata={"provider": "paddle", "plan": plan.code},
+        )
+        return Response(
+            {
+                "status": "checkout_required",
+                "plan": plan.code,
+                "checkoutUrl": session.checkout_url,
+                "transactionId": session.transaction_id,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="paddle-config")
+    def paddle_config(self, request):
+        settings = PaddleSettings.get_solo()
+        token = (settings.client_side_token or "").strip()
+        if not token:
+            return Response(
+                {
+                    "detail": (
+                        "Paddle client-side token is not configured. "
+                        "Add it in Django admin under Paddle settings."
+                    ),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(
+            {
+                "clientSideToken": token,
+                "environment": settings.environment,
+            },
+        )
+
 
 
 class BillingWebhookView(APIView):

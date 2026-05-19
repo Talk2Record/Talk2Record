@@ -210,6 +210,7 @@ class OnboardingStepSerializer(serializers.Serializer):
     title = serializers.CharField()
     description = serializers.CharField()
     completed = serializers.BooleanField()
+    required = serializers.BooleanField()
 
 
 class SettingsProfileSerializer(serializers.Serializer):
@@ -247,7 +248,16 @@ class SettingsProfileSerializer(serializers.Serializer):
         organization.name = validated_data["company"]
         organization.timezone = validated_data["timezone"]
         organization.default_currency = validated_data["defaultCurrency"]
-        organization.save(update_fields=["name", "timezone", "default_currency", "updated_at"])
+        organization.profile_setup_completed = True
+        organization.save(
+            update_fields=[
+                "name",
+                "timezone",
+                "default_currency",
+                "profile_setup_completed",
+                "updated_at",
+            ],
+        )
 
         user_update_fields: list[str] = []
         new_email = validated_data["contactEmail"]

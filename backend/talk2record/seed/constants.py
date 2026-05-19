@@ -18,6 +18,8 @@ SEED_NAMESPACE = "talk2record.seed"
 # Plans + Prices + Entitlements
 # ---------------------------------------------------------------------------
 
+TRIAL_14_DAYS = {"interval": "day", "frequency": 14}
+
 PLAN_DEFINITIONS: tuple[dict, ...] = (
     {
         "code": "starter",
@@ -36,6 +38,7 @@ PLAN_DEFINITIONS: tuple[dict, ...] = (
                 "amount": Decimal("19.00"),
                 "currency": "USD",
                 "billing_cycle": {"interval": "month", "frequency": 1},
+                "trial_period": TRIAL_14_DAYS,
             },
             {
                 "interval": "year",
@@ -96,6 +99,7 @@ PLAN_DEFINITIONS: tuple[dict, ...] = (
                 "amount": Decimal("49.00"),
                 "currency": "USD",
                 "billing_cycle": {"interval": "month", "frequency": 1},
+                "trial_period": TRIAL_14_DAYS,
             },
             {
                 "interval": "year",

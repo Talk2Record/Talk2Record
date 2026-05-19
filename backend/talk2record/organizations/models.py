@@ -16,6 +16,7 @@ class Organization(models.Model):
     region = models.CharField(max_length=64, blank=True)
     timezone = models.CharField(max_length=64, default="UTC")
     default_currency = models.CharField(max_length=8, default="USD")
+    profile_setup_completed = models.BooleanField(default=False)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

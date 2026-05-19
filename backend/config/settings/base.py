@@ -7,6 +7,8 @@ from pathlib import Path
 
 import environ
 
+from corsheaders.defaults import default_headers
+
 from .unfold import UNFOLD
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -396,6 +398,10 @@ REST_FRAMEWORK = {
 CORS_URLS_REGEX = r"^/api/.*$"
 CORS_ALLOWED_ORIGINS = list_env("DJANGO_CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = env.bool("DJANGO_CORS_ALLOW_CREDENTIALS", default=False)
+CORS_ALLOW_HEADERS = (
+    *default_headers,
+    "x-org-id",
+)
 CSRF_TRUSTED_ORIGINS = list_env("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 SIMPLE_JWT = {

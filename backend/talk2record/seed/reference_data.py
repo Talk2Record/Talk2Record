@@ -86,6 +86,7 @@ def _sync_plans(summary) -> dict[str, Plan]:
                 defaults={
                     "amount": price["amount"],
                     "billing_cycle": dict(price.get("billing_cycle") or {}),
+                    "trial_period": dict(price.get("trial_period") or {}),
                     "active": price.get("active", True),
                 },
             )
@@ -147,11 +148,33 @@ def _sync_integrations(summary) -> None:
                 create_defaults={
                     "enabled": True,
                     "environment": PaddleSettings.Environment.SANDBOX,
+                    "default_payment_link": "http://localhost:3000/checkout",
+                    "default_success_url": (
+                        "http://localhost:3000/dashboard/billing?checkout=success"
+                    ),
+                    "client_side_token": "test_682f6606c513770393dc78e0b1a",
                     "config": config,
                     "encrypted_api_key": "",
                     "encrypted_webhook_secret": "",
                 },
             )
+            paddle = PaddleSettings.objects.get(pk=1)
+            paddle_updates: list[str] = []
+            if not paddle.default_payment_link:
+                paddle.default_payment_link = "http://localhost:3000/checkout"
+                paddle_updates.append("default_payment_link")
+            if not paddle.default_success_url:
+                paddle.default_success_url = (
+                    "http://localhost:3000/dashboard/billing?checkout=success"
+                )
+                paddle_updates.append("default_success_url")
+            if not paddle.client_side_token:
+                paddle.client_side_token = "test_682f6606c513770393dc78e0b1a"
+                paddle_updates.append("client_side_token")
+            if paddle_updates:
+                paddle_updates.append("updated_at")
+                paddle.save(update_fields=paddle_updates)
+                summary.bump("integration_singletons", updated=True)
 
         elif slug == "ai":
             obj, created = AISettings.objects.get_or_create(

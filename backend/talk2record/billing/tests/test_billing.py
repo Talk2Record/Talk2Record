@@ -193,3 +193,261 @@ def test_billing_webhook_view_emits_subscription_created_event(settings, subscri
 
     assert response.status_code == 202
     assert BILLING_SUBSCRIPTION_CREATED in published
+
+
+@pytest.mark.django_db
+def test_plans_catalog_is_public(client):
+    from talk2record.billing.models import Plan
+    from talk2record.seed.constants import PLAN_DEFINITIONS
+
+    for definition in PLAN_DEFINITIONS:
+        Plan.objects.update_or_create(
+            code=definition["code"],
+            defaults={
+                "name": definition["name"],
+                "base_price": definition["base_price"],
+                "currency": definition["currency"],
+                "region": definition.get("region", ""),
+                "features": list(definition.get("features", [])),
+                "is_active": True,
+            },
+        )
+
+    response = client.get(reverse("api:billing-plans"))
+    assert response.status_code == HTTPStatus.OK
+    codes = {row["code"] for row in response.json()}
+    assert "starter" in codes
+    assert "growth" in codes
+    assert "scale" in codes
+    growth = next(row for row in response.json() if row["code"] == "growth")
+    assert growth["monthly_amount"] is not None
+    assert "entitlements" in growth
+
+
+@pytest.mark.django_db
+def test_change_plan_updates_subscription(workspace_user, subscription, plan):
+    from decimal import Decimal
+
+    from talk2record.billing.models import Plan
+    from talk2record.billing.models import PlanPrice
+
+    starter, _ = Plan.objects.get_or_create(
+        code="starter",
+        defaults={
+            "name": "Starter",
+            "base_price": Decimal("19.00"),
+            "currency": "USD",
+            "region": "US",
+            "features": [],
+        },
+    )
+    PlanPrice.objects.update_or_create(
+        plan=starter,
+        interval="month",
+        currency="USD",
+        defaults={"amount": Decimal("19.00"), "active": True, "paddle_price_id": "pri_starter"},
+    )
+    PlanPrice.objects.update_or_create(
+        plan=plan,
+        interval="month",
+        currency="USD",
+        defaults={"amount": Decimal("49.00"), "active": True, "paddle_price_id": "pri_growth"},
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+
+    with patch("talk2record.billing.views.PaddleBillingService") as mock_service_cls:
+        mock_service = mock_service_cls.return_value
+        mock_service.client.is_configured.return_value = True
+        mock_service.change_plan.return_value = type(
+            "R",
+            (),
+            {"status": "updated", "plan_code": "starter"},
+        )()
+
+        response = client.post(
+            reverse("api:billing-change-plan"),
+            {"plan": "starter", "acceptedBillingTerms": True},
+            format="json",
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["status"] == "updated"
+    mock_service.change_plan.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_change_plan_same_plan_returns_400(workspace_user, subscription):
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+
+    with patch("talk2record.billing.views.PaddleBillingService") as mock_service_cls:
+        mock_service = mock_service_cls.return_value
+        mock_service.client.is_configured.return_value = True
+
+        response = client.post(
+            reverse("api:billing-change-plan"),
+            {"plan": subscription.plan.code, "acceptedBillingTerms": True},
+            format="json",
+        )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_change_plan_without_subscription_returns_checkout(workspace_user, organization, plan):
+    from talk2record.billing.models import PlanPrice
+
+    PlanPrice.objects.update_or_create(
+        plan=plan,
+        interval="month",
+        currency="USD",
+        defaults={"amount": plan.base_price, "active": True, "paddle_price_id": "pri_growth"},
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+
+    with patch("talk2record.billing.views.PaddleBillingService") as mock_service_cls:
+        mock_service = mock_service_cls.return_value
+        mock_service.client.is_configured.return_value = True
+        mock_service.create_checkout.return_value = type(
+            "S",
+            (),
+            {
+                "status": "created",
+                "checkout_url": "http://localhost:3000/checkout?_ptxn=txn_test",
+                "transaction_id": "txn_test",
+            },
+        )()
+
+        response = client.post(
+            reverse("api:billing-change-plan"),
+            {"plan": plan.code, "acceptedBillingTerms": True},
+            format="json",
+        )
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["status"] == "checkout_required"
+    assert body["checkoutUrl"].startswith("http://")
+    assert body["transactionId"] == "txn_test"
+
+
+@pytest.mark.django_db
+def test_create_checkout_does_not_send_success_url_as_checkout_url(organization, plan):
+    from talk2record.billing.models import PlanPrice
+    from talk2record.billing.paddle_service import PaddleBillingService
+
+    PlanPrice.objects.update_or_create(
+        plan=plan,
+        interval="month",
+        currency="USD",
+        defaults={"amount": plan.base_price, "active": True, "paddle_price_id": "pri_growth"},
+    )
+
+    service = PaddleBillingService()
+    captured: dict = {}
+
+    def fake_create_transaction(payload):
+        captured["payload"] = payload
+        return {
+            "data": {
+                "id": "txn_abc",
+                "checkout": {"url": "http://localhost:3000/checkout?_ptxn=txn_abc"},
+            },
+        }
+
+    service.client.create_transaction = fake_create_transaction  # type: ignore[method-assign]
+    service.client._settings = lambda: type(  # type: ignore[method-assign]  # noqa: SLF001
+        "S",
+        (),
+        {
+            "default_success_url": "",
+            "default_payment_link": "http://localhost:3000/checkout",
+        },
+    )()
+
+    session = service.create_checkout(
+        organization=organization,
+        plan=plan,
+        success_url="http://localhost:3000/onboarding?checkout=success",
+    )
+
+    payload = captured["payload"]
+    assert payload["checkout"]["url"] == "http://localhost:3000/checkout"
+    assert payload["custom_data"]["success_url"] == "http://localhost:3000/onboarding?checkout=success"
+    assert session.transaction_id == "txn_abc"
+    assert session.checkout_url.endswith("?_ptxn=txn_abc")
+
+
+@pytest.mark.django_db
+def test_paddle_config_requires_client_side_token(workspace_user):
+    settings = PaddleSettings.get_solo()
+    settings.client_side_token = ""
+    settings.save(update_fields=["client_side_token", "updated_at"])
+
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+
+    response = client.get(reverse("api:billing-paddle-config"))
+    assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+
+
+@pytest.mark.django_db
+def test_paddle_config_returns_token(workspace_user):
+    settings = PaddleSettings.get_solo()
+    settings.client_side_token = "test_example_token"
+    settings.environment = PaddleSettings.Environment.SANDBOX
+    settings.save(update_fields=["client_side_token", "environment", "updated_at"])
+
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+
+    response = client.get(reverse("api:billing-paddle-config"))
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["clientSideToken"] == "test_example_token"
+    assert body["environment"] == "sandbox"
+
+
+@pytest.mark.django_db
+def test_plans_catalog_includes_trial_period(client):
+    from talk2record.billing.models import Plan
+    from talk2record.billing.models import PlanPrice
+    from talk2record.seed.constants import PLAN_DEFINITIONS
+
+    for definition in PLAN_DEFINITIONS:
+        plan, _ = Plan.objects.update_or_create(
+            code=definition["code"],
+            defaults={
+                "name": definition["name"],
+                "base_price": definition["base_price"],
+                "currency": definition["currency"],
+                "region": definition.get("region", ""),
+                "features": list(definition.get("features", [])),
+                "is_active": True,
+            },
+        )
+        for price in definition.get("prices", ()):
+            PlanPrice.objects.update_or_create(
+                plan=plan,
+                interval=price["interval"],
+                currency=price["currency"],
+                defaults={
+                    "amount": price["amount"],
+                    "billing_cycle": dict(price.get("billing_cycle") or {}),
+                    "trial_period": dict(price.get("trial_period") or {}),
+                    "active": True,
+                },
+            )
+
+    response = client.get(reverse("api:billing-plans"))
+    assert response.status_code == HTTPStatus.OK
+    starter = next(row for row in response.json() if row["code"] == "starter")
+    monthly = next(price for price in starter["prices"] if price["interval"] == "month")
+    assert monthly["trialPeriod"] == {"interval": "day", "frequency": 14}
+    scale = next(row for row in response.json() if row["code"] == "scale")
+    scale_monthly = next(price for price in scale["prices"] if price["interval"] == "month")
+    assert scale_monthly["trialPeriod"] is None

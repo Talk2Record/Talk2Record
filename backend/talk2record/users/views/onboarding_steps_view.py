@@ -1,10 +1,12 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from talk2record.records.models import Record
+from talk2record.users.onboarding import has_active_subscription
+from talk2record.users.onboarding import is_company_setup_complete
+from talk2record.users.serializers import OnboardingStepSerializer
 from talk2record.whatsapp.models import WhatsAppInboundRoute
 from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
-from talk2record.records.models import Record
-from talk2record.users.serializers import OnboardingStepSerializer
 
 
 class OnboardingStepsView(APIView):
@@ -23,22 +25,32 @@ class OnboardingStepsView(APIView):
 
         steps = [
             {
+                "id": "company-setup",
+                "title": "Set up company details",
+                "description": "Confirm your workspace name, timezone, and billing currency.",
+                "completed": is_company_setup_complete(organization),
+                "required": True,
+            },
+            {
+                "id": "choose-plan",
+                "title": "Choose a plan",
+                "description": "Pick a subscription plan to activate your workspace.",
+                "completed": has_active_subscription(organization),
+                "required": True,
+            },
+            {
                 "id": "connect-whatsapp",
                 "title": "Connect WhatsApp",
                 "description": "Bind your inbound business number to Talk2Record.",
                 "completed": has_whatsapp_connection,
+                "required": False,
             },
             {
                 "id": "first-voice-note",
                 "title": "Send first voice note",
                 "description": "Validate extraction on a real staff workflow.",
                 "completed": has_records,
-            },
-            {
-                "id": "company-setup",
-                "title": "Set up company details",
-                "description": "Choose locale, billing currency, and notification defaults.",
-                "completed": request.user.onboarding_completed,
+                "required": False,
             },
         ]
         serializer = OnboardingStepSerializer(steps, many=True)
