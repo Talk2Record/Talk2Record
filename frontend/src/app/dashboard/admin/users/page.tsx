@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { toast } from "@/shared/hooks/use-toast";
 import { adminUsersService } from "@/services/team-service";
+import { StaffGate } from "@/shared/components/role-gate";
+import { useImpersonationSession } from "@/shared/hooks/use-impersonation";
 import type { AdminUserRow } from "@/types/platform";
 
 function formatDt(value: string | null) {
@@ -25,7 +27,16 @@ function formatDt(value: string | null) {
 }
 
 export default function AdminUsersPage() {
+  return (
+    <StaffGate>
+      <AdminUsersPageInner />
+    </StaffGate>
+  );
+}
+
+function AdminUsersPageInner() {
   const queryClient = useQueryClient();
+  const { startImpersonation, active: activeImpersonation } = useImpersonationSession();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "suspended" | "inactive" | "">("");
 
@@ -61,19 +72,20 @@ export default function AdminUsersPage() {
     },
   });
 
-  const impersonateMutation = useMutation({
-    mutationFn: (id: number) => adminUsersService.impersonate(id),
-    onSuccess: (data) => {
-      toast({
-        title: `Impersonating ${data.user.email}`,
-        description: `Access token valid for ${Math.floor(data.expiresInSeconds / 60)} minutes.`,
-      });
-      void navigator.clipboard.writeText(data.access).catch(() => undefined);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Impersonate failed", description: error.message, variant: "destructive" });
-    },
-  });
+  /**
+   * Impersonation is intentionally not a React Query mutation — the
+   * `useImpersonationSession` hook orchestrates the whole flow (token swap,
+   * cache clear, redirect) and persists state so it survives reloads.
+   */
+  const [isStartingImpersonation, setIsStartingImpersonation] = useState(false);
+  const beginImpersonation = async (target: AdminUserRow) => {
+    setIsStartingImpersonation(true);
+    try {
+      await startImpersonation(target);
+    } finally {
+      setIsStartingImpersonation(false);
+    }
+  };
 
   const permissionDenied =
     usersQuery.isError &&
@@ -182,14 +194,16 @@ export default function AdminUsersPage() {
                         variant="outline"
                         size="sm"
                         className="rounded-xl"
-                        disabled={impersonateMutation.isPending || !user.is_active}
+                        disabled={
+                          isStartingImpersonation || !user.is_active || Boolean(activeImpersonation)
+                        }
                         onClick={() => {
                           if (
                             window.confirm(
-                              `Impersonate ${user.email}? An audit event will be recorded.`
+                              `Impersonate ${user.email}? Your session will swap for 15 minutes. An audit event will be recorded.`
                             )
                           ) {
-                            impersonateMutation.mutate(user.id);
+                            void beginImpersonation(user);
                           }
                         }}
                       >

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useAuthStore } from "@/store/auth-store";
+import { useImpersonationStore } from "@/store/impersonation-store";
 import type { AuthUser } from "@/types/platform";
 
 /**
@@ -35,15 +36,23 @@ export function useAuthStatus(options: UseAuthStatusOptions = {}): AuthStatus {
   const { isFetchingMe = false, hadAuthError = false } = options;
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const refreshToken = useAuthStore((state) => state.refreshToken);
+  const isImpersonating = useImpersonationStore((state) => Boolean(state.active));
 
   return useMemo<AuthStatus>(() => {
     if (!hasHydrated) return { kind: "booting" };
+    // Impersonation uses an access-only token (the backend issues no refresh
+    // for safety), so we accept "access token + user" as authenticated when
+    // an impersonation session is active. The banner takes over from there.
+    if (isImpersonating && accessToken && user) {
+      return { kind: "authenticated", user };
+    }
     if (!refreshToken) return { kind: "anonymous" };
     if (hadAuthError) return { kind: "expired" };
     if (!user) {
       return isFetchingMe ? { kind: "resuming" } : { kind: "anonymous" };
     }
     return { kind: "authenticated", user };
-  }, [hasHydrated, refreshToken, user, isFetchingMe, hadAuthError]);
+  }, [hasHydrated, isImpersonating, accessToken, refreshToken, user, isFetchingMe, hadAuthError]);
 }

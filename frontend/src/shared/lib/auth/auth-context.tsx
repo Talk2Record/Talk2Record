@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuthContext as AuthContextType } from "@/shared/lib/auth/types";
 import { authService } from "@/services/platform-service";
 import { useAuthStore } from "@/store/auth-store";
+import { useImpersonationStore } from "@/store/impersonation-store";
+import { useOrgStore } from "@/store/org-store";
 import { useAuthStatus } from "@/shared/hooks/use-auth-status";
 import { useSilentRefresh } from "@/shared/hooks/use-silent-refresh";
 import { trackEvent } from "@/lib/analytics";
@@ -155,6 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clearing local session keeps the client consistent even if the backend token is already expired.
     } finally {
       clearSession();
+      useOrgStore.getState().setActiveOrg(null);
+      useImpersonationStore.getState().setActive(null);
       queryClient.clear();
       setIsMutating(false);
     }

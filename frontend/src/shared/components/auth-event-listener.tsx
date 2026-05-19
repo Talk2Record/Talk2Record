@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AUTH_LOGOUT_EVENT } from "@/lib/api";
 import { attachCrossTabAuthSync, useAuthStore } from "@/store/auth-store";
+import { useImpersonationStore } from "@/store/impersonation-store";
+import { authService } from "@/services/platform-service";
 import { AUTH_ME_QUERY_KEY } from "@/shared/lib/auth/auth-context";
+import { toast } from "@/shared/hooks/use-toast";
 
 /**
  * Mounted once near the app root. Bridges three signals into the router:
@@ -24,9 +27,39 @@ export function AuthEventListener() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    function handleLogoutEvent(event: Event) {
+    async function handleLogoutEvent(event: Event) {
       const detail = (event as CustomEvent<{ reason?: string }>).detail;
       const reason = detail?.reason || "expired";
+
+      // If we logged out while impersonating, the impersonation token simply
+      // expired or was rejected. Restore the original session rather than
+      // bouncing the operator to /login.
+      const impersonation = useImpersonationStore.getState().active;
+      if (impersonation) {
+        useAuthStore.setState({
+          user: null,
+          accessToken: impersonation.original.accessToken,
+          refreshToken: impersonation.original.refreshToken,
+          accessExpiresAt: impersonation.original.accessExpiresAt,
+        });
+        useImpersonationStore.getState().setActive(null);
+        queryClient.clear();
+        toast({
+          title: "Impersonation ended",
+          description: `You're back as ${impersonation.original.email}.`,
+        });
+        try {
+          const me = await authService.getCurrentUser();
+          useAuthStore.getState().setUser(me);
+          queryClient.setQueryData(AUTH_ME_QUERY_KEY, me);
+        } catch {
+          // Fall through to the standard expired-session flow below.
+        }
+        if (useAuthStore.getState().refreshToken) {
+          router.replace("/dashboard/admin/users");
+          return;
+        }
+      }
 
       queryClient.clear();
 
@@ -37,7 +70,10 @@ export function AuthEventListener() {
       }
     }
 
-    window.addEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
+    const onLogout = (event: Event) => {
+      void handleLogoutEvent(event);
+    };
+    window.addEventListener(AUTH_LOGOUT_EVENT, onLogout);
 
     const detachCrossTab = attachCrossTabAuthSync(() => {
       const { user, refreshToken } = useAuthStore.getState();
@@ -55,7 +91,7 @@ export function AuthEventListener() {
     });
 
     return () => {
-      window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
+      window.removeEventListener(AUTH_LOGOUT_EVENT, onLogout);
       detachCrossTab();
     };
   }, [router, queryClient]);

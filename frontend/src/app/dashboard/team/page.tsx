@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UsersRound } from "lucide-react";
@@ -11,6 +11,8 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { toast } from "@/shared/hooks/use-toast";
 import { teamService } from "@/services/team-service";
+import { RoleGate } from "@/shared/components/role-gate";
+import { useRole } from "@/shared/hooks/use-role";
 import type { InvitationRow, MembershipRow, OrgRole } from "@/types/platform";
 
 const ROLE_OPTIONS: { value: OrgRole; label: string; hint: string }[] = [
@@ -41,7 +43,21 @@ async function copy(text: string) {
 }
 
 export default function TeamPage() {
+  return (
+    <RoleGate
+      minimum="admin"
+      title="Team management is admin-only"
+      description="Only organization owners and admins can invite, remove, or change roles for teammates."
+    >
+      <TeamPageInner />
+    </RoleGate>
+  );
+}
+
+function TeamPageInner() {
   const queryClient = useQueryClient();
+  const { atLeast } = useRole();
+  const canManage = atLeast("admin");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<OrgRole>("operator");
   const [revealed, setRevealed] = useState<{ label: string; link: string } | null>(null);
@@ -117,9 +133,27 @@ export default function TeamPage() {
   };
 
   const members: MembershipRow[] = membersQuery.data ?? [];
-  const invitations: InvitationRow[] = (invitationsQuery.data ?? []).filter(
-    (row) => row.status === "pending"
-  );
+  /**
+   * `Date.now()` is read once at mount via `useState`'s initializer so the
+   * derived "days remaining" stays stable across renders (and so the React
+   * Compiler doesn't flag it as impure). The exact resolution is per-day,
+   * which is more than enough for an invite expiry hint.
+   */
+  const [renderedAt] = useState(() => Date.now());
+  const invitations: Array<InvitationRow & { remaining: number | null }> = useMemo(() => {
+    return (invitationsQuery.data ?? [])
+      .filter((row) => row.status === "pending")
+      .map((row) => {
+        let remaining: number | null = null;
+        if (row.expires_at) {
+          const target = new Date(row.expires_at).getTime();
+          if (Number.isFinite(target)) {
+            remaining = Math.ceil((target - renderedAt) / (24 * 60 * 60 * 1000));
+          }
+        }
+        return { ...row, remaining };
+      });
+  }, [invitationsQuery.data, renderedAt]);
 
   const permissionDenied =
     membersQuery.isError &&
@@ -232,37 +266,54 @@ export default function TeamPage() {
             <Card className="border-primary/10">
               <CardHeader>
                 <CardTitle>Pending invitations</CardTitle>
-                <CardDescription>Waiting to be accepted.</CardDescription>
+                <CardDescription>
+                  Waiting to be accepted. Invites expire automatically.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {invitations.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="flex flex-col justify-between gap-2 rounded-xl border p-3 sm:flex-row sm:items-center"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{inv.email}</p>
-                      <p className="text-muted-foreground text-xs">
-                        Role: {inv.role} · Expires {formatDt(inv.expires_at)}
-                        {inv.invitedByEmail ? ` · by ${inv.invitedByEmail}` : ""}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={revokeMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm("Revoke this invitation?")) {
-                          revokeMutation.mutate(inv.id);
-                        }
-                      }}
+                {invitations.map((inv) => {
+                  const remaining = inv.remaining;
+                  const expiringSoon = remaining !== null && remaining <= 2;
+                  return (
+                    <div
+                      key={inv.id}
+                      className="flex flex-col justify-between gap-2 rounded-xl border p-3 sm:flex-row sm:items-center"
                     >
-                      Revoke
-                    </Button>
-                  </div>
-                ))}
+                      <div>
+                        <p className="text-sm font-medium">{inv.email}</p>
+                        <p className="text-muted-foreground text-xs">
+                          Role: {inv.role} · Expires {formatDt(inv.expires_at)}
+                          {remaining !== null && remaining >= 0 ? (
+                            <span
+                              className={
+                                expiringSoon ? "ml-1 text-amber-600 dark:text-amber-400" : "ml-1"
+                              }
+                            >
+                              ({remaining} day{remaining === 1 ? "" : "s"} left)
+                            </span>
+                          ) : null}
+                          {inv.invitedByEmail ? ` · by ${inv.invitedByEmail}` : ""}
+                        </p>
+                      </div>
+                      {canManage ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="rounded-xl"
+                          disabled={revokeMutation.isPending}
+                          onClick={() => {
+                            if (window.confirm("Revoke this invitation?")) {
+                              revokeMutation.mutate(inv.id);
+                            }
+                          }}
+                        >
+                          Revoke
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           ) : null}
@@ -293,8 +344,8 @@ export default function TeamPage() {
                           role: e.target.value as OrgRole,
                         })
                       }
-                      className="bg-background rounded-xl border px-2 py-1 text-xs"
-                      disabled={changeRoleMutation.isPending}
+                      className="bg-background rounded-xl border px-2 py-1 text-xs disabled:opacity-60"
+                      disabled={!canManage || changeRoleMutation.isPending}
                     >
                       {ROLE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -302,20 +353,22 @@ export default function TeamPage() {
                         </option>
                       ))}
                     </select>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={removeMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm(`Remove ${member.userEmail} from the team?`)) {
-                          removeMutation.mutate(member.id);
-                        }
-                      }}
-                    >
-                      Remove
-                    </Button>
+                    {canManage ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={removeMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Remove ${member.userEmail} from the team?`)) {
+                            removeMutation.mutate(member.id);
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               ))}

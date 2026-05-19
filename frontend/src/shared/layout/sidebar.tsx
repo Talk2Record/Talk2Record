@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   BarChart3,
   Cpu,
   CreditCard,
@@ -9,6 +10,7 @@ import {
   LogOut,
   Menu,
   Monitor,
+  Plug,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -21,6 +23,7 @@ import { CurrencySwitcher } from "@/shared/components/currency-switcher";
 import LanguageSwitcher from "@/shared/components/language-switcher";
 import Link from "next/link";
 import { Logo } from "@/shared/components/logo";
+import { OrgSwitcher } from "@/components/dashboard/org-switcher";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { cn } from "@/shared/lib/utils";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
@@ -73,9 +76,12 @@ const SidebarContent = ({
       </div>
     </div>
 
-    <div className="border-sidebar-border border-b px-5 py-4">
-      <p className="text-xs font-medium">{userEmail}</p>
-      <p className="text-sidebar-foreground/65 text-xs">Operations workspace</p>
+    <div className="border-sidebar-border space-y-3 border-b px-5 py-4">
+      <OrgSwitcher />
+      <div>
+        <p className="text-xs font-medium">{userEmail}</p>
+        <p className="text-sidebar-foreground/65 text-xs">Operations workspace</p>
+      </div>
     </div>
 
     <nav className="flex-1 space-y-1.5 px-4 py-5">
@@ -131,7 +137,9 @@ export const Sidebar = () => {
     { label: t("navigation.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     { label: t("navigation.records"), href: "/dashboard/records", icon: ScrollText },
     { label: t("navigation.analytics"), href: "/dashboard/analytics", icon: BarChart3 },
+    { label: "Usage", href: "/dashboard/usage", icon: Activity },
     { label: t("navigation.billing"), href: "/dashboard/billing", icon: CreditCard },
+    { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
     ...(isAdminRole ? [{ label: "Team", href: "/dashboard/team", icon: UsersRound }] : []),
     { label: t("navigation.settings"), href: "/dashboard/settings", icon: Settings },
     { label: t("navigation.apiKeys"), href: "/dashboard/settings/api-keys", icon: KeyRound },

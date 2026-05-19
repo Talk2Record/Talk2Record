@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/platform-service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import DashboardLoading from "@/app/dashboard/loading";
+import { OnboardingCard } from "@/components/dashboard/onboarding-card";
+import { UsageCard } from "@/components/billing/usage-card";
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
@@ -17,6 +19,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingCard />
+
       <div className="space-y-2">
         <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
           Executive overview
@@ -27,6 +31,8 @@ export default function DashboardPage() {
           business data.
         </p>
       </div>
+
+      <UsageCard />
 
       <div className="grid gap-4 lg:grid-cols-4">
         {data.metrics.map((metric) => (

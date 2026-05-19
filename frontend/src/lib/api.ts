@@ -5,6 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { useAuthStore } from "@/store/auth-store";
+import { getActiveOrgId } from "@/store/org-store";
 
 function normalizeApiBaseUrl(value?: string) {
   const baseUrl = (value || "http://localhost:8000").replace(/\/$/, "");
@@ -123,6 +124,15 @@ api.interceptors.request.use((config) => {
 
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  // Forward-compatible org context: today the backend resolves the active
+  // organization from the JWT `org_id` claim, but we attach `X-Org-Id` from
+  // the persisted selection so a header-driven switch lands without a UI
+  // change. Skip on the public refresh endpoint to keep the body minimal.
+  const orgId = getActiveOrgId();
+  if (orgId && !config.url?.includes("/auth/refresh/")) {
+    config.headers["X-Org-Id"] = String(orgId);
   }
 
   return config;

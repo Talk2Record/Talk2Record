@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { toast } from "@/shared/hooks/use-toast";
+import { RoleGate } from "@/shared/components/role-gate";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background " +
@@ -36,6 +37,18 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function AISettingsPage() {
+  return (
+    <RoleGate
+      minimum="admin"
+      title="AI configuration is admin-only"
+      description="Only organization owners and admins can connect AI providers or change task routing."
+    >
+      <AISettingsPageInner />
+    </RoleGate>
+  );
+}
+
+function AISettingsPageInner() {
   const queryClient = useQueryClient();
 
   const providersQuery = useQuery({
@@ -157,11 +170,11 @@ export default function AISettingsPage() {
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             <Cpu className="h-5 w-5" /> AI settings
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Connect AI providers and decide which one powers each task.
           </p>
         </div>
-        <Link href="/dashboard/settings" className="text-sm text-muted-foreground underline">
+        <Link href="/dashboard/settings" className="text-muted-foreground text-sm underline">
           Back to settings
         </Link>
       </div>
@@ -175,16 +188,13 @@ export default function AISettingsPage() {
         </CardHeader>
         <CardContent>
           {providersQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading providers…</p>
+            <p className="text-muted-foreground text-sm">Loading providers…</p>
           ) : (
             <div className="grid gap-2 md:grid-cols-2">
               {providers.map((provider) => (
-                <div
-                  key={provider.slug}
-                  className="rounded-md border p-3 text-sm"
-                >
+                <div key={provider.slug} className="rounded-md border p-3 text-sm">
                   <div className="font-medium">{provider.display_name}</div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-muted-foreground text-xs">
                     {provider.capabilities.join(", ") || "—"}
                   </div>
                 </div>
@@ -248,9 +258,7 @@ export default function AISettingsPage() {
                 onChange={(event) =>
                   setConfigForm((prev) => ({ ...prev, base_url: event.target.value }))
                 }
-                placeholder={
-                  providerBySlug.get(configForm.provider)?.default_base_url ?? ""
-                }
+                placeholder={providerBySlug.get(configForm.provider)?.default_base_url ?? ""}
               />
             </div>
             <div className="md:col-span-2">
@@ -270,9 +278,11 @@ export default function AISettingsPage() {
                 >
                   <div>
                     <div className="font-medium">
-                      {config.display_name || providerBySlug.get(config.provider)?.display_name || config.provider}
+                      {config.display_name ||
+                        providerBySlug.get(config.provider)?.display_name ||
+                        config.provider}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-muted-foreground text-xs">
                       {config.provider} · key {config.api_key_masked || "—"}
                     </div>
                   </div>
@@ -287,7 +297,7 @@ export default function AISettingsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No providers connected yet.</p>
+              <p className="text-muted-foreground text-sm">No providers connected yet.</p>
             )}
           </div>
         </CardContent>
@@ -296,9 +306,7 @@ export default function AISettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Task routing</CardTitle>
-          <CardDescription>
-            Decide which provider/model serves each AI task.
-          </CardDescription>
+          <CardDescription>Decide which provider/model serves each AI task.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={onSubmitBinding} className="grid gap-3 md:grid-cols-3">
@@ -380,7 +388,7 @@ export default function AISettingsPage() {
                     <div className="font-medium">
                       {TASK_OPTIONS.find((t) => t.value === binding.task)?.label ?? binding.task}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-muted-foreground text-xs">
                       {binding.provider}:{binding.model_id}
                     </div>
                   </div>
@@ -395,7 +403,7 @@ export default function AISettingsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 No task bindings yet — each task will fall back to platform defaults.
               </p>
             )}

@@ -6,9 +6,11 @@ import type {
   CreateOrganizationApiKeyInput,
   CreateOrganizationApiKeyResponse,
   DashboardOverview,
+  LegalAcceptanceStatus,
   OnboardingStep,
   OrganizationApiKeyAuditEvent,
   OrganizationApiKeyRow,
+  OrganizationSummary,
   SettingsProfile,
   SubscriptionRow,
 } from "@/types/platform";
@@ -155,6 +157,46 @@ export const settingsService = {
   async updateProfile(payload: SettingsProfile) {
     const response = await api.patch<SettingsProfile>("/settings/", payload);
     return mapSettingsProfile(response.data);
+  },
+};
+
+export const organizationsService = {
+  async list() {
+    const response = await api.get<OrganizationSummary[]>("/organizations/");
+    return response.data;
+  },
+};
+
+export const legalService = {
+  async getStatus() {
+    const response = await api.get<LegalAcceptanceStatus>("/legal/profile/status/");
+    return response.data;
+  },
+
+  async accept(payload: {
+    document_keys: string[];
+    source: "registration" | "settings" | "billing" | "onboarding";
+  }) {
+    const response = await api.post<LegalAcceptanceStatus>("/legal/profile/accept/", payload);
+    return response.data;
+  },
+};
+
+export interface WhatsAppAccount {
+  id: number;
+  phone_number_id: string;
+  display_number: string;
+  business_account_id: string;
+  status: string;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const whatsappService = {
+  async listAccounts() {
+    const response = await api.get<WhatsAppAccount[]>("/whatsapp/accounts/");
+    return response.data;
   },
 };
 

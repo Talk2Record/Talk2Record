@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { toast } from "@/shared/hooks/use-toast";
+import { RoleGate } from "@/shared/components/role-gate";
 
 const SCOPE_PRESET_OPTIONS: {
   value: OrganizationApiKeyScopePreset;
@@ -66,6 +67,18 @@ function isPermissionDeniedApiError(error: unknown): boolean {
 }
 
 export default function OrganizationApiKeysPage() {
+  return (
+    <RoleGate
+      minimum="admin"
+      title="API key management is admin-only"
+      description="Only organization owners and admins can create, rotate, or revoke API keys."
+    >
+      <OrganizationApiKeysPageInner />
+    </RoleGate>
+  );
+}
+
+function OrganizationApiKeysPageInner() {
   const queryClient = useQueryClient();
   const [includeInactive, setIncludeInactive] = useState(false);
   const [name, setName] = useState("");
