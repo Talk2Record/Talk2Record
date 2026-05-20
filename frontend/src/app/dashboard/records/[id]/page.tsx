@@ -1,9 +1,10 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, ExternalLink } from "lucide-react";
-import { useRecord } from "@/shared/hooks/use-record";
+import { ArrowLeft, Copy, ExternalLink, Loader2, RotateCcw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRecord, recordDetailQueryKey } from "@/shared/hooks/use-record";
 import { RecordPipelineStepper } from "@/components/records/record-pipeline-stepper";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
 import { Button } from "@/shared/ui/button";
@@ -11,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { formatCurrency, formatDate } from "@/lib/format";
 import RecordDetailLoading from "@/app/dashboard/records/[id]/loading";
 import { toast } from "@/shared/hooks/use-toast";
+import { recordsService } from "@/services/platform-service";
+import { notifyApiError } from "@/shared/lib/notify-api-error";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,8 +21,10 @@ interface PageProps {
 
 export default function RecordDetailPage({ params }: PageProps) {
   const { id } = use(params);
+  const queryClient = useQueryClient();
   const recordQuery = useRecord(id);
   const record = recordQuery.data;
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   if (recordQuery.isLoading || !record) {
     if (recordQuery.isError) {
@@ -29,6 +34,22 @@ export default function RecordDetailPage({ params }: PageProps) {
   }
 
   const isFailed = record.status === "failed" || record.status === "dead_letter";
+
+  async function handleReprocess() {
+    setIsReprocessing(true);
+    try {
+      await recordsService.reprocess(record.id);
+      toast({
+        title: "Reprocessing started",
+        description: "The voice note pipeline is running again. This page will update automatically.",
+      });
+      void queryClient.invalidateQueries({ queryKey: recordDetailQueryKey(record.id) });
+    } catch (error) {
+      notifyApiError(error, { title: "Could not reprocess record" });
+    } finally {
+      setIsReprocessing(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -97,9 +118,26 @@ export default function RecordDetailPage({ params }: PageProps) {
               ) : null}
             </div>
             <p className="text-muted-foreground text-sm">
-              Retries are managed automatically by the platform. If this record needs to be
-              reprocessed manually, contact support and share the record ID.
+              You can retry processing without uploading the audio again.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleReprocess()}
+              disabled={isReprocessing}
+            >
+              {isReprocessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Retrying…
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Retry processing
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       ) : null}

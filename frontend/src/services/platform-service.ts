@@ -104,9 +104,15 @@ export const recordsService = {
     return mapRecord(response.data);
   },
 
+  async reprocess(id: string) {
+    const response = await api.post<Parameters<typeof mapRecord>[0]>(`/records/${id}/reprocess/`);
+    return mapRecord(response.data);
+  },
+
   async uploadVoice(audio: Blob, filename = "recording.webm") {
     const formData = new FormData();
-    formData.append("audio", audio, filename);
+    const resolvedFilename = audio instanceof File ? audio.name : filename;
+    formData.append("audio", audio, resolvedFilename);
     const response = await api.post<{ id: number }>("/records/upload-voice/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });

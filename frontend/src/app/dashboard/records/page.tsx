@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Mic, ScrollText } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { useRecords } from "@/shared/hooks/use-records";
+import { useRecords, RECORDS_QUERY_KEY } from "@/shared/hooks/use-records";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/components/empty-state";
 import RecordsLoading from "@/app/dashboard/records/loading";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
+import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
 import type { RecordStatus } from "@/types/platform";
 
 const STATUS_FILTERS: Array<{ value: RecordStatus | "all"; label: string }> = [
@@ -19,9 +21,11 @@ const STATUS_FILTERS: Array<{ value: RecordStatus | "all"; label: string }> = [
   { value: "extracting", label: "Processing" },
   { value: "transcribing", label: "Processing" },
   { value: "failed", label: "Failed" },
+  { value: "dead_letter", label: "Dead letter" },
 ];
 
 export default function RecordsPage() {
+  const queryClient = useQueryClient();
   const { data = [], isLoading } = useRecords();
   const [customerFilter, setCustomerFilter] = useState("");
   const [productFilter, setProductFilter] = useState("");
@@ -31,8 +35,8 @@ export default function RecordsPage() {
     () =>
       data.filter((item) => {
         if (
-          !item.customer.toLowerCase().includes(customerFilter.toLowerCase()) ||
-          !item.product.toLowerCase().includes(productFilter.toLowerCase())
+          !(item.customer ?? "").toLowerCase().includes(customerFilter.toLowerCase()) ||
+          !(item.product ?? "").toLowerCase().includes(productFilter.toLowerCase())
         ) {
           return false;
         }
@@ -64,6 +68,24 @@ export default function RecordsPage() {
         </p>
       </div>
 
+      <Card className="border-primary/10">
+        <CardHeader>
+          <CardTitle>Add a voice note</CardTitle>
+          <CardDescription>
+            Record from your browser or upload an audio file. It will appear in the table once
+            processing starts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BrowserVoiceRecorder
+            className="space-y-3"
+            onUploaded={() => {
+              void queryClient.invalidateQueries({ queryKey: RECORDS_QUERY_KEY });
+            }}
+          />
+        </CardContent>
+      </Card>
+
       {!hasAnyRecords ? (
         <Card className="border-primary/10">
           <CardContent className="pt-6">
@@ -72,8 +94,8 @@ export default function RecordsPage() {
               title="No records yet"
               description={
                 <>
-                  Send a voice note to your connected WhatsApp number and it will land here
-                  transcribed, extracted, and ready for review.
+                  Record a voice note below, upload an audio file, or send one to your connected
+                  WhatsApp number.
                 </>
               }
               action={

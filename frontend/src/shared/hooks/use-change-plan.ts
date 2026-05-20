@@ -33,6 +33,12 @@ export async function handleChangePlanSuccess(
 
   if (needsCheckout && (response.transactionId || response.checkoutUrl)) {
     if (response.transactionId) {
+      // Close any parent dialog first — Radix modal overlays block Paddle iframe input.
+      options.onClose?.();
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 200);
+      });
+
       const opened = await openPaddleCheckout({
         transactionId: response.transactionId,
         successUrl: options.successUrl,

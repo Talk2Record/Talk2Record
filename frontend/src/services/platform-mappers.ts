@@ -41,22 +41,25 @@ interface BackendAuthUser {
 
 interface BackendRecordArtifact {
   id: number | string;
-  kind: string;
+  key: string;
+  kind?: string;
+  artifact_type?: string;
+  content?: Record<string, unknown>;
   url?: string | null;
   created_at?: string;
 }
 
 interface BackendRecord {
   id: number | string;
-  customer_name: string;
-  product: string;
-  quantity: number;
-  amount: number | string;
-  currency: RecordItem["currency"];
-  payment_method: string;
-  voice_transcript: string;
-  confidence_score: number | string;
   created_at: string;
+  customer_name?: string;
+  product?: string;
+  quantity?: number;
+  amount?: number | string;
+  currency?: RecordItem["currency"];
+  payment_method?: string;
+  voice_transcript?: string;
+  confidence_score?: number | string;
   status?: string;
   processing_error?: string | null;
   processing_error_step?: string | null;
@@ -119,24 +122,56 @@ export function mapAuthUser(user: BackendAuthUser): AuthUser {
 function mapArtifact(artifact: BackendRecordArtifact): RecordArtifact {
   return {
     id: artifact.id,
-    kind: artifact.kind,
+    kind: artifact.key || artifact.kind || "artifact",
     url: artifact.url ?? null,
     created_at: artifact.created_at ?? "",
   };
 }
 
+function artifactByKey(
+  artifacts: BackendRecordArtifact[],
+  key: string
+): BackendRecordArtifact | undefined {
+  return artifacts.find((artifact) => artifact.key === key);
+}
+
+function recordDisplayFields(record: BackendRecord) {
+  const artifacts = record.artifacts ?? [];
+  const extraction = artifactByKey(artifacts, "extraction")?.content ?? {};
+  const transcriptArtifact = artifactByKey(artifacts, "transcript")?.content ?? {};
+
+  const transcriptFromArtifact =
+    typeof transcriptArtifact.text === "string" ? transcriptArtifact.text : "";
+
+  return {
+    customer: record.customer_name ?? (String(extraction.customer_name ?? "") || "—"),
+    product: record.product ?? (String(extraction.product ?? "") || "—"),
+    quantity: record.quantity ?? (Number(extraction.quantity ?? 0) || 0),
+    amount: Number(record.amount ?? extraction.amount ?? 0) || 0,
+    currency: (record.currency ?? extraction.currency ?? "USD") as RecordItem["currency"],
+    paymentMethod:
+      record.payment_method ?? (String(extraction.payment_method ?? "") || "—"),
+    transcript:
+      record.voice_transcript ??
+      (String(extraction.voice_transcript ?? transcriptFromArtifact) || ""),
+    confidenceScore: Number(record.confidence_score ?? 0) || 0,
+  };
+}
+
 export function mapRecord(record: BackendRecord): RecordItem {
+  const display = recordDisplayFields(record);
+
   return {
     id: String(record.id),
     date: record.created_at,
-    customer: record.customer_name,
-    product: record.product,
-    quantity: record.quantity,
-    amount: Number(record.amount),
-    currency: record.currency,
-    paymentMethod: record.payment_method,
-    transcript: record.voice_transcript,
-    confidenceScore: Number(record.confidence_score),
+    customer: display.customer,
+    product: display.product,
+    quantity: display.quantity,
+    amount: display.amount,
+    currency: display.currency,
+    paymentMethod: display.paymentMethod,
+    transcript: display.transcript,
+    confidenceScore: display.confidenceScore,
     status: coerceStatus(record.status),
     processingError: record.processing_error ?? null,
     processingErrorStep: record.processing_error_step ?? null,
