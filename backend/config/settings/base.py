@@ -115,6 +115,7 @@ LOCAL_APPS = [
     "talk2record.usage",
     "talk2record.billing",
     "talk2record.notifications",
+    "talk2record.taxonomy",
     "talk2record.seed",
     # Your stuff: custom apps go here
 ]

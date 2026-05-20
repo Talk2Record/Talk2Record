@@ -8,8 +8,8 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
-from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
+from talk2record.taxonomy.services.orchestrator import ExtractionPipeline
 from talk2record.events import DomainEvent
 from talk2record.events import publish_after_commit
 from talk2record.events.names import AI_EXTRACTION_COMPLETED
@@ -57,7 +57,17 @@ class ProcessingStepRunner:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-        """Execute pipeline steps in order: download → transcribe → extract → store."""
+        """Execute the dynamic-extraction pipeline.
+
+        Steps, in order: download → transcribe → extract → store. The
+        ``extract`` step internally runs the taxonomy pipeline
+        (classification → dictionary normalization → schema-driven
+        extraction → validation) and writes a ``classification``,
+        ``normalization``, ``extraction`` and ``validation``
+        :class:`RecordArtifact` row plus the projection columns on
+        :class:`Record`.
+        """
+
         self._execute_with_retries("download_media")
         self._execute_with_retries("transcribe")
         self._execute_with_retries("extract")
@@ -156,11 +166,22 @@ class ProcessingStepRunner:
         )
 
     def _step_extract(self) -> None:
+        """Run the taxonomy-driven extraction pipeline.
+
+        Internally: classification → dictionary normalization →
+        schema-driven extraction → validation. Each sub-step writes a
+        dedicated :class:`RecordArtifact` and the final outcome is
+        projected onto :class:`Record` columns
+        (``detected_industries``, ``detected_categories``,
+        ``extracted_data``, ``validation_errors``, ``confidence_score``).
+        """
+
         record = self.record
         UsageTrackingService.enforce_monthly_usage_limit(record.organization)
 
         record.status = Record.Status.EXTRACTING
-        record.save(update_fields=["status", "updated_at"])
+        record.processing_step = "extract"
+        record.save(update_fields=["status", "processing_step", "updated_at"])
         self._append_state(Record.Status.EXTRACTING)
 
         publish_after_commit(
@@ -176,15 +197,35 @@ class ProcessingStepRunner:
 
         transcript = RecordProcessingService.get_transcript(record)
         started = monotonic()
-        result = ExtractionService.extract(
-            transcript=transcript,
-            organization=record.organization,
-        )
+        outcome = ExtractionPipeline.run(transcript)
         duration = monotonic() - started
 
-        RecordProcessingService.save_extraction_artifact(record, result)
-        record.status = Record.Status.EXTRACTED
+        # Persist each sub-stage to its own artifact for audit + replay.
+        RecordProcessingService.save_classification_artifact(record, outcome)
+        RecordProcessingService.save_normalization_artifact(record, outcome)
+        RecordProcessingService.save_dynamic_extraction_artifact(record, outcome)
+        RecordProcessingService.save_validation_artifact(record, outcome)
+        RecordProcessingService.apply_pipeline_outcome(record, outcome)
+
+        next_status = (
+            Record.Status.REVIEW
+            if outcome.needs_review
+            else Record.Status.EXTRACTED
+        )
+        record.status = next_status
         record.save(update_fields=["status", "updated_at"])
+
+        primary_provider = (
+            outcome.extractions[0].extraction.provider if outcome.extractions else ""
+        )
+        primary_model = (
+            outcome.extractions[0].extraction.model if outcome.extractions else ""
+        )
+        primary_prompt_version = (
+            outcome.extractions[0].extraction.prompt_version
+            if outcome.extractions
+            else ""
+        )
 
         publish_after_commit(
             DomainEvent(
@@ -194,26 +235,41 @@ class ProcessingStepRunner:
                 resource_type="record",
                 resource_id=str(record.pk),
                 metadata={
-                    "provider": result.provider,
+                    "provider": primary_provider,
                     "service_type": AIUsage.ServiceType.EXTRACTION,
                     "duration_seconds": duration,
-                    "model": result.model,
-                    "prompt_version": result.prompt_version,
+                    "model": primary_model,
+                    "prompt_version": primary_prompt_version,
+                    "confidence_score": outcome.confidence_score,
+                    "needs_review": outcome.needs_review,
+                    "categories": [
+                        f"{e.industry_slug}.{e.category_slug}"
+                        for e in outcome.extractions
+                    ],
                 },
             ),
         )
         self._append_state(
-            Record.Status.EXTRACTED,
+            next_status,
             {
-                "provider": result.provider,
-                "model": result.model,
-                "prompt_version": result.prompt_version,
+                "provider": primary_provider,
+                "model": primary_model,
+                "prompt_version": primary_prompt_version,
                 "duration_seconds": duration,
+                "confidence_score": outcome.confidence_score,
+                "needs_review": outcome.needs_review,
+                "validation_errors": outcome.validation_errors,
             },
         )
 
     def _step_store(self) -> None:
-        RecordProcessingService.store(self.record)
+        record = self.record
+        if record.status == Record.Status.REVIEW:
+            # Low confidence or schema-invalid records park in review and
+            # never auto-transition to STORED — operators must approve.
+            self._append_state(Record.Status.REVIEW)
+            return
+        RecordProcessingService.store(record)
         self._append_state(Record.Status.STORED)
 
     # ------------------------------------------------------------------

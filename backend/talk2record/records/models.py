@@ -58,6 +58,19 @@ class Record(models.Model):
     )
     audio_url = models.URLField(blank=True)
     media_id = models.CharField(max_length=255, blank=True)
+    # --- Dynamic extraction outputs (current best view; immutable history
+    # is kept on RecordArtifact rows for replay + audit). ---
+    detected_industries = models.JSONField(default=list, blank=True)
+    detected_categories = models.JSONField(default=list, blank=True)
+    extracted_data = models.JSONField(default=dict, blank=True)
+    validation_errors = models.JSONField(default=list, blank=True)
+    confidence_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=0,
+    )
+    processing_step = models.CharField(max_length=64, blank=True)
+    # --- Error tracking ---
     processing_error = models.TextField(blank=True)
     processing_error_step = models.CharField(max_length=32, blank=True)
     processing_retry_count = models.PositiveSmallIntegerField(default=0)

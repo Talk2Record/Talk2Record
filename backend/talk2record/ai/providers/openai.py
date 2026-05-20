@@ -6,27 +6,16 @@ from decimal import Decimal
 
 import requests
 
+from talk2record.ai.providers._legacy_prompts import (
+    LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT,
+)
 from talk2record.ai.providers.base import ExtractionResult
 from talk2record.ai.providers.base import TranscriptionResult
 
-EXTRACTION_SYSTEM_PROMPT = """\
-You are a data extraction assistant for a business sales recording system.
-Given a voice note transcript, extract structured fields and return ONLY valid JSON with no
-markdown, code fences, or explanation.
-
-Fields to extract:
-- customer_name: string (person or company placing the order; empty string if unknown)
-- product: string (item or service ordered; empty string if unclear)
-- quantity: integer (number of units; default 1 if not mentioned)
-- amount: decimal number (total amount paid or owed; 0 if not mentioned)
-- currency: 3-letter ISO code (e.g. USD, KES, GBP, NGN; default "USD")
-- payment_method: string (e.g. "cash", "mpesa", "card", "bank_transfer"; empty string if unknown)
-- voice_transcript: string (the original transcript verbatim)
-
-Return exactly this JSON shape with no extra keys:
-{"customer_name": "...", "product": "...", "quantity": 1, "amount": 0.00,
- "currency": "USD", "payment_method": "...", "voice_transcript": "..."}
-"""
+# Re-exported under the historical name so any external code importing the
+# old constant continues to work. New code should pass ``system_prompt`` to
+# ``extract()`` instead, resolved from a ``PromptTemplate`` row.
+EXTRACTION_SYSTEM_PROMPT = LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
 
 
 class OpenAITranscriptionProvider:
@@ -105,6 +94,8 @@ class OpenAIExtractionProvider:
         transcript: str,
         context: dict,
         prompt_version: str,
+        system_prompt: str = "",
+        user_prompt: str = "",
     ) -> ExtractionResult:
         import openai  # noqa: PLC0415
 
@@ -113,11 +104,14 @@ class OpenAIExtractionProvider:
             client_kwargs["base_url"] = self._base_url
         client = openai.OpenAI(**client_kwargs)
 
+        resolved_system = system_prompt or LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
+        resolved_user = user_prompt or f"Transcript:\n{transcript}"
+
         response = client.chat.completions.create(
             model=self.model_name,
             messages=[
-                {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-                {"role": "user", "content": f"Transcript:\n{transcript}"},
+                {"role": "system", "content": resolved_system},
+                {"role": "user", "content": resolved_user},
             ],
             response_format={"type": "json_object"},
             temperature=0,
@@ -129,22 +123,10 @@ class OpenAIExtractionProvider:
         except json.JSONDecodeError:
             data = {}
 
-        data["voice_transcript"] = transcript
-        data.setdefault("customer_name", str(context.get("customer_name") or ""))
-        data.setdefault("product", str(context.get("product") or ""))
-        data.setdefault("quantity", int(context.get("quantity") or 1))
-        data.setdefault("amount", float(context.get("amount") or 0.0))
-        data.setdefault("currency", str(context.get("currency") or "USD"))
-        data.setdefault("payment_method", str(context.get("payment_method") or ""))
-
-        try:
-            data["quantity"] = int(data["quantity"])
-        except (TypeError, ValueError):
-            data["quantity"] = 1
-        try:
-            data["amount"] = float(data["amount"])
-        except (TypeError, ValueError):
-            data["amount"] = 0.0
+        if not system_prompt:
+            # Legacy code-path: preserve the sales-flavored shape callers
+            # have always received from this provider.
+            data = _apply_legacy_sales_shape(data, transcript=transcript, context=context)
 
         return ExtractionResult(
             data=data,
@@ -153,3 +135,30 @@ class OpenAIExtractionProvider:
             prompt_version=prompt_version,
             confidence_score=Decimal("0.92"),
         )
+
+
+def _apply_legacy_sales_shape(data: dict, *, transcript: str, context: dict) -> dict:
+    """Legacy post-processing that pads missing sales fields with sensible defaults.
+
+    Only invoked when no taxonomy ``system_prompt`` is supplied — i.e. the
+    caller is still on the legacy :class:`ExtractionService` pathway.
+    """
+
+    data["voice_transcript"] = transcript
+    data.setdefault("customer_name", str(context.get("customer_name") or ""))
+    data.setdefault("product", str(context.get("product") or ""))
+    data.setdefault("quantity", int(context.get("quantity") or 1))
+    data.setdefault("amount", float(context.get("amount") or 0.0))
+    data.setdefault("currency", str(context.get("currency") or "USD"))
+    data.setdefault("payment_method", str(context.get("payment_method") or ""))
+
+    try:
+        data["quantity"] = int(data["quantity"])
+    except (TypeError, ValueError):
+        data["quantity"] = 1
+    try:
+        data["amount"] = float(data["amount"])
+    except (TypeError, ValueError):
+        data["amount"] = 0.0
+
+    return data

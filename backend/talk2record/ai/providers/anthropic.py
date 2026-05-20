@@ -4,8 +4,11 @@ import json
 import re
 from decimal import Decimal
 
+from talk2record.ai.providers._legacy_prompts import (
+    LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT,
+)
 from talk2record.ai.providers.base import ExtractionResult
-from talk2record.ai.providers.openai import EXTRACTION_SYSTEM_PROMPT
+from talk2record.ai.providers.openai import _apply_legacy_sales_shape
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -39,17 +42,22 @@ class AnthropicExtractionProvider:
         transcript: str,
         context: dict,
         prompt_version: str,
+        system_prompt: str = "",
+        user_prompt: str = "",
     ) -> ExtractionResult:
         import anthropic  # noqa: PLC0415 — lazy import to avoid hard dep at startup
 
         client = anthropic.Anthropic(api_key=self._api_key or None)
 
+        resolved_system = system_prompt or LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
+        resolved_user = user_prompt or f"Transcript:\n{transcript}"
+
         message = client.messages.create(
             model=self.model_name,
             max_tokens=1024,
-            system=EXTRACTION_SYSTEM_PROMPT,
+            system=resolved_system,
             messages=[
-                {"role": "user", "content": f"Transcript:\n{transcript}"},
+                {"role": "user", "content": resolved_user},
             ],
         )
 
@@ -61,22 +69,8 @@ class AnthropicExtractionProvider:
         except json.JSONDecodeError:
             data = {}
 
-        data["voice_transcript"] = transcript
-        data.setdefault("customer_name", str(context.get("customer_name") or ""))
-        data.setdefault("product", str(context.get("product") or ""))
-        data.setdefault("quantity", int(context.get("quantity") or 1))
-        data.setdefault("amount", float(context.get("amount") or 0.0))
-        data.setdefault("currency", str(context.get("currency") or "USD"))
-        data.setdefault("payment_method", str(context.get("payment_method") or ""))
-
-        try:
-            data["quantity"] = int(data["quantity"])
-        except (TypeError, ValueError):
-            data["quantity"] = 1
-        try:
-            data["amount"] = float(data["amount"])
-        except (TypeError, ValueError):
-            data["amount"] = 0.0
+        if not system_prompt:
+            data = _apply_legacy_sales_shape(data, transcript=transcript, context=context)
 
         return ExtractionResult(
             data=data,

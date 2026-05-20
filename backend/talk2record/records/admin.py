@@ -12,6 +12,7 @@ class RecordAdmin(ModelAdmin):
         "type",
         "status",
         "source_reference",
+        "confidence_score",
         "created_at",
     ]
     list_select_related = ("organization",)
@@ -21,6 +22,21 @@ class RecordAdmin(ModelAdmin):
         "media_id",
     ]
     list_filter = ["status", "source", "type"]
+    readonly_fields = [
+        "detected_industries",
+        "detected_categories",
+        "extracted_data",
+        "validation_errors",
+        "confidence_score",
+        "processing_step",
+        "processing_error",
+        "processing_error_step",
+        "processing_retry_count",
+        "last_failed_at",
+        "dead_lettered_at",
+        "created_at",
+        "updated_at",
+    ]
 
 
 @admin.register(RecordArtifact)

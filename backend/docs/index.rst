@@ -11,6 +11,7 @@ Welcome to Talk2Record's documentation!
    :caption: Contents:
 
    howto
+   extending-industries
    users
 
 

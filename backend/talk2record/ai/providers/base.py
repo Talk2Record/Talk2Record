@@ -48,5 +48,16 @@ class BaseExtractionProvider(Protocol):
         transcript: str,
         context: dict,
         prompt_version: str,
+        system_prompt: str = "",
+        user_prompt: str = "",
     ) -> ExtractionResult:
+        """Run extraction against the given transcript.
+
+        ``system_prompt`` and ``user_prompt`` are the resolved prompt bodies
+        from the taxonomy ``PromptResolver`` with all placeholders already
+        filled in. They are optional so legacy callers (the sales-flavored
+        :class:`ExtractionService`) keep working; in that case the provider
+        falls back to its built-in legacy prompt.
+        """
+
         raise NotImplementedError

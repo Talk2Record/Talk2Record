@@ -32,6 +32,18 @@ from talk2record.seed.constants import AI_PROVIDER_DEFINITIONS
 from talk2record.seed.constants import AI_TASK_BINDING_DEFINITIONS
 from talk2record.seed.constants import INTEGRATION_DEFINITIONS
 from talk2record.seed.constants import PLAN_DEFINITIONS
+from talk2record.seed.taxonomy_seed import CATEGORY_DEFINITIONS
+from talk2record.seed.taxonomy_seed import DICTIONARY_DEFINITIONS
+from talk2record.seed.taxonomy_seed import INDUSTRY_DEFINITIONS
+from talk2record.seed.taxonomy_seed import PROCESSING_RULE_DEFINITIONS
+from talk2record.seed.taxonomy_seed import PROMPT_DEFINITIONS
+from talk2record.seed.taxonomy_seed import SCHEMA_DEFINITIONS
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import DomainDictionary
+from talk2record.taxonomy.models import ExtractionSchema
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import PromptTemplate
 from talk2record.whatsapp.models import WhatsAppSettings
 
 
@@ -48,6 +60,7 @@ def sync_reference_data(summary) -> ReferenceData:
     _sync_ai_models(summary)
     _sync_ai_providers(summary)
     _sync_ai_task_bindings(summary)
+    _sync_taxonomy(summary)
     return ReferenceData(legal_versions=legal_versions, plans=plans)
 
 
@@ -292,3 +305,203 @@ def _sync_ai_task_bindings(summary) -> None:
         except Exception:  # noqa: BLE001 - validation failures are non-fatal here.
             continue
         summary.bump("ai_task_bindings", created=True)
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy (industries, categories, schemas, prompts, dictionary, rules)
+# ---------------------------------------------------------------------------
+
+
+def _sync_taxonomy(summary) -> None:
+    """Provision the dynamic extraction taxonomy.
+
+    Upsert policy:
+
+    * :class:`Industry` and :class:`Category`: ``update_or_create`` on slug —
+      the seed *is* the source of truth for the shipped name/description and
+      keeps admin tweaks to ``enabled``/``priority`` only.
+    * :class:`ExtractionSchema`: ``update_or_create`` on ``(category, name,
+      version)`` — bumping the version in code creates a new row; existing
+      versions are refreshed in place to match the shipped schema.
+    * :class:`PromptTemplate`: **create-if-missing only** on ``(industry,
+      category, purpose, version)`` so any prompt edit in admin survives
+      re-seeding. Bump the ``version`` in code to ship a new prompt.
+    * :class:`DomainDictionary` and :class:`ProcessingRule`: create-if-missing
+      on natural keys.
+    """
+
+    industries = _sync_industries(summary)
+    categories = _sync_categories(summary, industries)
+    _sync_schemas(summary, categories)
+    _sync_prompts(summary, industries, categories)
+    _sync_dictionary(summary, industries, categories)
+    _sync_processing_rules(summary, industries, categories)
+
+
+def _sync_industries(summary) -> dict[str, Industry]:
+    industries: dict[str, Industry] = {}
+    for definition in INDUSTRY_DEFINITIONS:
+        obj, created = Industry.objects.update_or_create(
+            slug=definition["slug"],
+            defaults={
+                "name": definition["name"],
+                "description": definition.get("description", ""),
+                "priority": definition.get("priority", 100),
+            },
+        )
+        summary.bump("industries", created=created, updated=not created)
+        industries[obj.slug] = obj
+    return industries
+
+
+def _sync_categories(summary, industries: dict[str, Industry]) -> dict[tuple[str, str], Category]:
+    categories: dict[tuple[str, str], Category] = {}
+    for definition in CATEGORY_DEFINITIONS:
+        industry = industries.get(definition["industry"])
+        if industry is None:
+            continue
+        obj, created = Category.objects.update_or_create(
+            industry=industry,
+            slug=definition["slug"],
+            defaults={
+                "name": definition["name"],
+                "description": definition.get("description", ""),
+                "priority": definition.get("priority", 100),
+            },
+        )
+        summary.bump("taxonomy_categories", created=created, updated=not created)
+        categories[(industry.slug, obj.slug)] = obj
+    return categories
+
+
+def _sync_schemas(summary, categories: dict[tuple[str, str], Category]) -> None:
+    for definition in SCHEMA_DEFINITIONS:
+        category = categories.get(definition["category"])
+        if category is None:
+            continue
+        is_default = definition.get("is_default", False)
+        defaults = {
+            "json_schema": dict(definition.get("json_schema") or {}),
+            "required_fields": list(definition.get("required_fields") or []),
+            "is_default": is_default,
+        }
+        # The unique constraint on (category, is_default=True) means we must
+        # clear any prior default before promoting a new schema. Only do this
+        # when we are about to set is_default=True on a different row.
+        if is_default:
+            ExtractionSchema.objects.filter(
+                category=category,
+                is_default=True,
+            ).exclude(name=definition["name"], version=definition["version"]).update(
+                is_default=False,
+            )
+
+        obj, created = ExtractionSchema.objects.update_or_create(
+            category=category,
+            name=definition["name"],
+            version=definition["version"],
+            defaults=defaults,
+        )
+        summary.bump("extraction_schemas", created=created, updated=not created)
+        del obj
+
+
+def _sync_prompts(
+    summary,
+    industries: dict[str, Industry],
+    categories: dict[tuple[str, str], Category],
+) -> None:
+    for definition in PROMPT_DEFINITIONS:
+        industry_slug = definition.get("industry")
+        category_slug = definition.get("category")
+        purpose = definition["purpose"]
+        version = definition["version"]
+
+        industry = industries.get(industry_slug) if industry_slug else None
+        category = None
+        if category_slug:
+            scope_industry_slug = industry_slug
+            if scope_industry_slug is None:
+                # category_slug without industry is ambiguous; skip silently.
+                continue
+            category = categories.get((scope_industry_slug, category_slug))
+            if category is None:
+                continue
+
+        exists = PromptTemplate.objects.filter(
+            industry=industry,
+            category=category,
+            purpose=purpose,
+            version=version,
+        ).exists()
+        if exists:
+            continue
+
+        PromptTemplate.objects.create(
+            industry=industry,
+            category=category,
+            purpose=purpose,
+            title=definition.get("title", ""),
+            version=version,
+            system_prompt=definition.get("system_prompt", ""),
+            user_prompt=definition.get("user_prompt", ""),
+            example_input=definition.get("example_input", ""),
+            example_output=definition.get("example_output", ""),
+            enabled=definition.get("enabled", True),
+        )
+        summary.bump("prompt_templates", created=True)
+
+
+def _sync_dictionary(
+    summary,
+    industries: dict[str, Industry],
+    categories: dict[tuple[str, str], Category],
+) -> None:
+    for definition in DICTIONARY_DEFINITIONS:
+        industry_slug = definition.get("industry")
+        category_slug = definition.get("category")
+        industry = industries.get(industry_slug) if industry_slug else None
+        category = None
+        if category_slug and industry_slug:
+            category = categories.get((industry_slug, category_slug))
+
+        _, created = DomainDictionary.objects.get_or_create(
+            industry=industry,
+            category=category,
+            term=definition["term"],
+            defaults={
+                "normalized_term": definition["normalized_term"],
+                "description": definition.get("description", ""),
+            },
+        )
+        summary.bump("dictionary_entries", created=created)
+
+
+def _sync_processing_rules(
+    summary,
+    industries: dict[str, Industry],
+    categories: dict[tuple[str, str], Category],
+) -> None:
+    for definition in PROCESSING_RULE_DEFINITIONS:
+        industry_slug = definition.get("industry")
+        category_slug = definition.get("category")
+        industry = industries.get(industry_slug) if industry_slug else None
+        if industry is None:
+            continue
+        category = None
+        if category_slug:
+            category = categories.get((industry_slug, category_slug))
+
+        # Natural identity for a rule is (industry, category, rule_type,
+        # priority) — repeated rule_type rows are allowed when their priority
+        # differs (e.g. keyword_match + regex_match for excavation).
+        _, created = ProcessingRule.objects.get_or_create(
+            industry=industry,
+            category=category,
+            rule_type=definition["rule_type"],
+            priority=definition.get("priority", 100),
+            defaults={
+                "rule_config": dict(definition.get("rule_config") or {}),
+            },
+        )
+        summary.bump("processing_rules", created=created)
