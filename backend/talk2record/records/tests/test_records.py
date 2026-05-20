@@ -8,6 +8,7 @@ import pytest
 from celery.result import EagerResult
 from django.db import transaction
 from django.urls import reverse
+from rest_framework.test import APIClient
 
 from talk2record.analytics.models import Event
 from talk2record.audit.models import AuditLog
@@ -164,3 +165,39 @@ def test_record_admin_page(admin_client, record):
     response = admin_client.get(reverse("admin:records_record_changelist"))
 
     assert response.status_code == HTTPStatus.OK
+
+
+@pytest.mark.django_db
+def test_reprocess_dead_letter_record(workspace_user, record):
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+    record.status = Record.Status.DEAD_LETTER
+    record.processing_error = "Invalid URL '/media/voice_notes/3/1.webm'"
+    record.processing_error_step = "transcribe"
+    record.processing_retry_count = 3
+    record.audio_url = "/media/voice_notes/3/1.webm"
+    record.save()
+
+    with patch("talk2record.records.views.process_whatsapp_record.delay") as mock_delay:
+        response = client.post(reverse("api:record-reprocess", kwargs={"pk": record.pk}))
+
+    assert response.status_code == HTTPStatus.ACCEPTED
+    mock_delay.assert_called_once()
+    args, kwargs = mock_delay.call_args
+    assert args[0] == record.pk
+    assert kwargs["force_reprocess"] is True
+
+    record.refresh_from_db()
+    assert record.processing_retry_count == 0
+
+
+@pytest.mark.django_db
+def test_reprocess_rejects_stored_record(workspace_user, record):
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+    record.status = Record.Status.STORED
+    record.save()
+
+    response = client.post(reverse("api:record-reprocess", kwargs={"pk": record.pk}))
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST

@@ -49,17 +49,19 @@ class OpenAITranscriptionProvider:
         self,
         *,
         audio_url: str,
+        audio_bytes: bytes | None = None,
         context_label: str = "",
     ) -> TranscriptionResult:
         import openai  # noqa: PLC0415 — lazy import to avoid hard dep at startup
 
-        if not audio_url:
-            msg = "audio_url is required for OpenAI Whisper transcription"
-            raise ValueError(msg)
+        if audio_bytes is None:
+            if not audio_url:
+                msg = "audio_url is required for OpenAI Whisper transcription"
+                raise ValueError(msg)
 
-        response = requests.get(audio_url, timeout=30)
-        response.raise_for_status()
-        audio_bytes = response.content
+            response = requests.get(audio_url, timeout=30)
+            response.raise_for_status()
+            audio_bytes = response.content
 
         audio_file = io.BytesIO(audio_bytes)
         audio_file.name = "audio.ogg"

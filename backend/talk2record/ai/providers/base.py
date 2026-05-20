@@ -32,6 +32,7 @@ class BaseTranscriptionProvider(Protocol):
         self,
         *,
         audio_url: str,
+        audio_bytes: bytes | None = None,
         context_label: str = "",
     ) -> TranscriptionResult:
         raise NotImplementedError

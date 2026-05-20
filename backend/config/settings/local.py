@@ -13,7 +13,15 @@ SECRET_KEY = env(
     default="Bel1AO2jaxMjn4SmdM5IZdMy8HdtiAXgIfWfIJfy23CHEe7P9sDIEw7qrhzj3foX",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]  # noqa: S104
+ALLOWED_HOSTS = [
+    "localhost",
+    "0.0.0.0",
+    "127.0.0.1",  # noqa: S104
+    # ngrok tunnels for local Paddle / WhatsApp webhook testing
+    ".ngrok-free.app",
+    ".ngrok.io",
+    *env.list("DJANGO_ALLOWED_HOSTS_EXTRA", default=[]),
+]
 
 # CACHES
 # ------------------------------------------------------------------------------

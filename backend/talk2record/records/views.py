@@ -37,6 +37,39 @@ class RecordViewSet(ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     @action(
+        detail=True,
+        methods=["post"],
+        url_path="reprocess",
+    )
+    def reprocess(self, request, pk=None):
+        record = self.get_object()
+        if record.status not in {Record.Status.FAILED, Record.Status.DEAD_LETTER}:
+            return Response(
+                {"detail": "Only failed or dead-letter records can be reprocessed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not record.audio_url:
+            return Response(
+                {"detail": "Record has no audio to reprocess."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        record.processing_retry_count = 0
+        record.save(update_fields=["processing_retry_count", "updated_at"])
+
+        request_id = str(uuid4())
+        event_id = str(uuid4())
+        process_whatsapp_record.delay(
+            record.pk,
+            force_reprocess=True,
+            request_id=request_id,
+            event_id=event_id,
+        )
+
+        serializer = RecordSerializer(record, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+    @action(
         detail=False,
         methods=["post"],
         url_path="upload-voice",

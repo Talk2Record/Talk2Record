@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from talk2record.ai.models import AITask
 from talk2record.ai.providers.mock import MockTranscriptionProvider
 from talk2record.ai.resolver import resolve
+from talk2record.records.audio import load_record_audio_bytes
 
 if TYPE_CHECKING:
     from talk2record.ai.providers.base import BaseTranscriptionProvider
@@ -29,8 +30,10 @@ class TranscriptionService:
     ) -> TranscriptionResult:
         provider = cls._provider()
         audio_url = resolved_audio_url or record.audio_url
+        audio_bytes = load_record_audio_bytes(audio_url=audio_url)
         context_label = record.source_reference or str(record.pk)
         return provider.transcribe(
             audio_url=audio_url,
+            audio_bytes=audio_bytes,
             context_label=context_label,
         )

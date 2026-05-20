@@ -14,6 +14,14 @@ from talk2record.ai.services.extraction import ExtractionService
 from talk2record.ai.services.transcription import TranscriptionService
 
 
+@pytest.fixture(autouse=True)
+def _mock_transcription_audio_loader(monkeypatch):
+    monkeypatch.setattr(
+        "talk2record.ai.services.transcription.load_record_audio_bytes",
+        lambda *, audio_url: b"test-audio-bytes",
+    )
+
+
 @pytest.mark.django_db
 def test_transcription_service_uses_mock_provider(record):
     result = TranscriptionService.transcribe(record)

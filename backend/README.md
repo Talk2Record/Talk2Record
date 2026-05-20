@@ -111,3 +111,5 @@ Checkout requires both Paddle dashboard configuration and Django admin settings:
 
 The frontend opens Paddle.js overlay checkout using `transactionId` from `POST /api/billing/change-plan/`. The `/checkout` page handles payment-link redirects (`?_ptxn=`) from Paddle emails and payment-method updates.
 
+For Paddle webhooks in local dev, expose the backend with `make ngrok` and point your sandbox notification URL at `https://<your-ngrok-host>/api/billing/webhooks/paddle/`. Local settings already allow `*.ngrok-free.app` and `*.ngrok.io` in `ALLOWED_HOSTS`.
+

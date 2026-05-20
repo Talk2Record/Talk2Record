@@ -14,6 +14,7 @@ class MockTranscriptionProvider:
         self,
         *,
         audio_url: str,
+        audio_bytes: bytes | None = None,
         context_label: str = "",
     ) -> TranscriptionResult:
         label = context_label or "unknown customer"

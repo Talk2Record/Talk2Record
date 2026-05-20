@@ -338,12 +338,14 @@ def process_whatsapp_record(
         record.status = Record.Status.RECEIVED
         record.processing_error = ""
         record.processing_error_step = ""
+        record.processing_retry_count = 0
         record.dead_lettered_at = None
         record.save(
             update_fields=[
                 "status",
                 "processing_error",
                 "processing_error_step",
+                "processing_retry_count",
                 "dead_lettered_at",
                 "updated_at",
             ],
