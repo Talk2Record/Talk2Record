@@ -7,16 +7,15 @@ import { BILLING_SNAPSHOT_QUERY_KEY } from "@/shared/hooks/use-usage";
 import { openPaddleCheckout } from "@/shared/hooks/use-paddle-checkout";
 import { notifyApiError } from "@/shared/lib/notify-api-error";
 import { toast } from "@/shared/hooks/use-toast";
-import type { ChangePlanResponse } from "@/types/platform";
+import type { BillingInterval, ChangePlanResponse } from "@/types/platform";
 
 export function useChangePlan() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (payload: {
       plan: string;
       acceptedBillingTerms: boolean;
       successUrl?: string;
+      interval?: BillingInterval;
     }) => billingService.changePlan(payload),
     onError: (error) => notifyApiError(error, { title: "Could not update plan" }),
   });

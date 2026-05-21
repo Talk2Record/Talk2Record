@@ -86,7 +86,10 @@ export default function HomePage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {proofPoints.map((item) => (
-              <div key={item.label} className="rounded-2xl border border-primary/10 bg-background/80 px-4 py-4 shadow-sm">
+              <div
+                key={item.label}
+                className="border-primary/10 bg-background/80 rounded-2xl border px-4 py-4 shadow-sm"
+              >
                 <p className="text-2xl font-semibold tracking-tight">{item.value}</p>
                 <p className="text-muted-foreground mt-1 text-sm">{item.label}</p>
               </div>
@@ -94,7 +97,10 @@ export default function HomePage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {benefits.map((item) => (
-              <div key={item} className="flex items-start gap-2 rounded-2xl border border-primary/10 bg-background/80 p-4">
+              <div
+                key={item}
+                className="border-primary/10 bg-background/80 flex items-start gap-2 rounded-2xl border p-4"
+              >
                 <CheckCircle2 className="text-primary mt-0.5 h-4 w-4 shrink-0" />
                 <span className="text-sm">{item}</span>
               </div>
@@ -107,51 +113,53 @@ export default function HomePage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle>{t("marketing.demo.title")}</CardTitle>
-                <CardDescription className="mt-2">{t("marketing.demo.description")}</CardDescription>
+                <CardDescription className="mt-2">
+                  {t("marketing.demo.description")}
+                </CardDescription>
               </div>
               <div className="bg-brand-gradient h-11 w-11 rounded-2xl opacity-90" />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-primary/10 bg-background/90 p-4">
-              <p className="text-xs uppercase text-muted-foreground">Incoming WhatsApp note</p>
+            <div className="border-primary/10 bg-background/90 rounded-2xl border p-4">
+              <p className="text-muted-foreground text-xs uppercase">Incoming WhatsApp note</p>
               <p className="mt-2 text-sm">
-                "Sold twelve cooking oil cartons to Kifaru Wholesalers. Cash on delivery.
-                Deliver before lunch."
+                "Sold twelve cooking oil cartons to Kifaru Wholesalers. Cash on delivery. Deliver
+                before lunch."
               </p>
             </div>
-            <div className="rounded-2xl border border-primary/10 bg-background/90 p-4">
-              <p className="text-xs uppercase text-muted-foreground">Structured record</p>
+            <div className="border-primary/10 bg-background/90 rounded-2xl border p-4">
+              <p className="text-muted-foreground text-xs uppercase">Structured record</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Customer</p>
+                  <p className="text-muted-foreground text-xs">Customer</p>
                   <p className="text-sm font-medium">Kifaru Wholesalers</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Product</p>
+                  <p className="text-muted-foreground text-xs">Product</p>
                   <p className="text-sm font-medium">Cooking Oil Carton</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Quantity</p>
+                  <p className="text-muted-foreground text-xs">Quantity</p>
                   <p className="text-sm font-medium">12</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Payment</p>
+                  <p className="text-muted-foreground text-xs">Payment</p>
                   <p className="text-sm font-medium">Cash on delivery</p>
                 </div>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">Accuracy</p>
+                <p className="text-muted-foreground text-xs">Accuracy</p>
                 <p className="text-xl font-semibold">96%</p>
               </div>
               <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">Review queue</p>
+                <p className="text-muted-foreground text-xs">Review queue</p>
                 <p className="text-xl font-semibold">26</p>
               </div>
               <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">Saved hours</p>
+                <p className="text-muted-foreground text-xs">Saved hours</p>
                 <p className="text-xl font-semibold">18/wk</p>
               </div>
             </div>
@@ -162,7 +170,7 @@ export default function HomePage() {
       <section className="space-y-6">
         <div className="space-y-2">
           <p className="text-primary text-sm font-medium">How it works</p>
-          <h2 className="max-w-2xl text-balance text-3xl">
+          <h2 className="max-w-2xl text-3xl text-balance">
             Minimal steps for teams that already run on voice
           </h2>
         </div>
@@ -201,26 +209,35 @@ export default function HomePage() {
               Teams across operations, distribution, and field sales use Talk2Record.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <CardContent className="text-muted-foreground space-y-4 text-sm">
             <p>
-              "We went from replaying hundreds of notes to approving structured records in one place."
+              "We went from replaying hundreds of notes to approving structured records in one
+              place."
             </p>
-            <p>"Regional managers finally see the same dashboard without waiting for manual entry."</p>
+            <p>
+              "Regional managers finally see the same dashboard without waiting for manual entry."
+            </p>
           </CardContent>
         </Card>
         <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>{t("marketing.faq.title")}</CardTitle>
-            <CardDescription>Common questions from teams moving off manual voice-note workflows.</CardDescription>
+            <CardDescription>
+              Common questions from teams moving off manual voice-note workflows.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div>
               <p className="font-medium">Does Talk2Record store API keys in the browser?</p>
-              <p className="text-muted-foreground">No. Integration secrets stay masked and are never persisted client-side.</p>
+              <p className="text-muted-foreground">
+                No. Integration secrets stay masked and are never persisted client-side.
+              </p>
             </div>
             <div>
               <p className="font-medium">Can we review low-confidence extractions?</p>
-              <p className="text-muted-foreground">Yes. Records with weaker confidence are routed to review before downstream export.</p>
+              <p className="text-muted-foreground">
+                Yes. Records with weaker confidence are routed to review before downstream export.
+              </p>
             </div>
           </CardContent>
         </Card>

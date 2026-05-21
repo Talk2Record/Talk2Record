@@ -17,7 +17,10 @@ export interface LegalDocument {
 
 const lastUpdated = "March 18, 2026";
 const legalEntityName =
-  siteConfig.organization.legalName || siteConfig.organization.name || siteConfig.appName || "Talk2Record";
+  siteConfig.organization.legalName ||
+  siteConfig.organization.name ||
+  siteConfig.appName ||
+  "Talk2Record";
 const supportEmail =
   siteConfig.contact.supportEmail || siteConfig.organization.email || "support@talk2record.com";
 const addressParts = [
@@ -27,8 +30,10 @@ const addressParts = [
   siteConfig.organization.address.postalCode,
   siteConfig.organization.address.country,
 ].filter(Boolean);
-const businessAddress = addressParts.length > 0 ? addressParts.join(", ") : "Business address available on request";
-const governingLawCountry = siteConfig.organization.address.country || "the applicable jurisdiction";
+const businessAddress =
+  addressParts.length > 0 ? addressParts.join(", ") : "Business address available on request";
+const governingLawCountry =
+  siteConfig.organization.address.country || "the applicable jurisdiction";
 
 export const legalLastUpdated = lastUpdated;
 export const legalContactEmail = supportEmail;
@@ -492,7 +497,9 @@ export const legalDocuments: LegalDocument[] = [
   },
 ];
 
-export const legalDocumentsBySlug = new Map(legalDocuments.map((document) => [document.slug, document]));
+export const legalDocumentsBySlug = new Map(
+  legalDocuments.map((document) => [document.slug, document])
+);
 
 export function getLegalDocument(slug: string) {
   return legalDocumentsBySlug.get(slug);

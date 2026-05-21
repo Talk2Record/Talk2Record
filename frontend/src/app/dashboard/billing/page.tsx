@@ -5,11 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
 import { formatCurrency, formatDate } from "@/lib/format";
-import {
-  comparePlanChange,
-  findHighlightedPlan,
-  type PlanChangeKind,
-} from "@/lib/plan-display";
+import { comparePlanChange, findHighlightedPlan, type PlanChangeKind } from "@/lib/plan-display";
 import { trackEvent } from "@/lib/analytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import BillingLoading from "@/app/dashboard/billing/loading";
@@ -18,7 +14,8 @@ import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
 import { PlanChangeModal } from "@/components/billing/plan-change-modal";
 import { usePlans } from "@/shared/hooks/use-plans";
 import { toast } from "@/shared/hooks/use-toast";
-import type { PlanCatalogItem, SubscriptionStatus } from "@/types/platform";
+import { usePreferencesStore } from "@/store/preferences-store";
+import type { BillingInterval, PlanCatalogItem, SubscriptionStatus } from "@/types/platform";
 
 export default function BillingPage() {
   const queryClient = useQueryClient();
@@ -41,6 +38,9 @@ export default function BillingPage() {
 
   const [selectedPlan, setSelectedPlan] = useState<PlanCatalogItem | null>(null);
   const [changeKind, setChangeKind] = useState<PlanChangeKind>("new");
+  const storedInterval = usePreferencesStore((state) => state.billingInterval);
+  const setStoredInterval = usePreferencesStore((state) => state.setBillingInterval);
+  const [pendingInterval, setPendingInterval] = useState<BillingInterval>(storedInterval);
 
   // Handle the `?checkout=success|cancelled` return from Paddle.
   useEffect(() => {
@@ -77,26 +77,31 @@ export default function BillingPage() {
     return <BillingLoading />;
   }
   const data = billingQuery.data;
-  const currentPlanCode =
-    data.subscription.planCode ?? currentSubscription?.plan_code ?? null;
+  const currentPlanCode = data.subscription.planCode ?? currentSubscription?.plan_code ?? null;
+  // Surface the active subscription's interval and trial end (Phase 6b).
+  const activeInterval = data.subscription.billingInterval;
+  const activeStatus = data.subscription.status ?? subscriptionStatus;
+  const trialEndsAt = data.subscription.trialEndsAt;
+  // Phase 2 usage block — entitlement-driven, single source of truth.
+  const usageBlock = data.subscription.usage;
+  const usage = Math.min(100, Math.round(usageBlock.percentUsed));
 
-  const usage =
-    data.subscription.includedVoiceNotes > 0
-      ? Math.round(
-          (data.subscription.voiceNotesProcessed / data.subscription.includedVoiceNotes) * 100
-        )
-      : 0;
-
-  function openPlanChange(plan: PlanCatalogItem, kind: PlanChangeKind) {
-    trackEvent("billing_upgrade_clicked", { plan: plan.code });
+  function openPlanChange(plan: PlanCatalogItem, kind: PlanChangeKind, interval: BillingInterval) {
+    trackEvent("billing_upgrade_clicked", { plan: plan.code, interval });
     setSelectedPlan(plan);
     setChangeKind(kind);
+    setPendingInterval(interval);
+    setStoredInterval(interval);
   }
 
   function openHighlightedPlan() {
     const highlighted = findHighlightedPlan(plans);
     if (!highlighted) return;
-    openPlanChange(highlighted, comparePlanChange(currentPlanCode, highlighted, plans));
+    openPlanChange(
+      highlighted,
+      comparePlanChange(currentPlanCode, highlighted, plans),
+      pendingInterval
+    );
   }
 
   return (
@@ -112,24 +117,42 @@ export default function BillingPage() {
       </div>
 
       <SubscriptionBanner
-        status={subscriptionStatus}
+        status={activeStatus}
         periodEnd={subscriptionPeriodEnd}
+        trialEndsAt={trialEndsAt}
+        amount={data.subscription.amount}
+        currency={data.subscription.currency}
+        interval={activeInterval}
         onCta={openHighlightedPlan}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-primary/10">
           <CardHeader>
-            <CardTitle>{data.subscription.plan}</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle>{data.subscription.plan}</CardTitle>
+              <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide uppercase">
+                {activeInterval === "year" ? "Annual" : "Monthly"}
+              </span>
+            </div>
             <CardDescription>Current subscription plan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-3xl font-semibold">
               {formatCurrency(data.subscription.amount, data.subscription.currency)}
+              <span className="text-muted-foreground ml-1 text-sm font-normal">
+                /{activeInterval === "year" ? "yr" : "mo"}
+              </span>
             </p>
-            <p className="text-muted-foreground text-sm">
-              Renews on {formatDate(data.subscription.renewalDate)}
-            </p>
+            {activeStatus === "trialing" && trialEndsAt ? (
+              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                Trial ends on {formatDate(trialEndsAt)}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Renews on {formatDate(data.subscription.renewalDate)}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-primary/10">
@@ -140,7 +163,7 @@ export default function BillingPage() {
           <CardContent className="space-y-2">
             <p className="text-3xl font-semibold">{usage}%</p>
             <p className="text-muted-foreground text-sm">
-              {data.subscription.voiceNotesProcessed} of {data.subscription.includedVoiceNotes} used
+              {usageBlock.used.toLocaleString()} of {usageBlock.included.toLocaleString()} used
             </p>
           </CardContent>
         </Card>
@@ -169,6 +192,11 @@ export default function BillingPage() {
             variant="billing"
             currentPlanCode={currentPlanCode}
             onSelectPlan={openPlanChange}
+            interval={pendingInterval}
+            onIntervalChange={(next) => {
+              setPendingInterval(next);
+              setStoredInterval(next);
+            }}
           />
         </CardContent>
       </Card>
@@ -240,6 +268,7 @@ export default function BillingPage() {
         open={selectedPlan !== null}
         plan={selectedPlan}
         changeKind={changeKind}
+        interval={pendingInterval}
         successUrl={
           typeof window !== "undefined"
             ? `${window.location.origin}/dashboard/billing?checkout=success`

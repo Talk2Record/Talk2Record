@@ -1,12 +1,20 @@
 import { AlertTriangle, CreditCard, PauseCircle, Sparkles } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import type { SubscriptionStatus } from "@/types/platform";
+import { TrialBanner } from "@/components/billing/trial-banner";
+import type { BillingInterval, SubscriptionStatus, SupportedCurrency } from "@/types/platform";
 
 interface SubscriptionBannerProps {
   status: SubscriptionStatus | undefined;
   /** ISO-8601 timestamp for the current period end; used by the trial banner. */
   periodEnd?: string | null;
+  /** ISO-8601 trial end timestamp. Distinct from ``periodEnd`` because the
+   * billing snapshot stamps it separately when ``status="trialing"``. */
+  trialEndsAt?: string | null;
+  /** Price + interval that will be charged once the trial converts. */
+  amount?: number;
+  currency?: SupportedCurrency;
+  interval?: BillingInterval;
   onCta?: () => void;
 }
 
@@ -68,7 +76,32 @@ const TONE_CLASSES: Record<BannerSpec["tone"], string> = {
   muted: "border-border bg-muted/40 text-muted-foreground",
 };
 
-export function SubscriptionBanner({ status, periodEnd, onCta }: SubscriptionBannerProps) {
+export function SubscriptionBanner({
+  status,
+  periodEnd,
+  trialEndsAt,
+  amount,
+  currency,
+  interval,
+  onCta,
+}: SubscriptionBannerProps) {
+  // Trialing has its own dedicated banner — it needs to communicate the
+  // "no charge today" promise and the conversion price, which doesn't fit
+  // the generic banner shell.
+  if (status === "trialing") {
+    const trialIso = trialEndsAt ?? periodEnd ?? null;
+    if (!trialIso) return null;
+    return (
+      <TrialBanner
+        trialEndsAt={trialIso}
+        amount={amount}
+        currency={currency}
+        interval={interval}
+        onManageBilling={onCta}
+      />
+    );
+  }
+
   const spec = specFor(status, periodEnd);
   if (!spec) return null;
 

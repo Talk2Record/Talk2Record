@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Mic, ScrollText } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { useRecords, RECORDS_QUERY_KEY } from "@/shared/hooks/use-records";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -12,7 +12,7 @@ import { EmptyState } from "@/shared/components/empty-state";
 import RecordsLoading from "@/app/dashboard/records/loading";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
 import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
-import type { RecordStatus } from "@/types/platform";
+import type { DetectedCategory, ExtractedData, RecordItem, RecordStatus } from "@/types/platform";
 
 const STATUS_FILTERS: Array<{ value: RecordStatus | "all"; label: string }> = [
   { value: "all", label: "All" },
@@ -27,19 +27,23 @@ const STATUS_FILTERS: Array<{ value: RecordStatus | "all"; label: string }> = [
 export default function RecordsPage() {
   const queryClient = useQueryClient();
   const { data = [], isLoading } = useRecords();
-  const [customerFilter, setCustomerFilter] = useState("");
-  const [productFilter, setProductFilter] = useState("");
+  const [industryFilter, setIndustryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<RecordStatus | "all">("all");
 
   const filtered = useMemo(
     () =>
       data.filter((item) => {
-        if (
-          !(item.customer ?? "").toLowerCase().includes(customerFilter.toLowerCase()) ||
-          !(item.product ?? "").toLowerCase().includes(productFilter.toLowerCase())
-        ) {
-          return false;
-        }
+        const detectedCats = item.detectedCategories ?? [];
+        const industryMatches =
+          industryFilter.length === 0 ||
+          detectedCats.some((cat) =>
+            cat.industry.toLowerCase().includes(industryFilter.toLowerCase())
+          );
+        const categoryMatches =
+          categoryFilter.length === 0 ||
+          detectedCats.some((cat) => cat.slug.toLowerCase().includes(categoryFilter.toLowerCase()));
+        if (!industryMatches || !categoryMatches) return false;
         if (statusFilter === "all") return true;
         if (statusFilter === "extracting" || statusFilter === "transcribing") {
           // "Processing" pseudo-filter — match any in-flight status.
@@ -47,7 +51,7 @@ export default function RecordsPage() {
         }
         return item.status === statusFilter;
       }),
-    [customerFilter, data, productFilter, statusFilter]
+    [categoryFilter, data, industryFilter, statusFilter]
   );
 
   if (isLoading) {
@@ -116,20 +120,20 @@ export default function RecordsPage() {
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>
-            Date, product, amount, and customer filters can map to backend params later.
+            Filter by detected industry, category, or pipeline status.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             <Input
-              placeholder="Filter by customer"
-              value={customerFilter}
-              onChange={(event) => setCustomerFilter(event.target.value)}
+              placeholder="Filter by industry (e.g. construction)"
+              value={industryFilter}
+              onChange={(event) => setIndustryFilter(event.target.value)}
             />
             <Input
-              placeholder="Filter by product"
-              value={productFilter}
-              onChange={(event) => setProductFilter(event.target.value)}
+              placeholder="Filter by category (e.g. material_delivery)"
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -162,24 +166,21 @@ export default function RecordsPage() {
               <tr className="border-primary/10 border-b">
                 <th className="py-3 pr-4">Status</th>
                 <th className="py-3 pr-4">Date</th>
-                <th className="py-3 pr-4">Customer</th>
-                <th className="py-3 pr-4">Product</th>
-                <th className="py-3 pr-4">Quantity</th>
-                <th className="py-3 pr-4">Amount</th>
-                <th className="py-3 pr-4">Payment Method</th>
+                <th className="py-3 pr-4">Industry / Category</th>
+                <th className="py-3 pr-4">Summary</th>
                 <th className="py-3">Confidence</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-6">
+                  <td colSpan={5} className="py-6">
                     <EmptyState
                       icon={ScrollText}
                       title={hasAnyRecords ? "No matches" : "No records yet"}
                       description={
                         hasAnyRecords
-                          ? "Try clearing a filter or broadening the customer or product term."
+                          ? "Try clearing a filter or broadening the industry or category term."
                           : "Send a voice note to populate this view."
                       }
                       variant="compact"
@@ -203,11 +204,12 @@ export default function RecordsPage() {
                         {formatDate(item.date)}
                       </Link>
                     </td>
-                    <td className="py-4 pr-4 font-medium">{item.customer}</td>
-                    <td className="py-4 pr-4">{item.product}</td>
-                    <td className="py-4 pr-4">{item.quantity}</td>
-                    <td className="py-4 pr-4">{formatCurrency(item.amount, item.currency)}</td>
-                    <td className="py-4 pr-4">{item.paymentMethod}</td>
+                    <td className="py-4 pr-4">
+                      <CategoryBadges categories={item.detectedCategories} />
+                    </td>
+                    <td className="text-muted-foreground py-4 pr-4">
+                      {summarizeExtractedData(item)}
+                    </td>
                     <td className="py-4">{Math.round(item.confidenceScore * 100)}%</td>
                   </tr>
                 ))
@@ -231,4 +233,64 @@ function dedupeFilters<T extends { label: string }>(filters: T[]): T[] {
     seen.add(f.label);
     return true;
   });
+}
+
+function CategoryBadges({ categories }: { categories: DetectedCategory[] }) {
+  if (categories.length === 0) {
+    return <span className="text-muted-foreground italic">unclassified</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {categories.slice(0, 3).map((category) => (
+        <span
+          key={`${category.industry}.${category.slug}`}
+          className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium"
+        >
+          {category.industry}.{category.slug}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Best-effort short summary of the extracted JSON for the table row. Tries
+ * to surface the first 2-3 meaningful primitive values; falls back to the
+ * legacy sales-flavored fields when present.
+ */
+function summarizeExtractedData(item: RecordItem): string {
+  const data = item.extractedData as ExtractedData;
+  if (Array.isArray(data) && data.length > 0) {
+    const first = data[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      const inner = (first as Record<string, unknown>).extraction;
+      if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+        const innerData = (inner as Record<string, unknown>).data;
+        if (innerData && typeof innerData === "object") {
+          return primitiveSummary(innerData as Record<string, unknown>) || "—";
+        }
+      }
+    }
+    return "—";
+  }
+  if (data && typeof data === "object" && Object.keys(data).length > 0) {
+    return primitiveSummary(data as Record<string, unknown>) || "—";
+  }
+  // Legacy fallback.
+  if (item.customer || item.product) {
+    return [item.customer, item.product].filter(Boolean).join(" · ");
+  }
+  return "—";
+}
+
+function primitiveSummary(payload: Record<string, unknown>): string {
+  const bits: string[] = [];
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === null || value === undefined || value === "") continue;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      bits.push(`${key.replace(/_/g, " ")}: ${value}`);
+    }
+    if (bits.length >= 3) break;
+  }
+  return bits.join(", ");
 }

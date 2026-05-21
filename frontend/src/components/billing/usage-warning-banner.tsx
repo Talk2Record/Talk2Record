@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { AlertOctagon, AlertTriangle } from "lucide-react";
+import { AlertOctagon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { toast } from "@/shared/hooks/use-toast";
@@ -45,39 +45,6 @@ export function UsageWarningBanner() {
           <Link href="/dashboard/billing">Upgrade plan</Link>
         </Button>
       </div>
-    </div>
-  );
-}
-
-/**
- * Inline soft-guard for buttons that trigger AI work. Returns the props the
- * caller should spread onto the trigger element when the user is at quota.
- */
-export function useUsageActionGuard() {
-  const usage = useUsage();
-  const blocked = usage.state === "exceeded";
-  return {
-    blocked,
-    /**
-     * Spread onto a button to disable it with a descriptive tooltip / aria-
-     * label and show a friendly toast if the user clicks anyway. Suitable
-     * for the upcoming "Create record" entry points.
-     */
-    actionProps: blocked
-      ? {
-          disabled: true,
-          "aria-disabled": true,
-          title: "Plan limit reached. Upgrade to keep ingesting voice notes.",
-        }
-      : {},
-  };
-}
-
-export function QuotaExceededInline() {
-  return (
-    <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-center gap-2 rounded-xl border p-3 text-sm">
-      <AlertTriangle className="h-4 w-4" />
-      <span>Plan limit reached. Upgrade to continue.</span>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import type {
+  BillingInterval,
   ChangePlanResponse,
-  PlanCatalogItem,
   AnalyticsSnapshot,
   AuthUser,
   BillingSnapshot,
@@ -137,7 +137,6 @@ export interface EntitlementRow {
 export const PLANS_QUERY_KEY = ["billing", "plans"] as const;
 
 export const billingService = {
-
   async listPlans(currency?: string) {
     const response = await api.get<Parameters<typeof mapPlanCatalogItem>[0][]>("/billing/plans/", {
       params: currency ? { currency } : undefined,
@@ -149,6 +148,8 @@ export const billingService = {
     plan: string;
     acceptedBillingTerms: boolean;
     successUrl?: string;
+    /** Interval to subscribe to. Defaults to monthly when omitted server-side. */
+    interval?: BillingInterval;
   }) {
     const response = await api.post<ChangePlanResponse>("/billing/change-plan/", payload);
     return response.data;
@@ -176,6 +177,7 @@ export const billingService = {
     acceptedBillingTerms: boolean;
     provider?: string;
     successUrl?: string;
+    interval?: BillingInterval;
   }) {
     const response = await api.post<ChangePlanResponse>("/billing/checkout/", payload);
     return response.data;

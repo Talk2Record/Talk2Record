@@ -60,9 +60,7 @@ export const metadata: Metadata = {
       }
     : undefined,
   icons: {
-    icon: [
-      { url: siteConfig.icons.favicon, type: "image/png" },
-    ],
+    icon: [{ url: siteConfig.icons.favicon, type: "image/png" }],
     apple: siteConfig.icons.appleTouchIcon,
   },
   manifest: siteConfig.manifest,

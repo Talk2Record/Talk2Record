@@ -1,10 +1,15 @@
 import type {
+  BillingInterval,
   PlanCatalogItem,
   PlanPriceRow,
   AnalyticsSnapshot,
   AuthUser,
   BillingSnapshot,
   DashboardOverview,
+  DetectedCategory,
+  DetectedIndustry,
+  ExtractedData,
+  ExtractionValidationError,
   LegalAcceptanceStatus,
   OnboardingStep,
   RecordArtifact,
@@ -61,6 +66,11 @@ interface BackendRecord {
   voice_transcript?: string;
   confidence_score?: number | string;
   status?: string;
+  detected_industries?: unknown;
+  detected_categories?: unknown;
+  extracted_data?: unknown;
+  validation_errors?: unknown;
+  processing_step?: string | null;
   processing_error?: string | null;
   processing_error_step?: string | null;
   processing_retry_count?: number;
@@ -137,25 +147,93 @@ function artifactByKey(
 
 function recordDisplayFields(record: BackendRecord) {
   const artifacts = record.artifacts ?? [];
-  const extraction = artifactByKey(artifacts, "extraction")?.content ?? {};
-  const transcriptArtifact = artifactByKey(artifacts, "transcript")?.content ?? {};
+  const extraction =
+    (artifactByKey(artifacts, "extraction")?.content as Record<string, unknown> | undefined) ?? {};
+  const transcriptArtifact =
+    (artifactByKey(artifacts, "transcript")?.content as Record<string, unknown> | undefined) ?? {};
 
   const transcriptFromArtifact =
     typeof transcriptArtifact.text === "string" ? transcriptArtifact.text : "";
 
   return {
-    customer: record.customer_name ?? (String(extraction.customer_name ?? "") || "—"),
-    product: record.product ?? (String(extraction.product ?? "") || "—"),
-    quantity: record.quantity ?? (Number(extraction.quantity ?? 0) || 0),
-    amount: Number(record.amount ?? extraction.amount ?? 0) || 0,
-    currency: (record.currency ?? extraction.currency ?? "USD") as RecordItem["currency"],
-    paymentMethod:
-      record.payment_method ?? (String(extraction.payment_method ?? "") || "—"),
+    /* Legacy sales-flavored fields are sourced from the legacy artifact
+       shape when present; new records may leave them blank. */
+    customer: record.customer_name ?? coerceOptionalString(extraction.customer_name),
+    product: record.product ?? coerceOptionalString(extraction.product),
+    quantity:
+      record.quantity ??
+      (typeof extraction.quantity === "number" ? extraction.quantity : undefined),
+    amount: coerceOptionalNumber(record.amount ?? extraction.amount),
+    currency: record.currency ?? (extraction.currency as RecordItem["currency"]) ?? undefined,
+    paymentMethod: record.payment_method ?? coerceOptionalString(extraction.payment_method),
     transcript:
       record.voice_transcript ??
-      (String(extraction.voice_transcript ?? transcriptFromArtifact) || ""),
+      String(extraction.voice_transcript ?? transcriptFromArtifact ?? ""),
     confidenceScore: Number(record.confidence_score ?? 0) || 0,
   };
+}
+
+function coerceOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function coerceOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) && num !== 0 ? num : undefined;
+}
+
+function coerceDetectedIndustries(raw: unknown): DetectedIndustry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const slug = String((entry as Record<string, unknown>).slug ?? "").trim();
+      if (!slug) return null;
+      const confidence = Number((entry as Record<string, unknown>).confidence ?? 0);
+      return { slug, confidence: Number.isFinite(confidence) ? confidence : 0 };
+    })
+    .filter((entry): entry is DetectedIndustry => entry !== null);
+}
+
+function coerceDetectedCategories(raw: unknown): DetectedCategory[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const industry = String((entry as Record<string, unknown>).industry ?? "").trim();
+      const slug = String((entry as Record<string, unknown>).slug ?? "").trim();
+      if (!slug || !industry) return null;
+      const confidence = Number((entry as Record<string, unknown>).confidence ?? 0);
+      return {
+        industry,
+        slug,
+        confidence: Number.isFinite(confidence) ? confidence : 0,
+      };
+    })
+    .filter((entry): entry is DetectedCategory => entry !== null);
+}
+
+function coerceExtractedData(raw: unknown): ExtractedData {
+  if (Array.isArray(raw)) return raw as ExtractedData;
+  if (raw && typeof raw === "object") return raw as ExtractedData;
+  return {};
+}
+
+function coerceValidationErrors(raw: unknown): ExtractionValidationError[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (entry): entry is Record<string, unknown> => entry !== null && typeof entry === "object"
+    )
+    .map((entry) => ({
+      category: typeof entry.category === "string" ? entry.category : undefined,
+      path: typeof entry.path === "string" ? entry.path : undefined,
+      message: typeof entry.message === "string" ? entry.message : undefined,
+      validator: typeof entry.validator === "string" ? entry.validator : undefined,
+    }));
 }
 
 export function mapRecord(record: BackendRecord): RecordItem {
@@ -173,6 +251,11 @@ export function mapRecord(record: BackendRecord): RecordItem {
     transcript: display.transcript,
     confidenceScore: display.confidenceScore,
     status: coerceStatus(record.status),
+    detectedIndustries: coerceDetectedIndustries(record.detected_industries),
+    detectedCategories: coerceDetectedCategories(record.detected_categories),
+    extractedData: coerceExtractedData(record.extracted_data),
+    validationErrors: coerceValidationErrors(record.validation_errors),
+    processingStep: record.processing_step ?? "",
     processingError: record.processing_error ?? null,
     processingErrorStep: record.processing_error_step ?? null,
     processingRetryCount: record.processing_retry_count ?? 0,
@@ -189,7 +272,6 @@ export function mapDashboardOverview(snapshot: DashboardOverview): DashboardOver
 export function mapAnalyticsSnapshot(snapshot: AnalyticsSnapshot): AnalyticsSnapshot {
   return snapshot;
 }
-
 
 interface BackendPlanPriceRow {
   interval: string;
@@ -246,14 +328,36 @@ export function mapPlanCatalogItem(plan: BackendPlanCatalogItem): PlanCatalogIte
 }
 
 export function mapBillingSnapshot(snapshot: BillingSnapshot): BillingSnapshot {
+  const sub = snapshot.subscription;
+  // The backend always sends ``usage`` (Phase 2). Guard it anyway so the
+  // mapper survives legacy payloads in dev / mocked fixtures.
+  const usage = sub.usage ?? {
+    featureKey: "ai.usage",
+    used: Number(sub.voiceNotesProcessed ?? 0),
+    included: Number(sub.includedVoiceNotes ?? 0),
+    percentUsed: 0,
+    periodStart: sub.renewalDate,
+    periodEnd: sub.renewalDate,
+  };
   return {
     subscription: {
-      ...snapshot.subscription,
-      amount: Number(snapshot.subscription.amount),
-      voiceNotesProcessed: Number(snapshot.subscription.voiceNotesProcessed),
-      includedVoiceNotes: Number(snapshot.subscription.includedVoiceNotes),
-      seats: Number(snapshot.subscription.seats),
-      planCode: snapshot.subscription.planCode ?? null,
+      ...sub,
+      amount: Number(sub.amount),
+      voiceNotesProcessed: Number(sub.voiceNotesProcessed),
+      includedVoiceNotes: Number(sub.includedVoiceNotes),
+      seats: Number(sub.seats),
+      planCode: sub.planCode ?? null,
+      billingInterval: (sub.billingInterval ?? "month") as BillingInterval,
+      trialEndsAt: sub.trialEndsAt ?? null,
+      status: sub.status ?? null,
+      usage: {
+        featureKey: usage.featureKey,
+        used: Number(usage.used),
+        included: Number(usage.included),
+        percentUsed: Number(usage.percentUsed),
+        periodStart: usage.periodStart,
+        periodEnd: usage.periodEnd,
+      },
     },
     invoices: snapshot.invoices.map((invoice) => ({
       ...invoice,

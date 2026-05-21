@@ -1,11 +1,6 @@
 import { api } from "@/lib/api";
 
-export type AITaskValue =
-  | "transcription"
-  | "extraction"
-  | "summarization"
-  | "chat"
-  | "embedding";
+export type AITaskValue = "transcription" | "extraction" | "summarization" | "chat" | "embedding";
 
 export interface AIProviderSpec {
   slug: string;
@@ -75,33 +70,26 @@ export const aiService = {
   },
 
   async listModels(params: { provider?: string; capability?: string } = {}) {
-    const response = await api.get<AIModelRow[] | { results: AIModelRow[] }>(
-      "/ai/models/",
-      { params },
-    );
+    const response = await api.get<AIModelRow[] | { results: AIModelRow[] }>("/ai/models/", {
+      params,
+    });
     return unwrap(response.data);
   },
 
   async listProviderConfigs() {
-    const response = await api.get<
-      AIProviderConfigRow[] | { results: AIProviderConfigRow[] }
-    >("/ai/provider-configs/");
+    const response = await api.get<AIProviderConfigRow[] | { results: AIProviderConfigRow[] }>(
+      "/ai/provider-configs/"
+    );
     return unwrap(response.data);
   },
 
   async createProviderConfig(payload: CreateProviderConfigInput) {
-    const response = await api.post<AIProviderConfigRow>(
-      "/ai/provider-configs/",
-      payload,
-    );
+    const response = await api.post<AIProviderConfigRow>("/ai/provider-configs/", payload);
     return response.data;
   },
 
   async updateProviderConfig(id: number, payload: Partial<CreateProviderConfigInput>) {
-    const response = await api.patch<AIProviderConfigRow>(
-      `/ai/provider-configs/${id}/`,
-      payload,
-    );
+    const response = await api.patch<AIProviderConfigRow>(`/ai/provider-configs/${id}/`, payload);
     return response.data;
   },
 
@@ -110,25 +98,19 @@ export const aiService = {
   },
 
   async listTaskBindings() {
-    const response = await api.get<
-      AITaskBindingRow[] | { results: AITaskBindingRow[] }
-    >("/ai/task-bindings/");
+    const response = await api.get<AITaskBindingRow[] | { results: AITaskBindingRow[] }>(
+      "/ai/task-bindings/"
+    );
     return unwrap(response.data);
   },
 
   async createTaskBinding(payload: CreateTaskBindingInput) {
-    const response = await api.post<AITaskBindingRow>(
-      "/ai/task-bindings/",
-      payload,
-    );
+    const response = await api.post<AITaskBindingRow>("/ai/task-bindings/", payload);
     return response.data;
   },
 
   async updateTaskBinding(id: number, payload: Partial<CreateTaskBindingInput>) {
-    const response = await api.patch<AITaskBindingRow>(
-      `/ai/task-bindings/${id}/`,
-      payload,
-    );
+    const response = await api.patch<AITaskBindingRow>(`/ai/task-bindings/${id}/`, payload);
     return response.data;
   },
 

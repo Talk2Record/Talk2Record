@@ -32,7 +32,7 @@ export interface ApiErrorOptions {
  * `err instanceof ApiError` → `{ status, code, message, fields }`.
  *
  * `fields` carries DRF's `{ field: [errors] }` shape so forms can map errors
- * to inputs via the existing `<InputError />` primitive.
+ * to individual inputs.
  */
 export class ApiError extends Error {
   public readonly status: number;

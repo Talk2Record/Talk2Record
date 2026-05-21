@@ -25,14 +25,15 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md border-primary/10 shadow-(--shadow-lg)">
+    <Card className="border-primary/10 w-full max-w-md shadow-(--shadow-lg)">
       <CardHeader>
         <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
           Account recovery
         </div>
         <CardTitle>{t("auth.forgot.title")}</CardTitle>
         <CardDescription>
-          Reset access to your workspace and get back to your records, analytics, and billing controls.
+          Reset access to your workspace and get back to your records, analytics, and billing
+          controls.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -51,7 +52,7 @@ export default function ForgotPasswordPage() {
             {t("auth.forgot.submit")}
           </Button>
         </form>
-        {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
+        {status ? <p className="text-muted-foreground text-sm">{status}</p> : null}
       </CardContent>
     </Card>
   );

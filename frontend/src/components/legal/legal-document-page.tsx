@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { legalBusinessAddress, legalContactEmail, legalDocuments, legalEntity, legalLastUpdated, type LegalDocument } from "@/shared/lib/legal-content";
+import {
+  legalBusinessAddress,
+  legalContactEmail,
+  legalDocuments,
+  legalEntity,
+  legalLastUpdated,
+  type LegalDocument,
+} from "@/shared/lib/legal-content";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 interface LegalDocumentPageProps {
@@ -11,7 +18,7 @@ export function LegalDocumentPage({ document }: LegalDocumentPageProps) {
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <main className="space-y-6">
-          <section className="brand-panel rounded-4xl border border-primary/10 p-8">
+          <section className="brand-panel border-primary/10 rounded-4xl border p-8">
             <div className="max-w-4xl space-y-4">
               <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-sm font-medium">
                 Legal
@@ -24,13 +31,15 @@ export function LegalDocumentPage({ document }: LegalDocumentPageProps) {
                 <CardHeader>
                   <CardTitle className="text-base">Last updated</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">{legalLastUpdated}</CardContent>
+                <CardContent className="text-muted-foreground text-sm">
+                  {legalLastUpdated}
+                </CardContent>
               </Card>
               <Card className="border-primary/10">
                 <CardHeader>
                   <CardTitle className="text-base">Contact</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
+                <CardContent className="text-muted-foreground text-sm">
                   <a className="text-primary hover:underline" href={`mailto:${legalContactEmail}`}>
                     {legalContactEmail}
                   </a>
@@ -40,7 +49,7 @@ export function LegalDocumentPage({ document }: LegalDocumentPageProps) {
                 <CardHeader>
                   <CardTitle className="text-base">Entity</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">{legalEntity}</CardContent>
+                <CardContent className="text-muted-foreground text-sm">{legalEntity}</CardContent>
               </Card>
             </div>
             <p className="text-muted-foreground mt-4 text-sm">{legalBusinessAddress}</p>
@@ -53,7 +62,7 @@ export function LegalDocumentPage({ document }: LegalDocumentPageProps) {
                   {index + 1}. {section.title}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <CardContent className="text-muted-foreground space-y-4 text-sm">
                 {section.paragraphs.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
@@ -91,7 +100,7 @@ export function LegalDocumentPage({ document }: LegalDocumentPageProps) {
                   {item.shortTitle}
                 </Link>
               ))}
-              <div className="border-border/80 mt-4 border-t pt-4 text-muted-foreground">
+              <div className="border-border/80 text-muted-foreground mt-4 border-t pt-4">
                 <p>A current subprocessor list is available on request.</p>
                 <p className="mt-2">
                   Email{" "}

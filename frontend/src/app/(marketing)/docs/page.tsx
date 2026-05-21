@@ -16,7 +16,8 @@ export default function DocsPage() {
         </div>
         <h1>Everything your team needs to understand the workflow</h1>
         <p className="text-muted-foreground text-lg">
-          Use the docs to align product, engineering, and operations around how Talk2Record captures voice, structures records, and routes them into downstream actions.
+          Use the docs to align product, engineering, and operations around how Talk2Record captures
+          voice, structures records, and routes them into downstream actions.
         </p>
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -25,8 +26,10 @@ export default function DocsPage() {
             <CardHeader>
               <CardTitle className="text-lg">{item}</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Reference the shared service contracts in `src/services` and `src/types` when connecting real backend endpoints and preserving the brand-driven UX patterns across the app.
+            <CardContent className="text-muted-foreground text-sm">
+              Reference the shared service contracts in `src/services` and `src/types` when
+              connecting real backend endpoints and preserving the brand-driven UX patterns across
+              the app.
             </CardContent>
           </Card>
         ))}

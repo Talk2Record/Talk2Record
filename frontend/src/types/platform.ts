@@ -152,19 +152,64 @@ export interface RecordArtifact {
   created_at: string;
 }
 
+export interface DetectedIndustry {
+  slug: string;
+  confidence: number;
+}
+
+export interface DetectedCategory {
+  industry: string;
+  slug: string;
+  confidence: number;
+}
+
+export interface ExtractionValidationError {
+  category?: string;
+  path?: string;
+  message?: string;
+  validator?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Shape of the JSON written by the backend's
+ * `RecordProcessingService.save_dynamic_extraction_artifact`.
+ *
+ * It is either a plain dict (single-category extraction) or a list of
+ * per-category extraction results (multi-category audio).
+ */
+export type ExtractedDataValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ExtractedDataValue[]
+  | { [key: string]: ExtractedDataValue };
+
+export type ExtractedData = { [key: string]: ExtractedDataValue } | ExtractedDataValue[];
+
 export interface RecordItem {
   id: string;
   date: string;
-  customer: string;
-  product: string;
-  quantity: number;
-  amount: number;
-  currency: SupportedCurrency;
-  paymentMethod: string;
+  /** Legacy sales-flavored fields. Optional. Present only for records
+   * produced by the pre-taxonomy pipeline. New records leave these blank
+   * and use `detectedCategories` + `extractedData` instead. */
+  customer?: string;
+  product?: string;
+  quantity?: number;
+  amount?: number;
+  currency?: SupportedCurrency;
+  paymentMethod?: string;
   transcript: string;
   confidenceScore: number;
   /** Pipeline status mirrored from the backend. */
   status: RecordStatus;
+  /** Dynamic taxonomy outputs. */
+  detectedIndustries: DetectedIndustry[];
+  detectedCategories: DetectedCategory[];
+  extractedData: ExtractedData;
+  validationErrors: ExtractionValidationError[];
+  processingStep: string;
   /** Optional human-readable error message from the pipeline. */
   processingError: string | null;
   /** Pipeline step that failed, when `status` is failed/dead_letter. */
@@ -198,6 +243,13 @@ export interface Invoice {
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "paused" | "canceled";
 
+/**
+ * Billing interval. Mirrors the backend's ``PlanPrice.Interval`` enum
+ * (``MONTH``/``YEAR``). ``"one_time"`` exists on the backend but is never
+ * surfaced in the user-facing toggle — those are add-ons, not recurring
+ * subscriptions.
+ */
+export type BillingInterval = "month" | "year";
 
 export interface EntitlementRow {
   feature_key: string;
@@ -239,6 +291,20 @@ export interface ChangePlanResponse {
   transactionId?: string;
 }
 
+/**
+ * Per-feature usage block returned by ``/api/billing/`` (Phase 2). Sourced
+ * from ``UsageTrackingService.usage_summary`` on the backend so it reflects
+ * the active entitlement's limit and the current cycle's consumption.
+ */
+export interface SubscriptionUsageSummary {
+  featureKey: string;
+  used: number;
+  included: number;
+  percentUsed: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
 export interface SubscriptionSnapshot {
   plan: string;
   planCode: string | null;
@@ -248,6 +314,14 @@ export interface SubscriptionSnapshot {
   voiceNotesProcessed: number;
   includedVoiceNotes: number;
   renewalDate: string;
+  /** ``"month" | "year"`` — drives the toggle + price formatting. */
+  billingInterval: BillingInterval;
+  /** ISO-8601 of the trial end. Non-null only while status="trialing". */
+  trialEndsAt: string | null;
+  /** Mirrors the local Subscription.status enum. */
+  status: SubscriptionStatus | null;
+  /** Phase 2 usage block (entitlement-driven). */
+  usage: SubscriptionUsageSummary;
 }
 
 export interface SubscriptionRow {

@@ -20,16 +20,24 @@ import {
   useChangePlan,
 } from "@/shared/hooks/use-change-plan";
 import { useAuth } from "@/shared/lib/auth/auth-context";
-import { formatPlanFeatureLines, formatPlanMonthlyPrice, type PlanChangeKind } from "@/lib/plan-display";
+import {
+  formatPlanFeatureLines,
+  formatPlanPriceForInterval,
+  formatPlanTrialLabel,
+  type PlanChangeKind,
+} from "@/lib/plan-display";
 import { usePreferencesStore } from "@/store/preferences-store";
-import type { PlanCatalogItem } from "@/types/platform";
+import type { BillingInterval, PlanCatalogItem } from "@/types/platform";
 
 interface PlanChangeModalProps {
   open: boolean;
   plan: PlanCatalogItem | null;
   changeKind: PlanChangeKind;
   successUrl?: string;
-  onOpenChange: (open: boolean) => void;
+  /** Selected billing interval. Defaults to ``"month"`` for callers that
+   * haven't migrated yet. */
+  interval?: BillingInterval;
+  onOpenChange: (_open: boolean) => void;
 }
 
 export function PlanChangeModal({
@@ -37,6 +45,7 @@ export function PlanChangeModal({
   plan,
   changeKind,
   successUrl,
+  interval = "month",
   onOpenChange,
 }: PlanChangeModalProps) {
   const queryClient = useQueryClient();
@@ -48,6 +57,7 @@ export function PlanChangeModal({
   );
 
   const isCheckout = changeKind === "new";
+  const intervalLabel = interval === "year" ? "yearly" : "monthly";
   const title =
     changeKind === "upgrade"
       ? `Upgrade to ${plan?.name ?? ""}`
@@ -55,14 +65,19 @@ export function PlanChangeModal({
         ? `Switch to ${plan?.name ?? ""}`
         : `Subscribe to ${plan?.name ?? ""}`;
 
-  const description = isCheckout
-    ? "A secure Paddle checkout will open so you can complete payment."
-    : "Your plan changes immediately. Paddle may prorate the difference on your next invoice.";
+  const trialLabel = plan ? formatPlanTrialLabel(plan, interval) : null;
+  // Trial CTA copy lives separately because the user is NOT charged today —
+  // they only enter billing info that gets charged when the trial ends.
+  const description = trialLabel
+    ? `Start your ${trialLabel} on ${intervalLabel} billing. You won't be charged today — Paddle securely captures your payment method and your subscription becomes active when the trial ends.`
+    : isCheckout
+      ? `A secure Paddle checkout will open so you can complete payment for the ${intervalLabel} plan.`
+      : `Your ${intervalLabel} plan changes immediately. Paddle may prorate the difference on your next invoice.`;
 
   function handleSubmit() {
     if (!plan) return;
     changePlan.mutate(
-      { plan: plan.code, acceptedBillingTerms, successUrl },
+      { plan: plan.code, acceptedBillingTerms, successUrl, interval },
       {
         onSuccess: (response) => {
           invalidateBillingQueries(queryClient);
@@ -86,9 +101,18 @@ export function PlanChangeModal({
         {plan ? (
           <div className="border-border bg-muted/30 space-y-3 rounded-xl border p-4">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium">Monthly price</p>
-              <p className="text-2xl font-semibold">{formatPlanMonthlyPrice(plan, currency)}</p>
+              <p className="text-sm font-medium">
+                {interval === "year" ? "Yearly price" : "Monthly price"}
+              </p>
+              <p className="text-2xl font-semibold">
+                {formatPlanPriceForInterval(plan, interval, currency)}
+              </p>
             </div>
+            {trialLabel ? (
+              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                Includes {trialLabel} — you can cancel any time before it ends.
+              </p>
+            ) : null}
             <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
               {formatPlanFeatureLines(plan).map((line) => (
                 <li key={line}>{line}</li>
@@ -106,7 +130,11 @@ export function PlanChangeModal({
           />
           <span className="text-muted-foreground">
             I agree to the{" "}
-            <Link className="text-primary hover:underline" href="/legal/billing-policy" target="_blank">
+            <Link
+              className="text-primary hover:underline"
+              href="/legal/billing-policy"
+              target="_blank"
+            >
               Billing Policy
             </Link>{" "}
             and understand paid plans renew automatically unless canceled before renewal.
@@ -114,17 +142,32 @@ export function PlanChangeModal({
         </label>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={changePlan.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={changePlan.isPending}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!plan || !acceptedBillingTerms || changePlan.isPending}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!plan || !acceptedBillingTerms || changePlan.isPending}
+          >
             {changePlan.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isCheckout ? "Opening checkout…" : "Updating plan…"}
+                {isCheckout
+                  ? trialLabel
+                    ? "Starting trial…"
+                    : "Opening checkout…"
+                  : "Updating plan…"}
               </>
             ) : isCheckout ? (
-              "Continue to checkout"
+              trialLabel ? (
+                `Start ${trialLabel}`
+              ) : (
+                "Continue to checkout"
+              )
             ) : (
               "Confirm plan change"
             )}

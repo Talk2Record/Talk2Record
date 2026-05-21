@@ -7,13 +7,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRecord, recordDetailQueryKey } from "@/shared/hooks/use-record";
 import { RecordPipelineStepper } from "@/components/records/record-pipeline-stepper";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
+import { ExtractedDataView } from "@/components/records/extracted-data-view";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import RecordDetailLoading from "@/app/dashboard/records/[id]/loading";
 import { toast } from "@/shared/hooks/use-toast";
 import { recordsService } from "@/services/platform-service";
 import { notifyApiError } from "@/shared/lib/notify-api-error";
+import { cn } from "@/shared/lib/utils";
+import type { DetectedCategory } from "@/types/platform";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -34,16 +37,18 @@ export default function RecordDetailPage({ params }: PageProps) {
   }
 
   const isFailed = record.status === "failed" || record.status === "dead_letter";
+  const recordId = record.id;
 
   async function handleReprocess() {
     setIsReprocessing(true);
     try {
-      await recordsService.reprocess(record.id);
+      await recordsService.reprocess(recordId);
       toast({
         title: "Reprocessing started",
-        description: "The voice note pipeline is running again. This page will update automatically.",
+        description:
+          "The voice note pipeline is running again. This page will update automatically.",
       });
-      void queryClient.invalidateQueries({ queryKey: recordDetailQueryKey(record.id) });
+      void queryClient.invalidateQueries({ queryKey: recordDetailQueryKey(recordId) });
     } catch (error) {
       notifyApiError(error, { title: "Could not reprocess record" });
     } finally {
@@ -75,14 +80,21 @@ export default function RecordDetailPage({ params }: PageProps) {
       <Card className="border-primary/10">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-3">
-                {record.customer}
+            <div className="space-y-2">
+              <CardTitle className="flex flex-wrap items-center gap-3">
+                <span>{record.id}</span>
                 <RecordStatusBadge status={record.status} />
               </CardTitle>
-              <CardDescription>
-                {record.product} · {formatCurrency(record.amount, record.currency)} ·{" "}
-                {formatDate(record.date)}
+              <CardDescription className="flex flex-wrap items-center gap-2">
+                <span>{formatDate(record.date)}</span>
+                <span>·</span>
+                <span>Confidence {Math.round(record.confidenceScore * 100)}%</span>
+                {record.detectedCategories.slice(0, 3).map((category) => (
+                  <CategoryBadge
+                    key={`${category.industry}.${category.slug}`}
+                    category={category}
+                  />
+                ))}
               </CardDescription>
             </div>
           </div>
@@ -148,6 +160,7 @@ export default function RecordDetailPage({ params }: PageProps) {
             <CardTitle>Transcript</CardTitle>
             <CardDescription>
               Confidence {Math.round(record.confidenceScore * 100)}%
+              {record.processingStep ? ` · current step: ${record.processingStep}` : null}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -166,16 +179,59 @@ export default function RecordDetailPage({ params }: PageProps) {
 
         <Card className="border-primary/10">
           <CardHeader>
-            <CardTitle>Details</CardTitle>
+            <CardTitle>Classification</CardTitle>
+            <CardDescription>
+              Detected industries and categories with their confidence.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <DetailRow label="Quantity" value={String(record.quantity)} />
-            <DetailRow label="Amount" value={formatCurrency(record.amount, record.currency)} />
-            <DetailRow label="Payment" value={record.paymentMethod || "—"} />
-            <DetailRow label="Created" value={formatDate(record.date)} />
+          <CardContent className="space-y-3 text-sm">
+            <ClassificationList
+              industries={record.detectedIndustries}
+              categories={record.detectedCategories}
+            />
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-primary/10">
+        <CardHeader>
+          <CardTitle>Extracted data</CardTitle>
+          <CardDescription>
+            Schema-driven structured output. Fields depend on the resolved category schema.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExtractedDataView
+            data={record.extractedData}
+            validationErrors={record.validationErrors}
+          />
+        </CardContent>
+      </Card>
+
+      {record.validationErrors.length > 0 ? (
+        <Card className="border-amber-500/40">
+          <CardHeader>
+            <CardTitle>Validation errors</CardTitle>
+            <CardDescription>
+              These fields failed JSON Schema validation. Fix them in the admin or via the review
+              flow.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {record.validationErrors.map((error, idx) => (
+                <li key={idx} className="text-foreground">
+                  {error.category ? (
+                    <span className="text-muted-foreground mr-2">[{error.category}]</span>
+                  ) : null}
+                  <span className="font-medium">{error.path || "(root)"}</span>
+                  <span className="text-muted-foreground"> — {error.message}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-primary/10">
         <CardHeader>
@@ -222,11 +278,62 @@ export default function RecordDetailPage({ params }: PageProps) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function CategoryBadge({ category }: { category: DetectedCategory }) {
+  const confidence = Math.round((category.confidence ?? 0) * 100);
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+    <span
+      className={cn(
+        "bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+      )}
+    >
+      {category.industry}.{category.slug} · {confidence}%
+    </span>
+  );
+}
+
+function ClassificationList({
+  industries,
+  categories,
+}: {
+  industries: DetectedCategory[] | { slug: string; confidence: number }[];
+  categories: DetectedCategory[];
+}) {
+  if (industries.length === 0 && categories.length === 0) {
+    return (
+      <p className="text-muted-foreground">
+        No classification yet. This card populates after the pipeline runs.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {industries.length > 0 ? (
+        <div>
+          <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Industries</div>
+          <div className="flex flex-wrap gap-1.5">
+            {industries.map((entry) => (
+              <span
+                key={"industry" in entry ? `${entry.industry}.${entry.slug}` : entry.slug}
+                className="border-primary/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+              >
+                {"industry" in entry ? `${entry.industry}.${entry.slug}` : entry.slug}
+                {" · "}
+                {Math.round(entry.confidence * 100)}%
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {categories.length > 0 ? (
+        <div>
+          <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Categories</div>
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map((category) => (
+              <CategoryBadge key={`${category.industry}.${category.slug}`} category={category} />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

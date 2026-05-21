@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { legalBusinessAddress, legalContactEmail, legalDocuments, legalEntity, legalLastUpdated } from "@/shared/lib/legal-content";
+import {
+  legalBusinessAddress,
+  legalContactEmail,
+  legalDocuments,
+  legalEntity,
+  legalLastUpdated,
+} from "@/shared/lib/legal-content";
 import { siteConfig } from "@/shared/lib/config/site";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -19,21 +25,22 @@ const highlights = [
 export default function LegalCenterPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-      <section className="brand-panel rounded-4xl border border-primary/10 p-8">
+      <section className="brand-panel border-primary/10 rounded-4xl border p-8">
         <div className="max-w-4xl space-y-4">
           <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-sm font-medium">
             Legal center
           </div>
           <h1 className="max-w-4xl text-balance">Public legal pages built for a global AI SaaS</h1>
           <p className="text-muted-foreground max-w-3xl text-lg">
-            This legal center contains the public-facing policies and agreement templates for Talk2Record, including
-            privacy, terms, AI disclosures, billing rules, and processor commitments.
+            This legal center contains the public-facing policies and agreement templates for
+            Talk2Record, including privacy, terms, AI disclosures, billing rules, and processor
+            commitments.
           </p>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {highlights.map((item) => (
             <Card key={item} className="border-primary/10">
-              <CardContent className="pt-6 text-sm text-muted-foreground">{item}</CardContent>
+              <CardContent className="text-muted-foreground pt-6 text-sm">{item}</CardContent>
             </Card>
           ))}
         </div>
@@ -43,12 +50,12 @@ export default function LegalCenterPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {legalDocuments.map((document) => (
             <Link key={document.slug} href={`/legal/${document.slug}`} className="group">
-              <Card className="h-full border-primary/10 transition-transform group-hover:-translate-y-0.5">
+              <Card className="border-primary/10 h-full transition-transform group-hover:-translate-y-0.5">
                 <CardHeader>
                   <CardTitle>{document.shortTitle}</CardTitle>
                   <CardDescription>{document.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
+                <CardContent className="text-muted-foreground text-sm">
                   <p>{document.summary}</p>
                 </CardContent>
               </Card>
@@ -59,9 +66,11 @@ export default function LegalCenterPage() {
         <Card className="border-primary/10">
           <CardHeader>
             <CardTitle>Company details</CardTitle>
-            <CardDescription>Use these details for enterprise diligence and legal contact.</CardDescription>
+            <CardDescription>
+              Use these details for enterprise diligence and legal contact.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <CardContent className="text-muted-foreground space-y-3 text-sm">
             <p>
               <span className="text-foreground font-medium">Entity:</span> {legalEntity}
             </p>

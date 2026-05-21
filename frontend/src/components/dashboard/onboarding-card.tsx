@@ -118,7 +118,7 @@ export function OnboardingCard() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium">{step.title}</p>
                         {step.required ? (
-                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-amber-800 uppercase dark:text-amber-200">
                             Required
                           </span>
                         ) : null}

@@ -4,21 +4,24 @@ import { legalDocuments } from "@/shared/lib/legal-content";
 
 export function MarketingFooter() {
   return (
-    <footer className="border-border/80 mt-auto border-t bg-background/85 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 text-sm text-muted-foreground sm:px-6 lg:px-8">
+    <footer className="border-border/80 bg-background/85 mt-auto border-t backdrop-blur">
+      <div className="text-muted-foreground mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 text-sm sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <div className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <div className="bg-primary/10 text-primary inline-flex rounded-full px-3 py-1 text-xs font-medium">
               Talk2Record
             </div>
-            <p className="max-w-xl text-foreground text-base font-medium">
+            <p className="text-foreground max-w-xl text-base font-medium">
               Turn conversations into structured business intelligence.
             </p>
             <p className="max-w-2xl">
-              Capture voice notes, review clean records, and keep operations, billing, and analytics in sync.
+              Capture voice notes, review clean records, and keep operations, billing, and analytics
+              in sync.
             </p>
           </div>
-          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Global, calm, reliable AI</p>
+          <p className="text-muted-foreground text-xs tracking-[0.22em] uppercase">
+            Global, calm, reliable AI
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <Link href="/features">Features</Link>
@@ -39,7 +42,7 @@ export function MarketingFooter() {
             {legalContactEmail}
           </a>
         </p>
-        <div className="text-xs text-muted-foreground/80">
+        <div className="text-muted-foreground/80 text-xs">
           AI outputs require human review before business, compliance, or financial reliance.
         </div>
       </div>

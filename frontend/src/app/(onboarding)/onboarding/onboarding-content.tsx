@@ -4,28 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-  MessageCircle,
-  ShieldCheck,
-} from "lucide-react";
+import { CheckCircle2, ExternalLink, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
 
 import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
 import { PlanChangeModal } from "@/components/billing/plan-change-modal";
 import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
 import { useAuth } from "@/shared/lib/auth/auth-context";
-import {
-  legalService,
-  settingsService,
-  whatsappService,
-} from "@/services/platform-service";
+import { legalService, settingsService, whatsappService } from "@/services/platform-service";
 import { useLegalStatus, LEGAL_STATUS_QUERY_KEY } from "@/shared/hooks/use-legal-status";
-import {
-  ONBOARDING_STEPS_QUERY_KEY,
-  useOnboardingSnapshot,
-} from "@/shared/hooks/use-onboarding";
+import { ONBOARDING_STEPS_QUERY_KEY, useOnboardingSnapshot } from "@/shared/hooks/use-onboarding";
 import { usePlans } from "@/shared/hooks/use-plans";
 import { invalidateBillingQueries } from "@/shared/hooks/use-change-plan";
 import { trackEvent } from "@/lib/analytics";
@@ -37,18 +24,11 @@ import { Label } from "@/shared/ui/label";
 import { toast } from "@/shared/hooks/use-toast";
 import { notifyApiError } from "@/shared/lib/notify-api-error";
 import { cn } from "@/shared/lib/utils";
-import type { PlanCatalogItem, SettingsProfile } from "@/types/platform";
+import type { BillingInterval, PlanCatalogItem, SettingsProfile } from "@/types/platform";
 
 type OnboardingTabId = "legal" | "company" | "plan" | "whatsapp" | "voice" | "confirm" | "complete";
 
-const TAB_ORDER: OnboardingTabId[] = [
-  "legal",
-  "company",
-  "plan",
-  "whatsapp",
-  "voice",
-  "confirm",
-];
+const TAB_ORDER: OnboardingTabId[] = ["legal", "company", "plan", "whatsapp", "voice", "confirm"];
 
 const TAB_LABELS: Record<OnboardingTabId, string> = {
   legal: "Legal",
@@ -214,10 +194,12 @@ export function OnboardingPageContent() {
   };
 
   const descriptionByTab: Record<OnboardingTabId, string> = {
-    legal: "We need your explicit acceptance of the documents below before we can give you access to your workspace.",
+    legal:
+      "We need your explicit acceptance of the documents below before we can give you access to your workspace.",
     company: "Confirm your workspace name, timezone, and billing currency.",
     plan: "Pick a plan to activate your workspace. You will complete payment securely via Paddle.",
-    whatsapp: "Optional — connect your business WhatsApp number so Talk2Record can ingest voice notes.",
+    whatsapp:
+      "Optional — connect your business WhatsApp number so Talk2Record can ingest voice notes.",
     voice: "Optional — send a voice note via WhatsApp or record one directly in your browser.",
     confirm: "Last step. Confirm you understand how Talk2Record handles voice data.",
     complete: "Onboarding is done. You can leave this page at any time.",
@@ -264,7 +246,10 @@ export function OnboardingPageContent() {
         ) : null}
 
         {activeTab === "plan" ? (
-          <ChoosePlanStage onPlanActive={() => setActiveTab("whatsapp")} planComplete={planComplete} />
+          <ChoosePlanStage
+            onPlanActive={() => setActiveTab("whatsapp")}
+            planComplete={planComplete}
+          />
         ) : null}
 
         {activeTab === "whatsapp" ? (
@@ -318,7 +303,7 @@ interface OnboardingTabBarProps {
   steps: ReturnType<typeof useOnboardingSnapshot>["steps"];
   skippedTabs: Set<OnboardingTabId>;
   legalComplete: boolean;
-  onSelectTab: (tab: OnboardingTabId) => void;
+  onSelectTab: (_tab: OnboardingTabId) => void;
 }
 
 function OnboardingTabBar({
@@ -473,21 +458,26 @@ function ChoosePlanStage({
   const [selectedPlan, setSelectedPlan] = useState<PlanCatalogItem | null>(null);
   const [changeKind, setChangeKind] = useState<PlanChangeKind>("new");
   const checkoutSuccessUrl =
-    typeof window !== "undefined" ? `${window.location.origin}/onboarding?checkout=success` : undefined;
+    typeof window !== "undefined"
+      ? `${window.location.origin}/onboarding?checkout=success`
+      : undefined;
 
   useEffect(() => {
     if (planComplete) onPlanActive();
   }, [planComplete, onPlanActive]);
 
-  function openPlan(plan: PlanCatalogItem, kind: PlanChangeKind) {
+  const [selectedInterval, setSelectedInterval] = useState<BillingInterval>("month");
+
+  function openPlan(plan: PlanCatalogItem, kind: PlanChangeKind, interval: BillingInterval) {
     setSelectedPlan(plan);
     setChangeKind(kind);
+    setSelectedInterval(interval);
   }
 
   return (
     <div className="space-y-4">
       {planComplete ? (
-        <div className="border-emerald-500/30 bg-emerald-500/10 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           Your subscription is active. Continue to the next step.
         </div>
@@ -502,6 +492,7 @@ function ChoosePlanStage({
         open={selectedPlan !== null}
         plan={selectedPlan}
         changeKind={changeKind}
+        interval={selectedInterval}
         successUrl={checkoutSuccessUrl}
         onOpenChange={(open) => {
           if (!open) setSelectedPlan(null);
@@ -515,7 +506,9 @@ function ChoosePlanStage({
         <Button
           variant="outline"
           className="rounded-xl"
-          onClick={() => void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY })}
+          onClick={() =>
+            void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY })
+          }
         >
           Refresh plan status
         </Button>
@@ -604,7 +597,7 @@ function VoiceNoteStage({
   return (
     <div className="space-y-4">
       {completed ? (
-        <div className="border-emerald-500/30 bg-emerald-500/10 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           Voice note received. Moving to confirmation…
         </div>
@@ -624,7 +617,10 @@ function VoiceNoteStage({
 
         <BrowserVoiceRecorder
           onUploaded={() => {
-            trackEvent("onboarding_step_completed", { step: "first-voice-note", source: "browser" });
+            trackEvent("onboarding_step_completed", {
+              step: "first-voice-note",
+              source: "browser",
+            });
             void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY });
           }}
         />
@@ -634,7 +630,9 @@ function VoiceNoteStage({
         <Button
           variant="outline"
           className="rounded-xl"
-          onClick={() => void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY })}
+          onClick={() =>
+            void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY })
+          }
         >
           Check for voice notes
         </Button>
@@ -668,9 +666,9 @@ function ConfirmStage({
   voiceDataConsent: boolean;
   aiReviewAcknowledged: boolean;
   recordVerificationAcknowledged: boolean;
-  onVoiceDataConsent: (value: boolean) => void;
-  onAiReviewAcknowledged: (value: boolean) => void;
-  onRecordVerificationAcknowledged: (value: boolean) => void;
+  onVoiceDataConsent: (_value: boolean) => void;
+  onAiReviewAcknowledged: (_value: boolean) => void;
+  onRecordVerificationAcknowledged: (_value: boolean) => void;
   onSubmit: () => void;
 }) {
   return (
