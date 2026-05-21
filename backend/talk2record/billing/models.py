@@ -96,6 +96,11 @@ class PlanPrice(models.Model):
     edited inside Django admin and pushed to Paddle as a side effect.
     """
 
+    class Interval(models.TextChoices):
+        MONTH = "month", _("Monthly")
+        YEAR = "year", _("Yearly")
+        ONE_TIME = "one_time", _("One-time")
+
     plan = models.ForeignKey(
         Plan,
         on_delete=models.CASCADE,
@@ -104,8 +109,8 @@ class PlanPrice(models.Model):
     paddle_price_id = models.CharField(max_length=64, blank=True)
     interval = models.CharField(
         max_length=16,
-        default="month",
-        help_text=_("month | year | one_time"),
+        choices=Interval.choices,
+        default=Interval.MONTH,
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=8, default="USD")
@@ -201,6 +206,21 @@ class Subscription(models.Model):
         related_name="subscriptions",
     )
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="subscriptions")
+    price = models.ForeignKey(
+        PlanPrice,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="subscriptions",
+        help_text=_("The exact PlanPrice (interval + amount) this subscription is billed against."),
+    )
+    billing_interval = models.CharField(
+        max_length=16,
+        choices=PlanPrice.Interval.choices,
+        default=PlanPrice.Interval.MONTH,
+        db_index=True,
+        help_text=_("Denormalised from price.interval so dashboards can filter without joining."),
+    )
     provider_subscription_id = models.CharField(max_length=255, blank=True)
     paddle_customer_id = models.CharField(max_length=64, blank=True)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.TRIALING)
@@ -217,6 +237,90 @@ class Subscription(models.Model):
 
     def __str__(self) -> str:
         return f"{self.organization.name}: {self.plan.name}"
+
+
+class PaddleWebhookEvent(models.Model):
+    """Idempotency + audit row for every Paddle webhook we accept.
+
+    Two-plane principle: Django is the control plane. To keep our local
+    mirror safe in the face of unreliable Paddle delivery (retries,
+    out-of-order events, race conditions with billing resets), every
+    accepted webhook is recorded *before* any mutation runs:
+
+    * The unique ``paddle_event_id`` column guarantees that re-deliveries
+      of the same event are detected as duplicates and skipped.
+    * ``billing_state_version_at_dispatch`` snapshots the target
+      organisation's commercial-state version so we can abort the mutation
+      if a billing reset bumped it during dispatch.
+    * The full ``payload`` is retained so the admin "Replay event" action
+      can re-run dispatch deterministically for support work.
+
+    This table is intentionally append-only: we never delete rows so the
+    audit trail is intact for chargeback / dispute work.
+    """
+
+    class Status(models.TextChoices):
+        RECEIVED = "received", _("Received")
+        ACCEPTED = "accepted", _("Accepted")
+        DUPLICATE = "duplicate", _("Duplicate")
+        SKIPPED = "skipped", _("Skipped (raced by reset)")
+        FAILED = "failed", _("Failed")
+
+    paddle_event_id = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text=_(
+            "Paddle's notification_id / event_id from the payload — the "
+            "natural idempotency key for redelivered webhooks."
+        ),
+    )
+    event_type = models.CharField(max_length=64, db_index=True)
+    signature = models.CharField(max_length=128, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.RECEIVED,
+        db_index=True,
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    organization_id = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text=_("Resolved from payload.custom_data.organization_id — best-effort."),
+    )
+    subscription_id = models.CharField(
+        max_length=255,
+        blank=True,
+        db_index=True,
+        help_text=_("Paddle subscription id when the event references a sub."),
+    )
+    billing_state_version_at_dispatch = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Snapshot of Organization.billing_state_version when dispatch "
+            "started. If the org's version differs at commit time, the "
+            "event is recorded as SKIPPED (reset-race guard)."
+        ),
+    )
+    error = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Paddle webhook event")
+        verbose_name_plural = _("Paddle webhook events")
+        ordering = ["-received_at"]
+        indexes = [
+            models.Index(
+                fields=["event_type", "status"],
+                name="paddle_evt_type_status_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_type}:{self.paddle_event_id} ({self.status})"
 
 
 class Transaction(models.Model):

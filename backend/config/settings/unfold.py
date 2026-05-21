@@ -88,6 +88,7 @@ UNFOLD = {
             "billing.planprice",
             "billing.subscription",
             "billing.transaction",
+            "billing.paddlewebhookevent",
             # Operations
             "notifications.notification",
             "ingestion.whatsapprawpayload",
@@ -218,11 +219,6 @@ UNFOLD = {
                         "icon": "inventory_2",
                         "link": reverse_lazy("admin:records_recordartifact_changelist"),
                     },
-                    {
-                        "title": _("Record schemas (legacy)"),
-                        "icon": "history_edu",
-                        "link": reverse_lazy("admin:records_recordschema_changelist"),
-                    },
                 ],
             },
             # ------------------------------------------------------------------
@@ -334,6 +330,23 @@ UNFOLD = {
                 "collapsible": True,
                 "items": [
                     {
+                        "title": _("Billing dashboard"),
+                        "icon": "monitoring",
+                        "link": reverse_lazy("admin_billing_dashboard"),
+                    },
+                    {
+                        # Per-org Billing Recovery — Phase 5. Lands on the
+                        # Organizations changelist; staff search the target
+                        # org and click into the per-org review page from
+                        # there (or jump from the dashboard's trialing-soon
+                        # / past-due rows, which deep-link to the same page).
+                        "title": _("Billing recovery (per org)"),
+                        "icon": "restart_alt",
+                        "link": reverse_lazy(
+                            "admin:organizations_organization_changelist",
+                        ),
+                    },
+                    {
                         "title": _("Paddle settings"),
                         "icon": "credit_card",
                         "link": reverse_lazy("admin:billing_paddlesettings_changelist"),
@@ -362,6 +375,11 @@ UNFOLD = {
                         "title": _("Transactions"),
                         "icon": "account_balance_wallet",
                         "link": reverse_lazy("admin:billing_transaction_changelist"),
+                    },
+                    {
+                        "title": _("Webhook events"),
+                        "icon": "webhook",
+                        "link": reverse_lazy("admin:billing_paddlewebhookevent_changelist"),
                     },
                 ],
             },

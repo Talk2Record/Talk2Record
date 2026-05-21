@@ -206,17 +206,12 @@ class RecordProcessingService:
 
     @staticmethod
     def _build_stored_metadata(record: Record) -> dict:
-        """Compose the notification title + summary for a stored record.
-
-        Tries the new dynamic-extraction shape first
-        (``detected_categories`` + ``extracted_data``), then falls back to
-        the legacy sales-flavored artifact for records produced by the
-        previous pipeline.
-        """
+        """Compose the notification title + summary for a stored record."""
 
         title, message = RecordProcessingService._dynamic_summary(record)
         if title is None:
-            title, message = RecordProcessingService._legacy_sales_summary(record)
+            title = "Voice note has been processed"
+            message = f"Record {record.source_reference or record.pk} is ready."
         return {"title": title, "message": message, "link_url": "/dashboard/records"}
 
     @staticmethod
@@ -243,29 +238,4 @@ class RecordProcessingService:
                     continue
                 summary_bits.append(f"{key}: {value}")
         message = ", ".join(summary_bits) or f"Record {record.source_reference or record.pk} is ready."
-        return title, message
-
-    @staticmethod
-    def _legacy_sales_summary(record: Record) -> tuple[str, str]:
-        extraction = record.get_artifact("extraction")
-        if extraction is None:
-            return (
-                "Voice note has been processed",
-                f"Record {record.source_reference or record.pk} is ready.",
-            )
-        data = extraction.content if isinstance(extraction.content, dict) else {}
-        # Legacy shape stored sales fields at the top level. New dynamic
-        # artifacts use {"categories": [...], "primary": {...}}; in that
-        # case we leave the legacy summary fallback alone.
-        if "categories" in data and "primary" in data:
-            return (
-                "Voice note has been processed",
-                f"Record {record.source_reference or record.pk} is ready.",
-            )
-        title = f"Voice note from {data.get('customer_name', 'Unknown')} has been processed"
-        message = (
-            f"Record: {data.get('product', '-')} - "
-            f"{data.get('quantity', 1)} x "
-            f"{data.get('currency', 'USD')} {data.get('amount', '0.00')}"
-        )
         return title, message

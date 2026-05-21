@@ -6,16 +6,11 @@ from decimal import Decimal
 
 import requests
 
-from talk2record.ai.providers._legacy_prompts import (
-    LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT,
+from talk2record.ai.providers.base import (
+    DEFAULT_EXTRACTION_SYSTEM_PROMPT,
+    ExtractionResult,
+    TranscriptionResult,
 )
-from talk2record.ai.providers.base import ExtractionResult
-from talk2record.ai.providers.base import TranscriptionResult
-
-# Re-exported under the historical name so any external code importing the
-# old constant continues to work. New code should pass ``system_prompt`` to
-# ``extract()`` instead, resolved from a ``PromptTemplate`` row.
-EXTRACTION_SYSTEM_PROMPT = LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
 
 
 class OpenAITranscriptionProvider:
@@ -104,7 +99,7 @@ class OpenAIExtractionProvider:
             client_kwargs["base_url"] = self._base_url
         client = openai.OpenAI(**client_kwargs)
 
-        resolved_system = system_prompt or LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
+        resolved_system = system_prompt or DEFAULT_EXTRACTION_SYSTEM_PROMPT
         resolved_user = user_prompt or f"Transcript:\n{transcript}"
 
         response = client.chat.completions.create(
@@ -123,11 +118,6 @@ class OpenAIExtractionProvider:
         except json.JSONDecodeError:
             data = {}
 
-        if not system_prompt:
-            # Legacy code-path: preserve the sales-flavored shape callers
-            # have always received from this provider.
-            data = _apply_legacy_sales_shape(data, transcript=transcript, context=context)
-
         return ExtractionResult(
             data=data,
             provider=self.provider_name,
@@ -135,30 +125,3 @@ class OpenAIExtractionProvider:
             prompt_version=prompt_version,
             confidence_score=Decimal("0.92"),
         )
-
-
-def _apply_legacy_sales_shape(data: dict, *, transcript: str, context: dict) -> dict:
-    """Legacy post-processing that pads missing sales fields with sensible defaults.
-
-    Only invoked when no taxonomy ``system_prompt`` is supplied — i.e. the
-    caller is still on the legacy :class:`ExtractionService` pathway.
-    """
-
-    data["voice_transcript"] = transcript
-    data.setdefault("customer_name", str(context.get("customer_name") or ""))
-    data.setdefault("product", str(context.get("product") or ""))
-    data.setdefault("quantity", int(context.get("quantity") or 1))
-    data.setdefault("amount", float(context.get("amount") or 0.0))
-    data.setdefault("currency", str(context.get("currency") or "USD"))
-    data.setdefault("payment_method", str(context.get("payment_method") or ""))
-
-    try:
-        data["quantity"] = int(data["quantity"])
-    except (TypeError, ValueError):
-        data["quantity"] = 1
-    try:
-        data["amount"] = float(data["amount"])
-    except (TypeError, ValueError):
-        data["amount"] = 0.0
-
-    return data

@@ -26,6 +26,8 @@ help:
 	@printf "Docker (local):\n"
 	@printf "  make build            Build local images\n"
 	@printf "  make up               Start local stack (detached)\n"
+	@printf "  make infra-up         Start only postgres/redis/mailpit (no Django)\n"
+	@printf "  make reset            Full reset: prune → infra → migrate → seed → up\n"
 	@printf "  make down             Stop local stack\n"
 	@printf "  make prune            Stop local stack + remove volumes\n"
 	@printf "  make logs [S=svc]     Follow logs (optionally one service)\n"
@@ -74,6 +76,13 @@ build:
 .PHONY: up
 up:
 	$(COMPOSE_LOCAL) up -d --remove-orphans
+
+.PHONY: infra-up
+infra-up:
+	$(COMPOSE_LOCAL) up -d postgres redis mailpit
+
+.PHONY: reset
+reset: prune infra-up migrate seed up
 
 .PHONY: down
 down:

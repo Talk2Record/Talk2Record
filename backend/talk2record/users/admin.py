@@ -3,9 +3,11 @@ from contextlib import suppress
 from allauth.account.decorators import secure_admin_login
 from django.conf import settings
 from django.contrib import admin
+from django.contrib import messages
 from django.contrib.auth import admin as auth_admin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.models import Group
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
@@ -77,6 +79,74 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
     list_filter = ["is_active", "is_staff", "is_superuser", "onboarding_completed"]
     search_fields = ["email", "name"]
     ordering = ["id"]
+    actions = ["reset_billing_primary_org"]
+
+    @admin.action(description=_("Reset billing for the user's primary organisation"))
+    def reset_billing_primary_org(self, request, queryset):
+        """Resolve each user's primary organisation, then reset billing.
+
+        "Primary" = ``user.current_organization``, falling back to the first
+        active membership. Users without any org are skipped with a warning.
+        Confirmation is collected on a second POST so admins must supply a
+        reason (required for the audit trail).
+        """
+        from talk2record.billing.admin import _render_reset_confirmation
+        from talk2record.billing.admin import _run_billing_reset
+        from talk2record.organizations.models import Membership
+
+        organizations = []
+        seen = set()
+        for user in queryset:
+            org = user.current_organization
+            if org is None:
+                membership = (
+                    Membership.objects.filter(
+                        user=user, status=Membership.Status.ACTIVE,
+                    )
+                    .select_related("organization")
+                    .first()
+                )
+                org = membership.organization if membership else None
+            if org is None:
+                messages.warning(
+                    request, f"{user.email}: no organisation to reset.",
+                )
+                continue
+            if org.pk in seen:
+                continue
+            seen.add(org.pk)
+            organizations.append(org)
+
+        if not organizations:
+            messages.error(request, _("None of the selected users have an organisation to reset."))
+            return None
+
+        if request.POST.get("confirm") == "1":
+            reason = (request.POST.get("reason") or "").strip()
+            also_reset_onboarding = (
+                request.POST.get("also_reset_onboarding") == "on"
+            )
+            if not reason:
+                messages.error(request, _("A reason is required to reset billing."))
+                return _render_reset_confirmation(
+                    request,
+                    organizations,
+                    back_url=reverse("admin:users_user_changelist"),
+                    title=_("Reset billing — confirm"),
+                )
+            _run_billing_reset(
+                request,
+                organizations,
+                reason,
+                also_reset_onboarding=also_reset_onboarding,
+            )
+            return None
+        return _render_reset_confirmation(
+            request,
+            organizations,
+            back_url=reverse("admin:users_user_changelist"),
+            title=_("Reset billing — confirm"),
+        )
     add_fieldsets = (
         (
             None,

@@ -6,10 +6,8 @@ resolved prompt, and returns the model's structured output. The caller
 (usually :class:`ExtractionPipeline`) is responsible for persisting the
 result and running validation afterwards.
 
-This is the taxonomy-aware replacement for
-:mod:`talk2record.ai.services.extraction`. The legacy service is kept
-intact for any caller still on the sales schema until the pipeline runner
-is switched over.
+Production ingestion uses this service via
+:class:`~talk2record.taxonomy.services.orchestrator.ExtractionPipeline`.
 """
 
 from __future__ import annotations

@@ -18,6 +18,16 @@ class Organization(models.Model):
     default_currency = models.CharField(max_length=8, default="USD")
     profile_setup_completed = models.BooleanField(default=False)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)
+    billing_state_version = models.PositiveIntegerField(
+        default=0,
+        help_text=_(
+            "Monotonically increasing version of this organisation's commercial "
+            "billing state. Bumped by checkout, plan change, and billing reset. "
+            "The Paddle webhook pipeline snapshots this value before applying a "
+            "mutation and aborts if it has changed during dispatch (reset-race "
+            "guard)."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

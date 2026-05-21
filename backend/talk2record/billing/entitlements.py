@@ -94,3 +94,19 @@ class EntitlementService:
         if entitlement is None or not entitlement.enabled:
             return default
         return int(entitlement.limit) or default
+
+    @classmethod
+    def invalidate_for(cls, organization: Organization) -> None:
+        """Drop any cached entitlement state for ``organization``.
+
+        Today's ``EntitlementService`` reads ``PlanEntitlement`` rows
+        directly on every call (no cache layer), so this is a no-op. It
+        exists as a stable hook for ``BillingRecoveryService`` and future
+        cache implementations (e.g. Redis-backed entitlement cache, request-
+        scoped memoisation) so the reset path doesn't need to be edited
+        when caching is introduced.
+        """
+        # Intentionally a no-op for now. Importing is enough to satisfy the
+        # call-site contract; future cache layers should hook here.
+        _ = organization
+        return None

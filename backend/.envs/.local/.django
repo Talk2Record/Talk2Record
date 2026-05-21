@@ -12,11 +12,8 @@ REDIS_URL=redis://redis:6379/0
 # WhatsApp Cloud API credentials live in the ``whatsapp`` Integration
 # (``Integration.config`` + encrypted ``ApiCredential``), not in env vars.
 
-# AI pipeline
+# AI usage limits
 # ------------------------------------------------------------------------------
-AI_TRANSCRIPTION_PROVIDER=mock
-AI_EXTRACTION_PROVIDER=mock
-AI_EXTRACTION_PROMPT_VERSION=v1
 AI_USAGE_MONTHLY_LIMIT_PER_ORG=0
 INGESTION_DAILY_RECORD_LIMIT_PER_ORG=0
 DRF_THROTTLE_ANON=300/min

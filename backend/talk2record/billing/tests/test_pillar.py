@@ -82,7 +82,7 @@ class TestPaddleWebhook:
     @pytest.fixture(autouse=True)
     def _no_real_event_bus(self, settings):
         settings.CELERY_TASK_ALWAYS_EAGER = True
-        with patch("talk2record.billing.views.EventBus.publish"):
+        with patch("talk2record.billing.webhook_pipeline.EventBus.publish"):
             yield
 
     def test_subscription_created_upserts_and_emits_event(
@@ -99,6 +99,7 @@ class TestPaddleWebhook:
             currency="USD",
         )
         payload = {
+            "event_id": "evt_pillar_sub_001",
             "event_type": "subscription.created",
             "data": {
                 "id": "sub_001",
@@ -133,6 +134,7 @@ class TestPaddleWebhook:
             status=Subscription.Status.ACTIVE,
         )
         payload = {
+            "event_id": "evt_pillar_txn_1",
             "event_type": "transaction.completed",
             "data": {
                 "id": "txn_1",

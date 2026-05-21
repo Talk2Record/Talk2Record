@@ -7,6 +7,7 @@ from talk2record.ai.views_api import AIProviderRegistryViewSet
 from talk2record.ai.views_api import AIProviderViewSet
 from talk2record.ai.views_api import AITaskBindingViewSet
 from talk2record.analytics.views import DailyMetricViewSet
+from talk2record.billing.admin_api import AdminOrganizationViewSet
 from talk2record.billing.views import BillingActionViewSet
 from talk2record.billing.views import SubscriptionViewSet
 from talk2record.legal.views import LegalDocumentVersionViewSet
@@ -38,6 +39,9 @@ router.register("legal/documents", LegalDocumentVersionViewSet, basename="legal-
 router.register("legal/profile", LegalProfileViewSet, basename="legal-profile")
 router.register("analytics/daily-metrics", DailyMetricViewSet, basename="daily-metric")
 router.register("admin/users", AdminUserViewSet, basename="admin-user")
+router.register(
+    "admin/organizations", AdminOrganizationViewSet, basename="admin-organization",
+)
 router.register("whatsapp/accounts", WhatsAppAccountViewSet, basename="whatsapp-account")
 router.register(
     "whatsapp/conversations",

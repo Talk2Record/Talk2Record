@@ -37,13 +37,6 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 TIME_ZONE = "UTC"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 LANGUAGE_CODE = "en-us"
-# https://docs.djangoproject.com/en/dev/ref/settings/#languages
-# from django.utils.translation import gettext_lazy as _
-# LANGUAGES = [
-#     ('en', _('English')),
-#     ('fr-fr', _('French')),
-#     ('pt-br', _('Portuguese')),
-# ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#site-id
 SITE_ID = 1
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
@@ -78,7 +71,6 @@ DJANGO_APPS = [
     "django.contrib.sites",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # "django.contrib.humanize", # Handy template tags
     "unfold.contrib.filters",
     "unfold.contrib.forms",
     "unfold.contrib.inlines",
@@ -414,9 +406,6 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-AI_TRANSCRIPTION_PROVIDER = env("AI_TRANSCRIPTION_PROVIDER", default="mock")
-AI_EXTRACTION_PROVIDER = env("AI_EXTRACTION_PROVIDER", default="mock")
-AI_EXTRACTION_PROMPT_VERSION = env("AI_EXTRACTION_PROMPT_VERSION", default="v1")
 AI_USAGE_MONTHLY_LIMIT_PER_ORG = env.int("AI_USAGE_MONTHLY_LIMIT_PER_ORG", default=0)
 INGESTION_DAILY_RECORD_LIMIT_PER_ORG = env.int(
     "INGESTION_DAILY_RECORD_LIMIT_PER_ORG",

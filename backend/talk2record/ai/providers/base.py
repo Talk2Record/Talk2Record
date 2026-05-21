@@ -7,6 +7,10 @@ from typing import Protocol
 if TYPE_CHECKING:
     from decimal import Decimal
 
+DEFAULT_EXTRACTION_SYSTEM_PROMPT = (
+    "You are a data extraction assistant. Return only valid JSON."
+)
+
 
 @dataclass(frozen=True)
 class TranscriptionResult:
@@ -53,11 +57,9 @@ class BaseExtractionProvider(Protocol):
     ) -> ExtractionResult:
         """Run extraction against the given transcript.
 
-        ``system_prompt`` and ``user_prompt`` are the resolved prompt bodies
-        from the taxonomy ``PromptResolver`` with all placeholders already
-        filled in. They are optional so legacy callers (the sales-flavored
-        :class:`ExtractionService`) keep working; in that case the provider
-        falls back to its built-in legacy prompt.
+        ``system_prompt`` and ``user_prompt`` are resolved by
+        :class:`~talk2record.taxonomy.services.prompt_resolver.PromptResolver`.
+        When empty, providers use :data:`DEFAULT_EXTRACTION_SYSTEM_PROMPT`.
         """
 
         raise NotImplementedError

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Record, RecordArtifact, RecordSchema
+from .models import Record, RecordArtifact
 
 
 @admin.register(Record)
@@ -45,9 +45,3 @@ class RecordArtifactAdmin(ModelAdmin):
     list_select_related = ("record", "record__organization")
     list_filter = ["artifact_type", "key"]
     search_fields = ["record__source_reference", "key", "provider"]
-
-
-@admin.register(RecordSchema)
-class RecordSchemaAdmin(ModelAdmin):
-    list_display = ["name", "version", "created_at"]
-    search_fields = ["name"]

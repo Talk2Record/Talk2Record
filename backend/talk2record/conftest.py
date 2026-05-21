@@ -31,6 +31,91 @@ def _media_storage(settings, tmpdir) -> None:
     settings.MEDIA_ROOT = tmpdir.strpath
 
 
+@pytest.fixture(autouse=True)
+def _stub_record_audio_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid HTTP fetches for fixture audio URLs during all tests."""
+
+    def _fake_audio(*, audio_url: str) -> bytes:
+        return b"fake-audio-bytes"
+
+    monkeypatch.setattr("talk2record.records.audio.load_record_audio_bytes", _fake_audio)
+    monkeypatch.setattr(
+        "talk2record.ai.services.transcription.load_record_audio_bytes", _fake_audio
+    )
+
+
+@pytest.fixture(autouse=True)
+def _stub_extraction_pipeline(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Patch ExtractionPipeline.run for ingestion tests.
+
+    The real pipeline requires seeded taxonomy + rule-matching transcripts to
+    avoid REVIEW status. Ingestion tests care about pipeline *wiring*, not
+    taxonomy logic, so we return a deterministic mock outcome.
+    """
+    if "ingestion/tests" not in str(request.fspath):
+        return
+
+    from talk2record.taxonomy.services.classification import (
+        CategoryScore,
+        ClassificationResult,
+        IndustryScore,
+    )
+    from talk2record.taxonomy.services.dictionary import NormalizedText
+    from talk2record.taxonomy.services.extraction import DynamicExtractionResult
+    from talk2record.taxonomy.services.orchestrator import (
+        CategoryExtraction,
+        PipelineOutcome,
+    )
+    from talk2record.taxonomy.services.validation import ValidationResult
+
+    def _mock_run(cls, transcript: str) -> PipelineOutcome:
+        classification = ClassificationResult(
+            industries=[IndustryScore(slug="construction", confidence=0.95)],
+            categories=[
+                CategoryScore(
+                    industry="construction",
+                    slug="material_delivery",
+                    confidence=0.95,
+                )
+            ],
+            source="mock",
+        )
+        normalization = NormalizedText(text=transcript, applied=[])
+        mock_extraction = DynamicExtractionResult(
+            data={"transcript": transcript},
+            provider="mock",
+            model="mock-extractor-v1",
+            prompt_version="v1",
+            schema_version="v1",
+            confidence_score=0.95,
+            prompt=None,
+        )
+        validation = ValidationResult(ok=True, errors=[])
+        extraction = CategoryExtraction(
+            industry_slug="construction",
+            category_slug="material_delivery",
+            classification_confidence=0.95,
+            extraction=mock_extraction,
+            validation=validation,
+        )
+        return PipelineOutcome(
+            transcript=transcript,
+            normalized_transcript=transcript,
+            classification=classification,
+            normalization=normalization,
+            extractions=[extraction],
+            needs_review=False,
+            confidence_score=0.95,
+        )
+
+    monkeypatch.setattr(
+        "talk2record.taxonomy.services.orchestrator.ExtractionPipeline.run",
+        classmethod(_mock_run),
+    )
+
+
 @pytest.fixture
 def user(db) -> User:
     return UserFactory.create()

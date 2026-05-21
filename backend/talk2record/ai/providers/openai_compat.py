@@ -11,11 +11,10 @@ import json
 import re
 from decimal import Decimal
 
-from talk2record.ai.providers._legacy_prompts import (
-    LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT,
+from talk2record.ai.providers.base import (
+    DEFAULT_EXTRACTION_SYSTEM_PROMPT,
+    ExtractionResult,
 )
-from talk2record.ai.providers.base import ExtractionResult
-from talk2record.ai.providers.openai import _apply_legacy_sales_shape
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -58,7 +57,7 @@ class OpenAICompatibleExtractionProvider:
             base_url=self._base_url or None,
         )
 
-        resolved_system = system_prompt or LEGACY_SALES_EXTRACTION_SYSTEM_PROMPT
+        resolved_system = system_prompt or DEFAULT_EXTRACTION_SYSTEM_PROMPT
         resolved_user = user_prompt or f"Transcript:\n{transcript}"
 
         kwargs: dict = {
@@ -85,9 +84,6 @@ class OpenAICompatibleExtractionProvider:
             data = json.loads(raw)
         except json.JSONDecodeError:
             data = {}
-
-        if not system_prompt:
-            data = _apply_legacy_sales_shape(data, transcript=transcript, context=context)
 
         return ExtractionResult(
             data=data,

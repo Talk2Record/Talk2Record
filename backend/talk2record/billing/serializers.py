@@ -21,6 +21,7 @@ class SubscriptionSerializer(serializers.ModelSerializer[Subscription]):
     plan_code = serializers.CharField(source="plan.code", read_only=True)
     voice_notes_processed = serializers.IntegerField(default=0, read_only=True)
     included_voice_notes = serializers.IntegerField(default=0, read_only=True)
+    trial_ends_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Subscription
@@ -32,17 +33,32 @@ class SubscriptionSerializer(serializers.ModelSerializer[Subscription]):
             "amount",
             "currency",
             "seats",
+            "billing_interval",
             "current_period_end",
+            "trial_ends_at",
             "voice_notes_processed",
             "included_voice_notes",
             "invoices",
         ]
+
+    def get_trial_ends_at(self, obj: Subscription):
+        if obj.status == Subscription.Status.TRIALING:
+            return obj.current_period_end
+        return None
 
 
 class BillingCheckoutSerializer(serializers.Serializer):
     plan = serializers.CharField()
     acceptedBillingTerms = serializers.BooleanField()
     successUrl = serializers.URLField(required=False, allow_blank=True)
+    interval = serializers.ChoiceField(
+        choices=[
+            PlanPrice.Interval.MONTH,
+            PlanPrice.Interval.YEAR,
+        ],
+        required=False,
+        default=PlanPrice.Interval.MONTH,
+    )
 
 
 class PlanPriceSerializer(serializers.ModelSerializer[PlanPrice]):

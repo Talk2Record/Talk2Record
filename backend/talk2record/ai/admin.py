@@ -204,6 +204,7 @@ def _ping_provider(provider: AIProvider) -> tuple[bool, str]:
             transcript="ping",
             context={},
             prompt_version="v1",
+            system_prompt="Return only valid JSON.",
         )
     except Exception as exc:  # noqa: BLE001 - any failure becomes a message.
         return False, f"{type(exc).__name__}: {exc}"

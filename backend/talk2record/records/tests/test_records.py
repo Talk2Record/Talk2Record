@@ -5,7 +5,6 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
-from celery.result import EagerResult
 from django.db import transaction
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -17,7 +16,6 @@ from talk2record.events.names import RECORD_STORED
 from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record, RecordArtifact
 from talk2record.records.services import RecordProcessingService
-from talk2record.records.tasks import extract_structured_data, store_record, transcribe_voice
 
 
 @pytest.mark.django_db
@@ -143,21 +141,6 @@ def test_record_processing_service_get_transcript_from_artifact(record):
 @pytest.mark.django_db
 def test_record_processing_service_get_transcript_returns_empty_when_absent(record):
     assert RecordProcessingService.get_transcript(record) == ""
-
-
-@pytest.mark.django_db
-def test_record_tasks(settings, record):
-    settings.CELERY_TASK_ALWAYS_EAGER = True
-
-    transcribe_result = transcribe_voice.delay(record.pk)
-    extract_result = extract_structured_data.delay(record.pk)
-    store_result = store_record.delay(record.pk)
-
-    record.refresh_from_db()
-    assert isinstance(transcribe_result, EagerResult)
-    assert isinstance(extract_result, EagerResult)
-    assert isinstance(store_result, EagerResult)
-    assert record.status == Record.Status.STORED
 
 
 @pytest.mark.django_db

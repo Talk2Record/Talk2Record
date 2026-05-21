@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 
 PADDLE_DEFAULT_CHECKOUT_URL_ERROR = "transaction_default_checkout_url_not_set"
 
+# Deterministic order used when the caller did not request a specific interval
+# (or the requested interval is not published for the plan). Alphabetical order
+# would put "year" before "month" and silently pick the wrong price.
+INTERVAL_PRIORITY: dict[str, int] = {
+    PlanPrice.Interval.MONTH: 0,
+    PlanPrice.Interval.YEAR: 1,
+    PlanPrice.Interval.ONE_TIME: 2,
+}
+
+DEFAULT_INTERVAL = PlanPrice.Interval.MONTH
+
 
 @dataclass(frozen=True)
 class CheckoutSession:
@@ -114,8 +125,9 @@ class PaddleBillingService:
         organization: "Organization",
         plan: Plan,
         success_url: str | None = None,
+        interval: str = DEFAULT_INTERVAL,
     ) -> CheckoutSession:
-        price = self._resolve_price(plan)
+        price = self._resolve_price(plan, interval=interval)
         if price is None or not price.paddle_price_id:
             msg = (
                 f"Plan {plan.code!r} has no synced Paddle price. "
@@ -131,16 +143,29 @@ class PaddleBillingService:
                 "https://app.talk2record.com/billing/success",
             )
         )
+        trial = _normalize_trial_period(price.trial_period)
         custom_data: dict[str, str] = {
             "organization_id": str(organization.pk),
             "plan_code": plan.code,
+            "interval": price.interval,
         }
+        if trial is not None:
+            # Tag the transaction so support / analytics can distinguish
+            # trial activations from regular paid checkouts without reading
+            # the price row.
+            custom_data["trial"] = "true"
+            custom_data["trial_interval"] = str(trial["interval"])
+            custom_data["trial_frequency"] = str(trial["frequency"])
         if resolved_success_url:
             custom_data["success_url"] = resolved_success_url
 
         payload: dict[str, Any] = {
             "items": [{"price_id": price.paddle_price_id, "quantity": 1}],
             "custom_data": custom_data,
+            # Always charge the saved payment method automatically. For trial
+            # checkouts this means Paddle stores the card now and bills $0,
+            # then auto-charges the first paid invoice when trial_period ends.
+            "collection_mode": "automatic",
         }
         payment_link = (self.client._settings().default_payment_link or "").strip()  # noqa: SLF001
         if payment_link:
@@ -163,11 +188,21 @@ class PaddleBillingService:
             transaction_id=transaction_id,
         )
 
-    def change_plan(self, *, subscription: Subscription, new_plan: Plan) -> ChangePlanResult:
-        if subscription.plan_id == new_plan.pk:
+    def change_plan(
+        self,
+        *,
+        subscription: Subscription,
+        new_plan: Plan,
+        interval: str | None = None,
+    ) -> ChangePlanResult:
+        target_interval = interval or subscription.billing_interval or DEFAULT_INTERVAL
+        if (
+            subscription.plan_id == new_plan.pk
+            and subscription.billing_interval == target_interval
+        ):
             raise PaddleAPIError("Organization is already on this plan.")
 
-        price = self._resolve_price(new_plan)
+        price = self._resolve_price(new_plan, interval=target_interval)
         if price is None or not price.paddle_price_id:
             msg = (
                 f"Plan {new_plan.code!r} has no synced Paddle price. "
@@ -175,21 +210,53 @@ class PaddleBillingService:
             )
             raise PaddleAPIError(msg)
 
-        before = {"plan_id": subscription.plan_id, "seats": subscription.seats}
+        before = {
+            "plan_id": subscription.plan_id,
+            "seats": subscription.seats,
+            "billing_interval": subscription.billing_interval,
+            "price_id": subscription.price_id,
+        }
         subscription.plan = new_plan
+        subscription.price = price
+        subscription.billing_interval = price.interval
         subscription.amount = price.amount or new_plan.base_price
         subscription.currency = price.currency or new_plan.currency
-        subscription.save(update_fields=["plan", "amount", "currency", "updated_at"])
+        subscription.save(
+            update_fields=[
+                "plan",
+                "price",
+                "billing_interval",
+                "amount",
+                "currency",
+                "updated_at",
+            ],
+        )
         self.push_subscription_change(subscription, before=before)
         return ChangePlanResult(status="updated", plan_code=new_plan.code)
 
     @staticmethod
-    def _resolve_price(plan: Plan) -> PlanPrice | None:
-        return (
-            PlanPrice.objects.filter(plan=plan, active=True)
-            .order_by("interval")
+    def _resolve_price(
+        plan: Plan, interval: str = DEFAULT_INTERVAL,
+    ) -> PlanPrice | None:
+        """Return the ``PlanPrice`` row matching ``interval``.
+
+        The ``(plan, interval, currency)`` uniqueness constraint guarantees the
+        exact-match query returns at most one row. The fallback uses the
+        deterministic ``INTERVAL_PRIORITY`` map so we never silently pick the
+        wrong cadence when an interval isn't published for a plan.
+        """
+
+        exact = (
+            PlanPrice.objects.filter(plan=plan, active=True, interval=interval)
             .first()
         )
+        if exact is not None:
+            return exact
+        candidates = list(PlanPrice.objects.filter(plan=plan, active=True))
+        if not candidates:
+            return None
+        candidates.sort(key=lambda p: INTERVAL_PRIORITY.get(p.interval, 99))
+        return candidates[0]
 
     # ------------------------------------------------------------------
     # Plan / Price upserts
@@ -296,24 +363,31 @@ class PaddleBillingService:
         """Reconcile admin edits to a Subscription row with Paddle.
 
         ``before`` is a snapshot captured by the admin before saving so we
-        can build a minimal PATCH payload.
+        can build a minimal PATCH payload. Triggers an items swap whenever
+        the plan or billing interval changed.
         """
 
         if not sub.provider_subscription_id:
             return
         payload: dict[str, Any] = {}
-        if before.get("seats") != sub.seats and sub.seats:
-            payload.setdefault("items", []).append(
-                {
-                    "price_id": self._first_price_id(sub.plan),
-                    "quantity": int(sub.seats),
-                },
-            )
-        if before.get("plan_id") != sub.plan_id:
-            new_price_id = self._first_price_id(sub.plan)
+        plan_or_interval_changed = (
+            before.get("plan_id") != sub.plan_id
+            or before.get("billing_interval") != sub.billing_interval
+        )
+        target_interval = sub.billing_interval or DEFAULT_INTERVAL
+        if plan_or_interval_changed:
+            new_price_id = self._price_id_for(sub.plan, target_interval)
             if new_price_id:
-                payload["items"] = [{"price_id": new_price_id, "quantity": sub.seats or 1}]
+                payload["items"] = [
+                    {"price_id": new_price_id, "quantity": sub.seats or 1},
+                ]
                 payload["proration_billing_mode"] = "prorated_immediately"
+        elif before.get("seats") != sub.seats and sub.seats:
+            seat_price_id = self._price_id_for(sub.plan, target_interval)
+            if seat_price_id:
+                payload["items"] = [
+                    {"price_id": seat_price_id, "quantity": int(sub.seats)},
+                ]
         if not payload:
             return
         try:
@@ -326,15 +400,12 @@ class PaddleBillingService:
             )
             raise
 
-    @staticmethod
-    def _first_price_id(plan: Plan) -> str:
-        price = (
-            PlanPrice.objects.filter(plan=plan, active=True)
-            .exclude(paddle_price_id="")
-            .order_by("interval")
-            .first()
-        )
-        return price.paddle_price_id if price else ""
+    @classmethod
+    def _price_id_for(cls, plan: Plan, interval: str) -> str:
+        price = cls._resolve_price(plan, interval=interval)
+        if price is None or not price.paddle_price_id:
+            return ""
+        return price.paddle_price_id
 
     def cancel(self, sub: Subscription, *, effective_from: str = "next_billing_period") -> None:
         if not sub.provider_subscription_id:

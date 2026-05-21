@@ -149,20 +149,6 @@ class RecordArtifact(models.Model):
         return f"{self.record_id}:{self.key}"
 
 
-class RecordSchema(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    version = models.CharField(max_length=20)
-    definition = models.JSONField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = [("name", "version")]
-        ordering = ["-created_at"]
-
-    def __str__(self) -> str:
-        return f"{self.name}@{self.version}"
-
-
 class RecordProcessingState(models.Model):
     record = models.ForeignKey(
         Record,

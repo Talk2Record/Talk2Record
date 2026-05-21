@@ -240,6 +240,18 @@ class PaddleClient:
     def create_transaction(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self.request("POST", "/transactions", json=payload)
 
+    def update_transaction(
+        self, transaction_id: str, payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """PATCH a Paddle transaction (used to ``void`` pending transactions).
+
+        Pass ``{"status": "canceled"}`` to void a transaction in ``draft`` or
+        ``ready`` state. Paddle rejects status transitions on transactions
+        that are already ``completed`` / ``paid`` / ``billed`` — those are
+        immutable financial records.
+        """
+        return self.request("PATCH", f"/transactions/{transaction_id}", json=payload)
+
     def list_transactions(
         self,
         *,

@@ -33,18 +33,14 @@ def _test_ai() -> tuple[bool, str]:
             _("Active chat provider has no API key. Save one in Django admin."),
         )
 
-    ping_transcript = str(
-        _(
-            'Return only valid JSON with keys customer_name, product, quantity, amount, currency, '
-            'payment_method — use empty strings and 0 where unknown. For this test set product to "ping".',
-        ),
-    )
+    ping_transcript = "ping"
     try:
         provider = resolution.build_chat_provider()
         result = provider.extract(
             transcript=ping_transcript,
             context={},
             prompt_version="admin-connection-test",
+            system_prompt="Return only valid JSON.",
         )
     except Exception as exc:  # noqa: BLE001 — surface any transport/API error to staff.
         return False, f"{type(exc).__name__}: {exc}"

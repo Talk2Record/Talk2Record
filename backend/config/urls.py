@@ -12,6 +12,10 @@ from rest_framework_simplejwt.views import TokenVerifyView
 
 from talk2record.admin_unfold import ensure_unfold_admin_site
 from talk2record.ai.connection_tests import test_ai_connection_view
+from talk2record.billing.admin_views import billing_dashboard_view
+from talk2record.billing.admin_views import billing_organization_review_view
+from talk2record.billing.admin_views import billing_reset_organization_view
+from talk2record.billing.admin_views import billing_sync_all_view
 from talk2record.billing.connection_tests import test_paddle_connection_view
 from talk2record.whatsapp.connection_tests import test_whatsapp_connection_view
 from talk2record.analytics.views import AnalyticsSnapshotView
@@ -49,6 +53,36 @@ urlpatterns = [
         f"{settings.ADMIN_URL.rstrip('/')}/tools/test-ai-connection/",
         admin.site.admin_view(test_ai_connection_view),
         name="admin_test_ai_connection",
+    ),
+    # ------------------------------------------------------------------
+    # Billing admin dashboard + sync-all hook.
+    # MUST be registered before ``admin.site.urls`` so the custom
+    # ``/admin/billing/dashboard/`` path wins over Django admin's default
+    # app-index resolver (which otherwise treats "dashboard" as a model).
+    # ------------------------------------------------------------------
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/billing/dashboard/",
+        admin.site.admin_view(billing_dashboard_view),
+        name="admin_billing_dashboard",
+    ),
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/billing/sync-all/",
+        admin.site.admin_view(billing_sync_all_view),
+        name="admin_billing_sync_all",
+    ),
+    # Phase 5 — per-org Billing Recovery review + reset trigger.
+    # Registered BEFORE admin.site.urls so the "organization/<id>/" path
+    # is treated as an admin tool view rather than Django admin's default
+    # change-form resolver for the Organization model.
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/billing/organization/<int:organization_id>/",
+        admin.site.admin_view(billing_organization_review_view),
+        name="admin_billing_organization_review",
+    ),
+    path(
+        f"{settings.ADMIN_URL.rstrip('/')}/tools/billing-reset/organization/<int:organization_id>/",
+        admin.site.admin_view(billing_reset_organization_view),
+        name="admin_billing_reset_organization",
     ),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
