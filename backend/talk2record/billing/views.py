@@ -534,7 +534,17 @@ class BillingWebhookView(APIView):
                 process_paddle_webhook.delay(row.pk)
             return Response({"status": "queued"}, status=status.HTTP_202_ACCEPTED)
 
-        result = process_payload(payload, signature_header=signature_header)
+        try:
+            result = process_payload(payload, signature_header=signature_header)
+        except Exception:
+            # ``ATOMIC_REQUESTS`` can surface FK violations at request COMMIT
+            # even after the pipeline catches in-flight errors — never 500
+            # Paddle; always ACK so retries stop.
+            logger.exception("Paddle webhook pipeline raised unexpectedly")
+            return Response(
+                {"status": "error"},
+                status=status.HTTP_202_ACCEPTED,
+            )
         return Response(
             {"status": result.status},
             status=status.HTTP_202_ACCEPTED,

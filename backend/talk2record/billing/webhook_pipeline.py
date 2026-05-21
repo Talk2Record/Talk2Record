@@ -185,14 +185,74 @@ def extract_event_metadata(payload: dict) -> EventMetadata:
 _CANCEL_TERMINAL_STATUSES = {Subscription.Status.CANCELED}
 
 
+def _resolve_organization_pk(
+    org_id: str | None,
+    *,
+    customer_id: str,
+    provider_subscription_id: str,
+) -> int | None:
+    """Map a Paddle ``custom_data.organization_id`` to a real ``Organization`` pk.
+
+    Paddle may replay events long after a local DB reset (or from another
+    environment) — in those cases ``custom_data`` still carries a stale id
+    like ``3`` that no longer exists. We must never 500 on that; we try a
+    few fallbacks, then give up so the webhook pipeline can ACK with 202.
+    """
+    if org_id:
+        try:
+            pk = int(org_id)
+        except (TypeError, ValueError):
+            pk = None
+        if pk is not None and Organization.objects.filter(pk=pk).exists():
+            return pk
+
+    if provider_subscription_id:
+        existing_org = (
+            Subscription.objects.filter(
+                provider_subscription_id=provider_subscription_id,
+            )
+            .values_list("organization_id", flat=True)
+            .first()
+        )
+        if existing_org is not None:
+            return existing_org
+
+    if customer_id:
+        existing_org = (
+            Subscription.objects.filter(paddle_customer_id=customer_id)
+            .values_list("organization_id", flat=True)
+            .first()
+        )
+        if existing_org is not None:
+            return existing_org
+
+    return None
+
+
 def _upsert_paddle_subscription(
     event_type: str,
     event_data: dict,
     org_id: str | None,
-) -> None:
+) -> int | None:
     sub_id = str(event_data.get("id") or "")
-    if not sub_id or not org_id:
-        return
+    if not sub_id:
+        return None
+
+    customer_id = str(event_data.get("customer_id") or "")
+    resolved_org_id = _resolve_organization_pk(
+        org_id,
+        customer_id=customer_id,
+        provider_subscription_id=sub_id,
+    )
+    if resolved_org_id is None:
+        logger.warning(
+            "Webhook %s skipped: no organization for org_id=%s sub_id=%s customer_id=%s",
+            event_type,
+            org_id,
+            sub_id,
+            customer_id,
+        )
+        return None
 
     # Out-of-order guard: once a sub is locally CANCELED, a stale
     # ``subscription.updated`` carrying status=active must NOT reactivate it.
@@ -208,7 +268,7 @@ def _upsert_paddle_subscription(
                 "Webhook %s ignored: subscription %s is locally canceled",
                 event_type, sub_id,
             )
-            return
+            return None
 
     plan: Plan | None = None
     matched_price: PlanPrice | None = None
@@ -238,7 +298,7 @@ def _upsert_paddle_subscription(
     if plan is None:
         plan = Plan.objects.first()
     if plan is None:
-        return
+        return None
 
     # Fall back to the plan's monthly price when the webhook didn't carry
     # a price we recognise — financial fields still come from Paddle, this
@@ -256,9 +316,8 @@ def _upsert_paddle_subscription(
             or PlanPrice.objects.filter(plan=plan, active=True).first()
         )
 
-    customer_id = str(event_data.get("customer_id") or "")
     defaults: dict[str, object] = {
-        "organization_id": org_id,
+        "organization_id": resolved_org_id,
         "plan": plan,
         "paddle_customer_id": customer_id,
         "status": event_data.get("status") or Subscription.Status.ACTIVE,
@@ -279,6 +338,7 @@ def _upsert_paddle_subscription(
         provider_subscription_id=sub_id,
         defaults=defaults,
     )
+    return resolved_org_id
 
 
 def _record_paddle_transaction(event_data: dict, *, paid: bool) -> None:
@@ -339,12 +399,14 @@ def dispatch_event(
     }
 
     if event_type in {"subscription.created", "subscription.activated"}:
-        _upsert_paddle_subscription(event_type, event_data, org_id)
+        resolved_org_id = _upsert_paddle_subscription(event_type, event_data, org_id)
         sub_id = str(event_data.get("id") or "")
+        if resolved_org_id is None:
+            return
         EventBus.publish(
             DomainEvent(
                 name=BILLING_SUBSCRIPTION_CREATED,
-                organization_id=org_id,
+                organization_id=resolved_org_id,
                 user_id=None,
                 resource_type="subscription",
                 resource_id=sub_id,

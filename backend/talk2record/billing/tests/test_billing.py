@@ -6,7 +6,9 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from talk2record.billing.models import PaddleSettings
+from talk2record.billing.models import Subscription
 from talk2record.billing.tasks import handle_domain_event_for_billing
+from talk2record.organizations.models import Organization
 from talk2record.core.vault import SecretVault
 from talk2record.events.names import BILLING_PAYMENT_FAILED
 from talk2record.events.names import BILLING_SUBSCRIPTION_CREATED
@@ -905,6 +907,42 @@ def test_webhook_missing_event_id_is_ignored_with_202(settings, subscription):
     response = client.post(reverse("api-billing-webhook"), data=payload, format="json")
     assert response.status_code == 202
     assert response.json()["status"] == "ignored"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_webhook_stale_organization_id_returns_202_not_500(settings, plan):
+    """Paddle replays with a deleted ``organization_id`` must not 500.
+
+    Common after a local DB reset: checkout stamped ``custom_data`` with
+    org pk=3, volumes were wiped, Paddle still delivers
+    ``subscription.created`` for that id. We ACK with 202 and skip the
+    upsert instead of violating the subscription FK.
+    """
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    client = APIClient()
+    stale_org_id = 999_999
+    assert not Organization.objects.filter(pk=stale_org_id).exists()
+
+    payload = {
+        "event_id": "evt_stale_org_1",
+        "event_type": "subscription.created",
+        "data": {
+            "id": "sub_stale_org_test",
+            "status": "active",
+            "items": [],
+            "custom_data": {"organization_id": str(stale_org_id)},
+        },
+    }
+
+    with patch("talk2record.billing.webhook_pipeline.EventBus.publish") as mock_publish:
+        response = client.post(reverse("api-billing-webhook"), data=payload, format="json")
+
+    assert response.status_code == 202
+    assert response.json()["status"] in {"accepted", "failed"}
+    mock_publish.assert_not_called()
+    assert not Subscription.objects.filter(
+        provider_subscription_id="sub_stale_org_test",
+    ).exists()
 
 
 @pytest.mark.django_db(transaction=True)
