@@ -1,0 +1,125 @@
+name: Build images
+
+# Reusable workflow that builds and pushes talk2record-django and
+# talk2record-frontend images to GHCR. Called by deploy-staging.yml and
+# deploy-production.yml. Can also be triggered manually for ad-hoc builds.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Logical environment alias (staging | production)
+        required: true
+        type: string
+      ref:
+        description: Git ref to build from
+        required: false
+        type: string
+        default: ${{ github.sha }}
+      next_public_api_base_url:
+        description: NEXT_PUBLIC_API_BASE_URL baked into the frontend image
+        required: true
+        type: string
+      next_public_app_url:
+        description: NEXT_PUBLIC_APP_URL baked into the frontend image
+        required: true
+        type: string
+      next_public_google_sign_in_enabled:
+        description: NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED baked into the frontend image
+        required: false
+        type: string
+        default: 'false'
+    outputs:
+      image_tag:
+        description: Tag used for the pushed images (always the git sha)
+        value: ${{ jobs.build.outputs.image_tag }}
+      image_namespace:
+        description: Image namespace (registry + owner)
+        value: ${{ jobs.build.outputs.image_namespace }}
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Logical environment alias (staging | production)
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+      next_public_api_base_url:
+        description: NEXT_PUBLIC_API_BASE_URL
+        required: true
+      next_public_app_url:
+        description: NEXT_PUBLIC_APP_URL
+        required: true
+      next_public_google_sign_in_enabled:
+        description: NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build & push (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_namespace: ${{ steps.meta.outputs.image_namespace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        id: meta
+        run: |
+          owner_lower="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          namespace="ghcr.io/${owner_lower}"
+          tag="${{ inputs.ref }}"
+          if [[ -z "$tag" || "$tag" == "${{ github.sha }}" ]]; then
+            tag="${{ github.sha }}"
+          fi
+          echo "image_namespace=${namespace}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Building images to push to ${namespace}/talk2record-{django,frontend}:${tag} and :${{ inputs.environment }}"
+
+      - name: Build & push django image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/compose/production/django/Dockerfile
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.meta.outputs.image_namespace }}/talk2record-django:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_namespace }}/talk2record-django:${{ inputs.environment }}
+          cache-from: type=gha,scope=django-prod
+          cache-to: type=gha,scope=django-prod,mode=max
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          provenance: false
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ inputs.next_public_api_base_url }}
+            NEXT_PUBLIC_APP_URL=${{ inputs.next_public_app_url }}
+            NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED=${{ inputs.next_public_google_sign_in_enabled }}
+          tags: |
+            ${{ steps.meta.outputs.image_namespace }}/talk2record-frontend:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_namespace }}/talk2record-frontend:${{ inputs.environment }}
+          cache-from: type=gha,scope=frontend-prod
+          cache-to: type=gha,scope=frontend-prod,mode=max

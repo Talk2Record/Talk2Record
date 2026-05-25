@@ -1,0 +1,29 @@
+log:
+  level: INFO
+
+accessLog: {}
+
+entryPoints:
+  web:
+    address: ':80'
+    http:
+      redirections:
+        entryPoint:
+          to: web-secure
+          scheme: https
+          permanent: true
+  web-secure:
+    address: ':443'
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: 'alpha@talk2record.com'
+      storage: /etc/traefik/acme/acme.json
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true

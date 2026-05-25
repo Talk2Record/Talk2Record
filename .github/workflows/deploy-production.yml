@@ -1,0 +1,64 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-images.yml
+    with:
+      environment: production
+      next_public_api_base_url: https://talk2record.com
+      next_public_app_url: https://talk2record.com
+      next_public_google_sign_in_enabled: 'false'
+    secrets: inherit
+
+  deploy:
+    name: SSH deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      # Configure required reviewers + protection rules in the GitHub UI:
+      # https://docs.github.com/actions/deployment/targeting-different-environments/
+      name: production
+      url: https://talk2record.com
+    steps:
+      - name: Prepare SSH known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run deploy.sh on VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            export ENV=prod
+            export TAG="$IMAGE_TAG"
+            export IMAGE_NAMESPACE="$IMAGE_NAMESPACE"
+            export GHCR_USER="$GHCR_USER"
+            export GHCR_TOKEN="$GHCR_TOKEN"
+            /opt/talk2record/repo/deploy/scripts/deploy.sh
+        env:
+          IMAGE_NAMESPACE: ${{ needs.build.outputs.image_namespace }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

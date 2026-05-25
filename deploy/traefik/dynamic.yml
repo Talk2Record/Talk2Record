@@ -1,0 +1,71 @@
+http:
+  routers:
+    # --- Production ---
+    prod-django:
+      rule: '(Host(`talk2record.com`) || Host(`www.talk2record.com`)) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))'
+      entryPoints:
+        - web-secure
+      service: prod-django
+      middlewares:
+        - csrf
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    prod-frontend:
+      rule: 'Host(`talk2record.com`) || Host(`www.talk2record.com`)'
+      entryPoints:
+        - web-secure
+      service: prod-frontend
+      priority: 1
+      tls:
+        certResolver: letsencrypt
+
+    # --- Staging ---
+    staging-django:
+      rule: 'Host(`staging.talk2record.com`) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))'
+      entryPoints:
+        - web-secure
+      service: staging-django
+      middlewares:
+        - csrf
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    staging-frontend:
+      rule: 'Host(`staging.talk2record.com`)'
+      entryPoints:
+        - web-secure
+      service: staging-frontend
+      priority: 1
+      tls:
+        certResolver: letsencrypt
+
+  middlewares:
+    csrf:
+      headers:
+        hostsProxyHeaders:
+          - X-CSRFToken
+
+  services:
+    prod-django:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-prod-django:5000
+        passHostHeader: true
+    prod-frontend:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-prod-frontend:3000
+        passHostHeader: true
+    staging-django:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-staging-django:5000
+        passHostHeader: true
+    staging-frontend:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-staging-frontend:3000
+        passHostHeader: true
