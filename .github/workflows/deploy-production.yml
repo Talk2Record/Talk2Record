@@ -72,8 +72,17 @@ jobs:
           [[ -z "${{ vars.SSH_USER }}" ]] && missing+=(SSH_USER)
           [[ -z "$SSH_PRIVATE_KEY" ]] && missing+=(SSH_PRIVATE_KEY)
           [[ -z "${{ secrets.KNOWN_HOSTS }}" ]] && missing+=(KNOWN_HOSTS)
+          if [[ -z "${{ secrets.ENV_DJANGO }}" && -z "${{ secrets.ENV_DJANGO_B64 }}" ]]; then
+            missing+=(ENV_DJANGO)
+          fi
+          if [[ -z "${{ secrets.ENV_POSTGRES }}" && -z "${{ secrets.ENV_POSTGRES_B64 }}" ]]; then
+            missing+=(ENV_POSTGRES)
+          fi
+          if [[ -z "${{ secrets.ENV_FRONTEND }}" && -z "${{ secrets.ENV_FRONTEND_B64 }}" ]]; then
+            missing+=(ENV_FRONTEND)
+          fi
           if ((${#missing[@]} > 0)); then
-            echo "::error::Missing production environment config: ${missing[*]}. SSH_HOST/SSH_USER/SSH_PORT are variables; SSH_PRIVATE_KEY/KNOWN_HOSTS are secrets (see deploy/README.md §6.1)."
+            echo "::error::Missing production environment config: ${missing[*]}. See deploy/README.md §6.1."
             exit 1
           fi
           if [[ "$SSH_PRIVATE_KEY" != *"BEGIN"* ]]; then
@@ -98,7 +107,10 @@ jobs:
           username: ${{ vars.SSH_USER }}
           port: ${{ vars.SSH_PORT || '22' }}
           key_path: ${{ env.DEPLOY_KEY_PATH }}
-          envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          envs: >-
+            IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,
+            ENV_DJANGO,ENV_POSTGRES,ENV_FRONTEND,
+            ENV_DJANGO_B64,ENV_POSTGRES_B64,ENV_FRONTEND_B64
           command_timeout: 20m
           script: |
             set -euo pipefail
@@ -113,3 +125,9 @@ jobs:
           IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENV_DJANGO: ${{ secrets.ENV_DJANGO }}
+          ENV_POSTGRES: ${{ secrets.ENV_POSTGRES }}
+          ENV_FRONTEND: ${{ secrets.ENV_FRONTEND }}
+          ENV_DJANGO_B64: ${{ secrets.ENV_DJANGO_B64 }}
+          ENV_POSTGRES_B64: ${{ secrets.ENV_POSTGRES_B64 }}
+          ENV_FRONTEND_B64: ${{ secrets.ENV_FRONTEND_B64 }}

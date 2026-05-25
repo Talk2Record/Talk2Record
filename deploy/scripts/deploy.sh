@@ -90,6 +90,11 @@ if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 fi
 
+if [[ -n "${ENV_DJANGO:-}${ENV_POSTGRES:-}${ENV_FRONTEND:-}${ENV_DJANGO_B64:-}${ENV_POSTGRES_B64:-}${ENV_FRONTEND_B64:-}" ]]; then
+  echo "==> Syncing env files from GitHub Actions"
+  bash "$REPO_DIR/deploy/scripts/sync-env-from-gha.sh" "$ENV"
+fi
+
 cd "$BACKEND_DIR"
 
 ensure_edge_network

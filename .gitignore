@@ -35,6 +35,10 @@ frontend/.vitest/
 backend/.envs/*
 !backend/.envs/.local/
 
+# Deploy env files (generated locally → GitHub Environment secrets)
+deploy/env/staging/
+deploy/env/production/
+
 # IDE / editor
 .vscode/*
 !.vscode/settings.json

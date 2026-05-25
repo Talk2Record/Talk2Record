@@ -112,9 +112,12 @@ Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
 
    Paste output into the `KNOWN_HOSTS` GitHub secret.
 
-## 4. Env files (server-only secrets)
+## 4. Env files
 
-Copy templates and fill in values:
+**Recommended:** store filled-in file contents in GitHub Environment secrets
+`ENV_DJANGO`, `ENV_POSTGRES`, `ENV_FRONTEND` (see §6.1). Each deploy syncs them to the VPS.
+
+**Manual fallback** on the server:
 
 ```bash
 sudo -u deploy bash <<'EOF'
@@ -131,7 +134,7 @@ chmod 600 /opt/talk2record/envs/staging/.django /opt/talk2record/envs/staging/.p
 EOF
 ```
 
-Edit each file. Key differences between envs:
+Edit each file (or use the GitHub secrets above). Key differences between envs:
 
 | Variable                       | prod                                              | staging                                                          |
 | ------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------- |
@@ -158,12 +161,12 @@ Watch the logs until Let's Encrypt finishes issuing certs for all three hosts.
 
 ## 6. GitHub setup
 
-### 6.1 Deploy SSH config (required)
+### 6.1 Deploy config (required)
 
 Deploy jobs use the **`staging`** and **`production`** GitHub Environments. Configure
-each environment under **Settings → Environments → staging** (or **production**):
+each environment under **Settings → Environments → staging** (or **production**).
 
-**Environment variables** (non-secret):
+#### Environment variables (non-secret)
 
 | Variable    | Value                                      |
 | ----------- | ------------------------------------------ |
@@ -171,14 +174,42 @@ each environment under **Settings → Environments → staging** (or **productio
 | `SSH_USER`  | `deploy`                                   |
 | `SSH_PORT`  | `22` (optional; workflow defaults to `22`) |
 
-**Environment secrets**:
+#### Environment secrets — SSH
 
 | Secret            | Value                                                               |
 | ----------------- | ------------------------------------------------------------------- |
 | `SSH_PRIVATE_KEY` | private half of the deploy key (public half in `authorized_keys`)   |
 | `KNOWN_HOSTS`     | output of `ssh-keyscan -p <port> <host>` against the VPS            |
 
-Workflows read host/user/port via `vars.*` and key/known_hosts via `secrets.*`.
+#### Environment secrets — app env files (written to the VPS on each deploy)
+
+Copy the filled-in contents of your server env files into multiline secrets (one secret
+per file). Templates live in `deploy/env/*.example`.
+
+| Secret          | Becomes on VPS                                      |
+| --------------- | --------------------------------------------------- |
+| `ENV_DJANGO`    | `/opt/talk2record/envs/<env>/.django`               |
+| `ENV_POSTGRES`  | `/opt/talk2record/envs/<env>/.postgres`             |
+| `ENV_FRONTEND`  | `/opt/talk2record/envs/<env>/.frontend`             |
+
+Use **staging**-specific values on the `staging` environment (e.g. `staging.talk2record.com`
+in `DJANGO_ALLOWED_HOSTS`, Paddle sandbox keys). Use production values on `production`.
+
+If GitHub mangles multiline paste, use base64 instead (optional):
+
+```bash
+base64 < .django | pbcopy   # paste into ENV_DJANGO_B64
+```
+
+| Secret (optional)   | Decodes to   |
+| ------------------- | ------------ |
+| `ENV_DJANGO_B64`    | `.django`    |
+| `ENV_POSTGRES_B64`  | `.postgres`  |
+| `ENV_FRONTEND_B64`  | `.frontend`  |
+
+`deploy.sh` calls `sync-env-from-gha.sh`, which overwrites the three files before
+`docker compose` runs. You no longer need to hand-edit env files on the VPS for CI deploys.
+
 `GITHUB_TOKEN` is provided automatically and has `packages: write`.
 
 ### 6.2 GitHub Environments
