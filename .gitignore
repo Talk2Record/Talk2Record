@@ -7,7 +7,8 @@ __pycache__/
 *$py.class
 .venv/
 venv/
-ENV/
+# Python virtualenv named ENV (root only — do not match deploy/env/)
+/ENV/
 .pytest_cache/
 .mypy_cache/
 .coverage

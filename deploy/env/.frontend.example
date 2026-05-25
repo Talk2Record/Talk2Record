@@ -1,0 +1,16 @@
+# Frontend runtime environment.
+# Most NEXT_PUBLIC_* values are baked at build time via Docker build args
+# (see .github/workflows/build-images.yml and frontend/Dockerfile).
+# This file only carries server-side (NextAuth) secrets and runtime overrides.
+# Copy to /opt/talk2record/envs/<env>/.frontend on the server.
+
+# NextAuth (required only if NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED=true)
+NEXTAUTH_URL=https://talk2record.com
+NEXTAUTH_SECRET=
+
+# Google OAuth credentials (optional, see docs/AUTH.md)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Optional admin allow-list for Google sign-in
+AUTH_ADMIN_EMAILS=

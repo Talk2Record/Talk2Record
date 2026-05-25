@@ -1,0 +1,83 @@
+# Talk2Record Django env template.
+# Copy to /opt/talk2record/envs/<env>/.django on the server and fill in real values.
+# Do not commit the filled-in version.
+
+# General
+# ------------------------------------------------------------------------------
+DJANGO_SETTINGS_MODULE=config.settings.production
+DJANGO_SECRET_KEY=
+DJANGO_ADMIN_URL=change-me-to-random-slug/
+DJANGO_ALLOWED_HOSTS=.talk2record.com
+DJANGO_CORS_ALLOWED_ORIGINS=https://talk2record.com,https://www.talk2record.com
+DJANGO_CORS_ALLOW_CREDENTIALS=False
+DJANGO_CSRF_TRUSTED_ORIGINS=https://talk2record.com,https://www.talk2record.com
+
+# Security
+# ------------------------------------------------------------------------------
+# Traefik already terminates TLS and redirects http -> https; keep this False to avoid double redirects.
+DJANGO_SECURE_SSL_REDIRECT=False
+DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+DJANGO_SECURE_HSTS_PRELOAD=True
+DJANGO_SECURE_CONTENT_TYPE_NOSNIFF=True
+
+# Database connection
+CONN_MAX_AGE=60
+
+# Email (Brevo via anymail)
+# ------------------------------------------------------------------------------
+DJANGO_SERVER_EMAIL=Talk2Record <noreply@talk2record.com>
+DJANGO_DEFAULT_FROM_EMAIL=Talk2Record <noreply@talk2record.com>
+DJANGO_EMAIL_SUBJECT_PREFIX=[Talk2Record]
+BREVO_API_KEY=
+BREVO_API_URL=https://api.brevo.com/v3/
+
+# AWS S3 (media storage)
+# ------------------------------------------------------------------------------
+DJANGO_AWS_ACCESS_KEY_ID=
+DJANGO_AWS_SECRET_ACCESS_KEY=
+DJANGO_AWS_STORAGE_BUCKET_NAME=
+DJANGO_AWS_S3_REGION_NAME=
+DJANGO_AWS_S3_CUSTOM_DOMAIN=
+DJANGO_AWS_S3_MAX_MEMORY_SIZE=100000000
+
+# django-allauth
+# ------------------------------------------------------------------------------
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=True
+
+# Gunicorn
+# ------------------------------------------------------------------------------
+WEB_CONCURRENCY=4
+
+# Sentry
+# ------------------------------------------------------------------------------
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.0
+DJANGO_SENTRY_LOG_LEVEL=20
+
+# Redis
+# ------------------------------------------------------------------------------
+REDIS_URL=redis://redis:6379/0
+
+# WhatsApp Webhook (Meta Cloud API)
+# ------------------------------------------------------------------------------
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+WHATSAPP_WEBHOOK_SECRET=
+
+# AI / throttle limits
+# ------------------------------------------------------------------------------
+AI_USAGE_MONTHLY_LIMIT_PER_ORG=0
+INGESTION_DAILY_RECORD_LIMIT_PER_ORG=0
+DRF_THROTTLE_ANON=300/min
+DRF_THROTTLE_USER=1000/min
+DRF_THROTTLE_WHATSAPP_WEBHOOK=120/min
+DRF_THROTTLE_PUBLIC_INGESTION=240/min
+
+# Audit retention and sampling
+AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES=5
+AUDIT_API_KEY_USED_RETENTION_DAYS=90
+
+# Flower (Celery monitor) basic-auth
+# ------------------------------------------------------------------------------
+CELERY_FLOWER_USER=
+CELERY_FLOWER_PASSWORD=

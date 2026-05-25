@@ -109,7 +109,8 @@ cp /opt/talk2record/repo/deploy/env/.django.example   /opt/talk2record/envs/stag
 cp /opt/talk2record/repo/deploy/env/.postgres.example /opt/talk2record/envs/staging/.postgres
 cp /opt/talk2record/repo/deploy/env/.frontend.example /opt/talk2record/envs/staging/.frontend
 
-chmod 600 /opt/talk2record/envs/prod/*    /opt/talk2record/envs/staging/*
+chmod 600 /opt/talk2record/envs/prod/.django /opt/talk2record/envs/prod/.postgres /opt/talk2record/envs/prod/.frontend
+chmod 600 /opt/talk2record/envs/staging/.django /opt/talk2record/envs/staging/.postgres /opt/talk2record/envs/staging/.frontend
 EOF
 ```
 

@@ -1,0 +1,8 @@
+# PostgreSQL connection used by Django and the postgres container.
+# Copy to /opt/talk2record/envs/<env>/.postgres on the server.
+
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=talk2record
+POSTGRES_USER=
+POSTGRES_PASSWORD=
