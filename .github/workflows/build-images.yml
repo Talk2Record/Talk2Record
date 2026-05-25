@@ -68,7 +68,7 @@ jobs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
       image_namespace: ${{ steps.meta.outputs.image_namespace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
 

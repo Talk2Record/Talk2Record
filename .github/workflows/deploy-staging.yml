@@ -23,11 +23,11 @@ jobs:
     outputs:
       deployable: ${{ steps.filter.outputs.deployable }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -61,6 +61,18 @@ jobs:
       name: staging
       url: https://staging.talk2record.com
     steps:
+      - name: Validate deploy configuration
+        run: |
+          missing=()
+          [[ -z "${{ vars.SSH_HOST }}" ]] && missing+=(SSH_HOST)
+          [[ -z "${{ vars.SSH_USER }}" ]] && missing+=(SSH_USER)
+          [[ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]] && missing+=(SSH_PRIVATE_KEY)
+          [[ -z "${{ secrets.KNOWN_HOSTS }}" ]] && missing+=(KNOWN_HOSTS)
+          if ((${#missing[@]} > 0)); then
+            echo "::error::Missing staging environment config: ${missing[*]}. SSH_HOST/SSH_USER/SSH_PORT are variables; SSH_PRIVATE_KEY/KNOWN_HOSTS are secrets (see deploy/README.md §6.1)."
+            exit 1
+          fi
+
       - name: Prepare SSH known_hosts
         run: |
           mkdir -p ~/.ssh
@@ -68,16 +80,16 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Run deploy.sh on VPS
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          port: ${{ secrets.SSH_PORT }}
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          port: ${{ vars.SSH_PORT || '22' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           command_timeout: 20m
-          script_stop: true
           script: |
+            set -euo pipefail
             export ENV=staging
             export TAG="$IMAGE_TAG"
             export IMAGE_NAMESPACE="$IMAGE_NAMESPACE"

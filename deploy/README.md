@@ -141,18 +141,27 @@ Watch the logs until Let's Encrypt finishes issuing certs for all three hosts.
 
 ## 6. GitHub setup
 
-### 6.1 Repository secrets
+### 6.1 Deploy SSH config (required)
 
-In **Settings -> Secrets and variables -> Actions**:
+Deploy jobs use the **`staging`** and **`production`** GitHub Environments. Configure
+each environment under **Settings → Environments → staging** (or **production**):
 
-| Secret              | Value                                                                 |
-| ------------------- | --------------------------------------------------------------------- |
-| `SSH_HOST`          | VPS IP or hostname                                                    |
-| `SSH_USER`          | `deploy`                                                              |
-| `SSH_PORT`          | `22` (or your custom port)                                            |
-| `SSH_PRIVATE_KEY`   | private half of the deploy key (whose public half is on the server)   |
-| `KNOWN_HOSTS`       | output of `ssh-keyscan -p <port> <host>` against the VPS              |
+**Environment variables** (non-secret):
 
+| Variable    | Value                                      |
+| ----------- | ------------------------------------------ |
+| `SSH_HOST`  | VPS IP or hostname                         |
+| `SSH_USER`  | `deploy`                                   |
+| `SSH_PORT`  | `22` (optional; workflow defaults to `22`) |
+
+**Environment secrets**:
+
+| Secret            | Value                                                               |
+| ----------------- | ------------------------------------------------------------------- |
+| `SSH_PRIVATE_KEY` | private half of the deploy key (public half in `authorized_keys`)   |
+| `KNOWN_HOSTS`     | output of `ssh-keyscan -p <port> <host>` against the VPS            |
+
+Workflows read host/user/port via `vars.*` and key/known_hosts via `secrets.*`.
 `GITHUB_TOKEN` is provided automatically and has `packages: write`.
 
 ### 6.2 GitHub Environments
