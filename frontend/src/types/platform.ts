@@ -148,6 +148,8 @@ export const TERMINAL_RECORD_STATUSES: readonly RecordStatus[] = [
 export interface RecordArtifact {
   id: string | number;
   kind: string;
+  artifactType: string;
+  content: unknown;
   url: string | null;
   created_at: string;
 }
@@ -204,6 +206,8 @@ export interface RecordItem {
   confidenceScore: number;
   /** Pipeline status mirrored from the backend. */
   status: RecordStatus;
+  /** Absolute or site-relative URL to the source audio file. */
+  audioUrl: string;
   /** Dynamic taxonomy outputs. */
   detectedIndustries: DetectedIndustry[];
   detectedCategories: DetectedCategory[];

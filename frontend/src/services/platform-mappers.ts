@@ -66,6 +66,7 @@ interface BackendRecord {
   voice_transcript?: string;
   confidence_score?: number | string;
   status?: string;
+  audio_url?: string;
   detected_industries?: unknown;
   detected_categories?: unknown;
   extracted_data?: unknown;
@@ -133,6 +134,8 @@ function mapArtifact(artifact: BackendRecordArtifact): RecordArtifact {
   return {
     id: artifact.id,
     kind: artifact.key || artifact.kind || "artifact",
+    artifactType: artifact.artifact_type ?? "json",
+    content: artifact.content ?? null,
     url: artifact.url ?? null,
     created_at: artifact.created_at ?? "",
   };
@@ -251,6 +254,7 @@ export function mapRecord(record: BackendRecord): RecordItem {
     transcript: display.transcript,
     confidenceScore: display.confidenceScore,
     status: coerceStatus(record.status),
+    audioUrl: record.audio_url ?? "",
     detectedIndustries: coerceDetectedIndustries(record.detected_industries),
     detectedCategories: coerceDetectedCategories(record.detected_categories),
     extractedData: coerceExtractedData(record.extracted_data),

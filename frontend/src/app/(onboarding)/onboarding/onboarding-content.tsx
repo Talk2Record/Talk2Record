@@ -539,8 +539,8 @@ function WhatsAppSetupStage({
           <div className="space-y-2 text-sm">
             <p className="font-medium">Connect WhatsApp Business</p>
             <p className="text-muted-foreground">
-              Link your inbound business number in Integrations. Once connected, voice notes sent to
-              that number will appear in Talk2Record automatically.
+              Configure your inbound business number in Meta Business Manager. Once connected, voice
+              notes sent to that number will appear in Talk2Record automatically.
             </p>
             {accountsQuery.isLoading ? (
               <p className="text-muted-foreground">Checking connection status…</p>
@@ -558,10 +558,14 @@ function WhatsAppSetupStage({
 
       <div className="flex flex-wrap gap-2">
         <Button asChild className="rounded-xl">
-          <Link href="/dashboard/integrations">
-            Open integrations
+          <a
+            href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+            rel="noreferrer"
+            target="_blank"
+          >
+            WhatsApp setup guide
             <ExternalLink className="ml-1 h-3.5 w-3.5" />
-          </Link>
+          </a>
         </Button>
         {completed ? (
           <Button variant="outline" className="rounded-xl" onClick={onContinue}>
@@ -611,7 +615,13 @@ function VoiceNoteStage({
             automatically.
           </p>
           <Button asChild variant="outline" size="sm" className="rounded-xl">
-            <Link href="/dashboard/integrations">Check WhatsApp setup</Link>
+            <a
+              href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+              rel="noreferrer"
+              target="_blank"
+            >
+              WhatsApp setup guide
+            </a>
           </Button>
         </div>
 

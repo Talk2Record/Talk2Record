@@ -12,6 +12,16 @@ export function normalizeApiBaseUrl(value?: string) {
   return baseUrl.endsWith("/api") ? baseUrl : `${baseUrl}/api`;
 }
 
+/** Resolve a Django media path or relative URL to an absolute origin URL. */
+export function resolveMediaUrl(value?: string | null) {
+  const path = (value || "").trim();
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  const apiBase = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
+  const origin = apiBase.replace(/\/api$/, "");
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 /**
  * Custom event names used to communicate cross-module signals without
  * importing the router/store into the axios module (which would create cycles

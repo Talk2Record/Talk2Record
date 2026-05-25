@@ -3,14 +3,12 @@
 import {
   Activity,
   BarChart3,
-  Cpu,
   CreditCard,
   KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
   Monitor,
-  Plug,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -84,7 +82,7 @@ const SidebarContent = ({
       </div>
     </div>
 
-    <nav className="flex-1 space-y-1.5 px-4 py-5">
+    <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-4 py-5">
       {menuItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
@@ -108,7 +106,7 @@ const SidebarContent = ({
       })}
     </nav>
 
-    <div className="border-sidebar-border bg-sidebar/95 space-y-3 border-t p-4">
+    <div className="border-sidebar-border bg-sidebar/95 shrink-0 space-y-3 border-t p-4">
       <div className="grid grid-cols-3 gap-2">
         <ThemeToggle />
         <LanguageSwitcher />
@@ -139,11 +137,9 @@ export const Sidebar = () => {
     { label: t("navigation.analytics"), href: "/dashboard/analytics", icon: BarChart3 },
     { label: "Usage", href: "/dashboard/usage", icon: Activity },
     { label: t("navigation.billing"), href: "/dashboard/billing", icon: CreditCard },
-    { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
     ...(isAdminRole ? [{ label: "Team", href: "/dashboard/team", icon: UsersRound }] : []),
     { label: t("navigation.settings"), href: "/dashboard/settings", icon: Settings },
     { label: t("navigation.apiKeys"), href: "/dashboard/settings/api-keys", icon: KeyRound },
-    ...(isAdminRole ? [{ label: "AI", href: "/dashboard/settings/ai", icon: Cpu }] : []),
     { label: "Sessions", href: "/dashboard/settings/sessions", icon: Monitor },
     ...(isPlatformStaff
       ? [{ label: "Platform admin", href: "/dashboard/admin/users", icon: ShieldAlert }]

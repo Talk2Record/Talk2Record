@@ -35,7 +35,7 @@ function readDismissedServer(): boolean {
 const stepHref: Record<string, string> = {
   "company-setup": "/onboarding",
   "choose-plan": "/onboarding",
-  "connect-whatsapp": "/dashboard/integrations",
+  "connect-whatsapp": "/onboarding",
   "first-voice-note": "/dashboard/records",
 };
 

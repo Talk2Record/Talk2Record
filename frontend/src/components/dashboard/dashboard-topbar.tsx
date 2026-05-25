@@ -1,7 +1,8 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, LogOut, Search, Settings } from "lucide-react";
 import { useLanguage } from "@/shared/lib/i18n/language-context";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
@@ -11,6 +12,15 @@ import { CurrencySwitcher } from "@/shared/components/currency-switcher";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { LiveIndicator } from "@/components/dashboard/live-indicator";
 import { NotificationInbox } from "@/components/dashboard/notification-inbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
+import { Button } from "@/shared/ui/button";
 
 interface DashboardTopbarProps {
   onOpenPalette: () => void;
@@ -28,7 +38,7 @@ const getShortcutLabelServer = () => "Ctrl K";
 
 export function DashboardTopbar({ onOpenPalette }: DashboardTopbarProps) {
   const { locale } = useLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const messages = getTranslations(locale);
   const { t } = useTranslations(messages);
   const shortcutLabel = useSyncExternalStore(
@@ -58,10 +68,47 @@ export function DashboardTopbar({ onOpenPalette }: DashboardTopbarProps) {
         <LanguageSwitcher />
         <CurrencySwitcher />
         <NotificationInbox />
-        <div className="brand-panel border-primary/10 hidden rounded-2xl border px-3 py-2 text-right md:block">
-          <p className="text-sm font-medium">{user?.name || "Workspace user"}</p>
-          <p className="text-muted-foreground text-xs">{user?.email}</p>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="brand-panel border-primary/10 h-auto max-w-[220px] rounded-2xl border px-3 py-2 text-left"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {user?.name || "Workspace user"}
+                  </span>
+                  <span className="text-muted-foreground block truncate text-xs">{user?.email}</span>
+                </span>
+                <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="font-normal">
+              <p className="truncate text-sm font-medium">{user?.name || "Workspace user"}</p>
+              <p className="text-muted-foreground truncate text-xs">{user?.email}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/settings">
+                <Settings className="h-4 w-4" />
+                {t("navigation.settings")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                void logout();
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              {t("navigation.logout")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

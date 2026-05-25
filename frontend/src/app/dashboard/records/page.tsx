@@ -11,7 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { EmptyState } from "@/shared/components/empty-state";
 import RecordsLoading from "@/app/dashboard/records/loading";
 import { RecordStatusBadge } from "@/components/records/record-status-badge";
+import { RecordAudioControls } from "@/components/records/record-audio-controls";
 import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
+import { recordsService } from "@/services/platform-service";
+import { toast } from "@/shared/hooks/use-toast";
+import { notifyApiError } from "@/shared/lib/notify-api-error";
 import type { DetectedCategory, ExtractedData, RecordItem, RecordStatus } from "@/types/platform";
 
 const STATUS_FILTERS: Array<{ value: RecordStatus | "all"; label: string }> = [
@@ -30,6 +34,28 @@ export default function RecordsPage() {
   const [industryFilter, setIndustryFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<RecordStatus | "all">("all");
+  const [reprocessingIds, setReprocessingIds] = useState<Set<string>>(() => new Set());
+  const [activePlaybackId, setActivePlaybackId] = useState<string | null>(null);
+
+  async function handleReprocess(recordId: string) {
+    setReprocessingIds((current) => new Set(current).add(recordId));
+    try {
+      await recordsService.reprocess(recordId);
+      toast({
+        title: "Reprocessing started",
+        description: "The voice note pipeline is running again.",
+      });
+      void queryClient.invalidateQueries({ queryKey: RECORDS_QUERY_KEY });
+    } catch (error) {
+      notifyApiError(error, { title: "Could not reprocess record" });
+    } finally {
+      setReprocessingIds((current) => {
+        const next = new Set(current);
+        next.delete(recordId);
+        return next;
+      });
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -96,20 +122,7 @@ export default function RecordsPage() {
             <EmptyState
               icon={Mic}
               title="No records yet"
-              description={
-                <>
-                  Record a voice note below, upload an audio file, or send one to your connected
-                  WhatsApp number.
-                </>
-              }
-              action={
-                <Link
-                  href="/dashboard/integrations"
-                  className="bg-primary text-primary-foreground inline-flex items-center rounded-full px-4 py-2 text-xs font-medium"
-                >
-                  Set up WhatsApp
-                </Link>
-              }
+              description="Record a voice note below, upload an audio file, or send one to your connected WhatsApp number."
               variant="compact"
             />
           </CardContent>
@@ -161,20 +174,21 @@ export default function RecordsPage() {
           <CardDescription>Click a row to open the pipeline + transcript view.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table className="w-full min-w-[1024px] text-left text-sm">
             <thead className="text-muted-foreground">
               <tr className="border-primary/10 border-b">
                 <th className="py-3 pr-4">Status</th>
                 <th className="py-3 pr-4">Date</th>
                 <th className="py-3 pr-4">Industry / Category</th>
                 <th className="py-3 pr-4">Summary</th>
-                <th className="py-3">Confidence</th>
+                <th className="py-3 pr-4">Confidence</th>
+                <th className="py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6">
+                  <td colSpan={6} className="py-6">
                     <EmptyState
                       icon={ScrollText}
                       title={hasAnyRecords ? "No matches" : "No records yet"}
@@ -210,7 +224,19 @@ export default function RecordsPage() {
                     <td className="text-muted-foreground py-4 pr-4">
                       {summarizeExtractedData(item)}
                     </td>
-                    <td className="py-4">{Math.round(item.confidenceScore * 100)}%</td>
+                    <td className="py-4 pr-4">{Math.round(item.confidenceScore * 100)}%</td>
+                    <td className="py-4">
+                      <RecordAudioControls
+                        compact
+                        recordId={item.id}
+                        audioUrl={item.audioUrl}
+                        status={item.status}
+                        activePlaybackId={activePlaybackId}
+                        onPlaybackChange={setActivePlaybackId}
+                        isReprocessing={reprocessingIds.has(item.id)}
+                        onReprocess={() => handleReprocess(item.id)}
+                      />
+                    </td>
                   </tr>
                 ))
               )}
