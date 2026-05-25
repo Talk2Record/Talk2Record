@@ -64,21 +64,33 @@ jobs:
       url: https://talk2record.com
     steps:
       - name: Validate deploy configuration
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           missing=()
           [[ -z "${{ vars.SSH_HOST }}" ]] && missing+=(SSH_HOST)
           [[ -z "${{ vars.SSH_USER }}" ]] && missing+=(SSH_USER)
-          [[ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]] && missing+=(SSH_PRIVATE_KEY)
+          [[ -z "$SSH_PRIVATE_KEY" ]] && missing+=(SSH_PRIVATE_KEY)
           [[ -z "${{ secrets.KNOWN_HOSTS }}" ]] && missing+=(KNOWN_HOSTS)
           if ((${#missing[@]} > 0)); then
             echo "::error::Missing production environment config: ${missing[*]}. SSH_HOST/SSH_USER/SSH_PORT are variables; SSH_PRIVATE_KEY/KNOWN_HOSTS are secrets (see deploy/README.md §6.1)."
             exit 1
           fi
+          if [[ "$SSH_PRIVATE_KEY" != *"BEGIN"* ]]; then
+            echo "::error::SSH_PRIVATE_KEY must be the full PEM private key (-----BEGIN ... -----END ...), not a public key or deploy-key id."
+            exit 1
+          fi
 
-      - name: Prepare SSH known_hosts
+      - name: Prepare SSH credentials
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Run deploy.sh on VPS
@@ -87,7 +99,7 @@ jobs:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           port: ${{ vars.SSH_PORT || '22' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key_path: ~/.ssh/deploy_key
           envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           command_timeout: 20m
           script: |

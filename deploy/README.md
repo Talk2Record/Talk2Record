@@ -81,11 +81,28 @@ Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
    sudo -u deploy git clone git@github.com:Talk2Record/Talk2Record.git /opt/talk2record/repo
    ```
 
-4. **Add the GitHub Actions SSH key** so the workflows can SSH in to run `deploy.sh`:
+4. **Add the GitHub Actions SSH key** (separate from the VPS→GitHub deploy key in step 3):
 
-   - On your local machine: `ssh-keygen -t ed25519 -C "talk2record-gha-deploy" -f gha_deploy_key`
-   - Append `gha_deploy_key.pub` to `/home/deploy/.ssh/authorized_keys` on the VPS.
-   - Add the **private** half (`gha_deploy_key`) to the `SSH_PRIVATE_KEY` GitHub secret.
+   - On your laptop: `ssh-keygen -t ed25519 -C "talk2record-gha-deploy" -f gha_deploy_key -N ""`
+   - On the VPS, append the **public** key to the deploy user:
+
+     ```bash
+     sudo mkdir -p /home/deploy/.ssh
+     sudo chmod 700 /home/deploy/.ssh
+     # paste contents of gha_deploy_key.pub, then:
+     sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
+     sudo chmod 600 /home/deploy/.ssh/authorized_keys
+     ```
+
+   - In GitHub **staging** / **production** environment **secrets**, set `SSH_PRIVATE_KEY` to the
+     **entire** contents of `gha_deploy_key` (including `-----BEGIN OPENSSH PRIVATE KEY-----` lines).
+     Do not use the VPS `id_ed25519` key from step 3 — that key is for git on the server, not Actions→VPS.
+
+   - Verify from your laptop before relying on CI:
+
+     ```bash
+     ssh -i gha_deploy_key -p 22 deploy@<VPS_IP> 'echo ok'
+     ```
 
 5. Capture the VPS SSH fingerprint for `KNOWN_HOSTS` (run from your laptop):
 
@@ -259,6 +276,20 @@ ENVS_DIR=/opt/talk2record/envs/prod \
 Schedule via cron on the VPS for automation (out of scope for this rollout).
 
 ## 12. Troubleshooting
+
+### Deploy SSH: `unable to authenticate, attempted methods [none publickey]`
+
+The workflow reached the VPS but the key was rejected. Checklist:
+
+1. **`SSH_PRIVATE_KEY`** is the **Actions→VPS** private key (`gha_deploy_key`), not the VPS
+   deploy-key used for `git clone` on the server.
+2. The matching **public** key is in `/home/deploy/.ssh/authorized_keys` on the VPS.
+3. **`SSH_USER`** variable is `deploy` (same user that owns `authorized_keys`).
+4. The secret contains the full PEM block (`-----BEGIN ... -----END ...`), with newlines preserved.
+5. The key has **no passphrase** (or add `passphrase` to the ssh-action step).
+6. Test locally: `ssh -i gha_deploy_key deploy@<SSH_HOST> 'echo ok'`
+
+After updating `authorized_keys`, no workflow change is needed—re-run the deploy job.
 
 ### `backend/` (or `frontend/`) shows its own git branch in the shell
 
