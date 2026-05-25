@@ -82,14 +82,12 @@ jobs:
       - name: Prepare SSH credentials
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          DEPLOY_KEY_PATH="${RUNNER_TEMP}/gha_deploy_key"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$DEPLOY_KEY_PATH"
+          chmod 600 "$DEPLOY_KEY_PATH"
+          ssh-keygen -y -f "$DEPLOY_KEY_PATH" >/dev/null
+          echo "DEPLOY_KEY_PATH=$DEPLOY_KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Run deploy.sh on VPS
         uses: appleboy/ssh-action@v1.2.4
@@ -97,7 +95,7 @@ jobs:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           port: ${{ vars.SSH_PORT || '22' }}
-          key_path: ~/.ssh/deploy_key
+          key_path: ${{ env.DEPLOY_KEY_PATH }}
           envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           command_timeout: 20m
           script: |
