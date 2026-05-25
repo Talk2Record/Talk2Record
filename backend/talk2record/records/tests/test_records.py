@@ -175,6 +175,21 @@ def test_reprocess_dead_letter_record(workspace_user, record):
 
 
 @pytest.mark.django_db
+def test_reprocess_review_record(workspace_user, record):
+    client = APIClient()
+    client.force_authenticate(user=workspace_user)
+    record.status = Record.Status.REVIEW
+    record.audio_url = "/media/voice_notes/3/1.webm"
+    record.save()
+
+    with patch("talk2record.records.views.process_whatsapp_record.delay") as mock_delay:
+        response = client.post(reverse("api:record-reprocess", kwargs={"pk": record.pk}))
+
+    assert response.status_code == HTTPStatus.ACCEPTED
+    mock_delay.assert_called_once()
+
+
+@pytest.mark.django_db
 def test_reprocess_rejects_stored_record(workspace_user, record):
     client = APIClient()
     client.force_authenticate(user=workspace_user)

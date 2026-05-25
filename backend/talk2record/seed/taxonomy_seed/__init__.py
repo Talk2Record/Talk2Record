@@ -30,8 +30,8 @@ tuples that :mod:`talk2record.seed.reference_data` consumes:
 * ``PROCESSING_RULE_DEFINITIONS``
 
 The aggregator simply concatenates the per-country files. Editors who want
-to tweak Kenya-only terminology can edit ``countries/kenya/dictionary.py``
-in isolation, without scrolling past USA or UK data.
+to tweak country-specific terminology can edit ``countries/<cc>/dictionary.py``
+in isolation, without scrolling past other locales' data.
 """
 
 from __future__ import annotations
@@ -41,12 +41,6 @@ from talk2record.seed.taxonomy_seed.countries.canada import (
 )
 from talk2record.seed.taxonomy_seed.countries.canada import (
     PROCESSING_RULE_DEFINITIONS as _CANADA_RULES,
-)
-from talk2record.seed.taxonomy_seed.countries.kenya import (
-    DICTIONARY_DEFINITIONS as _KENYA_DICTIONARY,
-)
-from talk2record.seed.taxonomy_seed.countries.kenya import (
-    PROCESSING_RULE_DEFINITIONS as _KENYA_RULES,
 )
 from talk2record.seed.taxonomy_seed.countries.uk import (
     DICTIONARY_DEFINITIONS as _UK_DICTIONARY,
@@ -77,14 +71,12 @@ from talk2record.seed.taxonomy_seed.shared.schemas import SCHEMA_DEFINITIONS
 DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
     *_SHARED_DICTIONARY,
     *_CANADA_DICTIONARY,
-    *_KENYA_DICTIONARY,
     *_UK_DICTIONARY,
     *_USA_DICTIONARY,
 )
 
 PROCESSING_RULE_DEFINITIONS: tuple[dict, ...] = (
     *_CANADA_RULES,
-    *_KENYA_RULES,
     *_UK_RULES,
     *_USA_RULES,
 )

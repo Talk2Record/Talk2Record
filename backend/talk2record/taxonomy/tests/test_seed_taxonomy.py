@@ -82,7 +82,7 @@ def test_seed_creates_dictionary_entries():
     entries = DomainDictionary.objects.filter(industry=construction, enabled=True)
     assert entries.count() >= 10
     assert entries.filter(term="OPC").exists()
-    assert entries.filter(term="fundi").exists()
+    assert entries.filter(term="m3").exists()
 
 
 @pytest.mark.django_db

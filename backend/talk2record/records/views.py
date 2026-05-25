@@ -19,6 +19,13 @@ from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.records.models import Record
 from talk2record.records.serializers import RecordSerializer
 
+REPROCESSABLE_STATUSES = {
+    Record.Status.FAILED,
+    Record.Status.DEAD_LETTER,
+    Record.Status.REVIEW,
+    Record.Status.EXTRACTED,
+}
+
 
 class RecordViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -43,9 +50,14 @@ class RecordViewSet(ModelViewSet):
     )
     def reprocess(self, request, pk=None):
         record = self.get_object()
-        if record.status not in {Record.Status.FAILED, Record.Status.DEAD_LETTER}:
+        if record.status not in REPROCESSABLE_STATUSES:
             return Response(
-                {"detail": "Only failed or dead-letter records can be reprocessed."},
+                {
+                    "detail": (
+                        "Only failed, dead-letter, review, or extracted records "
+                        "can be reprocessed."
+                    ),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not record.audio_url:

@@ -1,14 +1,19 @@
 """Construction extraction schemas shared across countries.
 
 Field structure is universal; units and currencies are intentionally
-free-form strings so a Kenyan ``"bags"`` payload, a UK ``"m3"`` payload and
-a US ``"cu yd"`` payload all validate against the same schema.
+free-form strings so a UK ``"m3"`` payload and a US ``"cu yd"`` payload
+both validate against the same schema.
+
+Extraction prompts instruct the LLM to emit ``null`` for unknown fields, so
+every property accepts ``null`` at the JSON Schema layer. ``required_fields``
+is kept as admin metadata for review UX — it is not enforced via
+``json_schema.required``.
 """
 
 from __future__ import annotations
 
-_OBJECT_NUMBER = {"type": "number"}
-_OBJECT_STRING = {"type": "string"}
+_NULLABLE_STRING = {"type": ["string", "null"]}
+_NULLABLE_NUMBER = {"type": ["number", "null"]}
 
 SCHEMA_DEFINITIONS: tuple[dict, ...] = (
     {
@@ -22,16 +27,21 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "type": "object",
             "additionalProperties": True,
             "properties": {
-                "material": {"type": "string", "description": "Material delivered (e.g. cement, sand, rebar, lumber)."},
-                "quantity": _OBJECT_NUMBER,
-                "unit": {"type": "string", "description": "Unit of measure (bags, m3, cu yd, tons, pieces, …)."},
-                "site": _OBJECT_STRING,
-                "supplier": _OBJECT_STRING,
-                "vehicle": _OBJECT_STRING,
-                "delivered_at": _OBJECT_STRING,
-                "notes": _OBJECT_STRING,
+                "material": {
+                    "type": ["string", "null"],
+                    "description": "Material delivered (e.g. cement, sand, rebar, lumber).",
+                },
+                "quantity": _NULLABLE_NUMBER,
+                "unit": {
+                    "type": ["string", "null"],
+                    "description": "Unit of measure (bags, m3, cu yd, tons, pieces, …).",
+                },
+                "site": _NULLABLE_STRING,
+                "supplier": _NULLABLE_STRING,
+                "vehicle": _NULLABLE_STRING,
+                "delivered_at": _NULLABLE_STRING,
+                "notes": _NULLABLE_STRING,
             },
-            "required": ["material"],
         },
     },
     {
@@ -45,17 +55,28 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "type": "object",
             "additionalProperties": True,
             "properties": {
-                "worker": {"type": "string", "description": "Name or role of the worker paid."},
-                "worker_role": {"type": "string", "description": "Trade / role: mason, carpenter, sparky, fundi, …"},
-                "amount": _OBJECT_NUMBER,
-                "currency": {"type": "string", "description": "ISO 4217 code (KES, USD, GBP, …) inferred from context."},
-                "payment_method": _OBJECT_STRING,
-                "site": _OBJECT_STRING,
-                "task": {"type": "string", "description": "What the worker was paid for."},
-                "paid_at": _OBJECT_STRING,
-                "notes": _OBJECT_STRING,
+                "worker": {
+                    "type": ["string", "null"],
+                    "description": "Name or role of the worker paid.",
+                },
+                "worker_role": {
+                    "type": ["string", "null"],
+                    "description": "Trade / role: mason, carpenter, sparky, fundi, …",
+                },
+                "amount": _NULLABLE_NUMBER,
+                "currency": {
+                    "type": ["string", "null"],
+                    "description": "ISO 4217 code (KES, USD, GBP, …) inferred from context.",
+                },
+                "payment_method": _NULLABLE_STRING,
+                "site": _NULLABLE_STRING,
+                "task": {
+                    "type": ["string", "null"],
+                    "description": "What the worker was paid for.",
+                },
+                "paid_at": _NULLABLE_STRING,
+                "notes": _NULLABLE_STRING,
             },
-            "required": ["amount"],
         },
     },
     {
@@ -69,25 +90,30 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "type": "object",
             "additionalProperties": True,
             "properties": {
-                "site": _OBJECT_STRING,
-                "activity": {"type": "string", "description": "Concrete activity completed."},
-                "location": {"type": "string", "description": "e.g. slab B2, ground floor."},
+                "site": _NULLABLE_STRING,
+                "activity": {
+                    "type": ["string", "null"],
+                    "description": "Concrete activity completed.",
+                },
+                "location": {
+                    "type": ["string", "null"],
+                    "description": "e.g. slab B2, ground floor.",
+                },
                 "materials_used": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "object",
                         "additionalProperties": True,
                         "properties": {
-                            "material": _OBJECT_STRING,
-                            "quantity": _OBJECT_NUMBER,
-                            "unit": _OBJECT_STRING,
+                            "material": _NULLABLE_STRING,
+                            "quantity": _NULLABLE_NUMBER,
+                            "unit": _NULLABLE_STRING,
                         },
                     },
                 },
-                "completed_at": _OBJECT_STRING,
-                "notes": _OBJECT_STRING,
+                "completed_at": _NULLABLE_STRING,
+                "notes": _NULLABLE_STRING,
             },
-            "required": ["activity"],
         },
     },
     {
@@ -101,17 +127,22 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "type": "object",
             "additionalProperties": True,
             "properties": {
-                "equipment": {"type": "string", "description": "Type or name of equipment."},
-                "site": _OBJECT_STRING,
-                "operator": _OBJECT_STRING,
-                "duration_hours": _OBJECT_NUMBER,
-                "cost": _OBJECT_NUMBER,
-                "currency": {"type": "string", "description": "ISO 4217 code (KES, USD, GBP, …)."},
-                "supplier": _OBJECT_STRING,
-                "used_at": _OBJECT_STRING,
-                "notes": _OBJECT_STRING,
+                "equipment": {
+                    "type": ["string", "null"],
+                    "description": "Type or name of equipment.",
+                },
+                "site": _NULLABLE_STRING,
+                "operator": _NULLABLE_STRING,
+                "duration_hours": _NULLABLE_NUMBER,
+                "cost": _NULLABLE_NUMBER,
+                "currency": {
+                    "type": ["string", "null"],
+                    "description": "ISO 4217 code (KES, USD, GBP, …).",
+                },
+                "supplier": _NULLABLE_STRING,
+                "used_at": _NULLABLE_STRING,
+                "notes": _NULLABLE_STRING,
             },
-            "required": ["equipment"],
         },
     },
     {
@@ -125,15 +156,18 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "type": "object",
             "additionalProperties": True,
             "properties": {
-                "site": _OBJECT_STRING,
-                "purpose": {"type": "string", "description": "Foundation, trench, footing, …"},
-                "length_m": _OBJECT_NUMBER,
-                "width_m": _OBJECT_NUMBER,
-                "depth_m": _OBJECT_NUMBER,
-                "volume_m3": _OBJECT_NUMBER,
-                "operator": _OBJECT_STRING,
-                "equipment": _OBJECT_STRING,
-                "notes": _OBJECT_STRING,
+                "site": _NULLABLE_STRING,
+                "purpose": {
+                    "type": ["string", "null"],
+                    "description": "Foundation, trench, footing, …",
+                },
+                "length_m": _NULLABLE_NUMBER,
+                "width_m": _NULLABLE_NUMBER,
+                "depth_m": _NULLABLE_NUMBER,
+                "volume_m3": _NULLABLE_NUMBER,
+                "operator": _NULLABLE_STRING,
+                "equipment": _NULLABLE_STRING,
+                "notes": _NULLABLE_STRING,
             },
         },
     },

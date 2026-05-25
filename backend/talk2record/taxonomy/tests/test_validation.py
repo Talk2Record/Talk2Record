@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import pytest
 
+from talk2record.seed.taxonomy_seed.shared.schemas import SCHEMA_DEFINITIONS
 from talk2record.taxonomy.services.validation import SchemaValidator
+
+
+def _material_delivery_json_schema() -> dict:
+    for definition in SCHEMA_DEFINITIONS:
+        if definition["category"] == ("construction", "material_delivery"):
+            return definition["json_schema"]
+    msg = "material_delivery schema not found"
+    raise AssertionError(msg)
 
 
 @pytest.mark.django_db
@@ -27,6 +36,45 @@ def test_wrong_type_returns_error(material_delivery_schema):
     result = SchemaValidator.validate(payload, schema=material_delivery_schema)
     assert result.ok is False
     assert any(e.get("path") == "quantity" for e in result.errors)
+
+
+def test_null_optional_fields_returns_ok():
+    payload = {
+        "material": "cement",
+        "quantity": 20,
+        "unit": "bags",
+        "site": "Site A",
+        "supplier": None,
+        "vehicle": None,
+        "delivered_at": None,
+    }
+    result = SchemaValidator.validate_dict(payload, json_schema=_material_delivery_json_schema())
+    assert result.ok is True
+    assert result.errors == []
+
+
+def test_null_labor_payment_fields_returns_ok():
+    for definition in SCHEMA_DEFINITIONS:
+        if definition["category"] == ("construction", "labor_payment"):
+            schema = definition["json_schema"]
+            break
+    else:
+        raise AssertionError("labor_payment schema not found")
+
+    payload = {
+        "worker": "Worker",
+        "worker_role": None,
+        "amount": 2000,
+        "currency": None,
+        "payment_method": None,
+        "site": None,
+        "task": None,
+        "paid_at": None,
+        "notes": None,
+    }
+    result = SchemaValidator.validate_dict(payload, json_schema=schema)
+    assert result.ok is True
+    assert result.errors == []
 
 
 @pytest.mark.django_db
