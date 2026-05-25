@@ -3,19 +3,45 @@ name: Deploy production
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '**/*.md']
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  group: deploy-production-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
   packages: write
 
 jobs:
+  changes:
+    name: Detect deployable changes
+    runs-on: ubuntu-latest
+    outputs:
+      deployable: ${{ steps.filter.outputs.deployable }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            deployable:
+              - 'backend/**'
+              - 'frontend/**'
+              - 'deploy/**'
+              - '.github/workflows/deploy-production.yml'
+              - '.github/workflows/build-images.yml'
+
   build:
+    name: Build images
+    needs: changes
+    if: needs.changes.outputs.deployable == 'true'
     uses: ./.github/workflows/build-images.yml
     with:
       environment: production
@@ -26,7 +52,10 @@ jobs:
 
   deploy:
     name: SSH deploy to VPS
-    needs: build
+    needs: [changes, build]
+    if: |
+      needs.changes.outputs.deployable == 'true' &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       # Configure required reviewers + protection rules in the GitHub UI:

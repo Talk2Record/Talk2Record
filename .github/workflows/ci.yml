@@ -37,6 +37,29 @@ jobs:
               - 'frontend/**'
               - '.github/workflows/ci.yml'
 
+  backend-lockfile:
+    name: Backend uv.lock (production uv)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify uv.lock matches pyproject.toml
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/backend:/app" \
+            -w /app \
+            ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
+            sh -ec '
+              apt-get update -qq
+              apt-get install -y --no-install-recommends build-essential libpq-dev >/dev/null
+              uv sync --locked --no-install-project --no-dev
+            '
+
   backend-lint:
     name: Backend pre-commit
     needs: changes

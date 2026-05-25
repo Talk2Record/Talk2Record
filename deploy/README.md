@@ -175,11 +175,14 @@ so deploys to prod will wait for an approver.
 
 ## 7. First deploys
 
-1. Merge a small change to `develop`.
+1. Merge a small change to `develop` (or push directly to `develop`).
 2. Watch GitHub Actions:
-   - `CI` runs (lint + tests).
-   - `Deploy staging` triggers, builds and pushes images, then SSHes to the
-     VPS and runs `deploy.sh`.
+   - `CI` runs (lint + tests) on pushes and PRs targeting `develop` / `main`.
+   - `Deploy staging` runs when `backend/`, `frontend/`, `deploy/`, or deploy
+     workflows change:
+     - **PRs to `develop`**: build images only (validates Docker before merge).
+     - **Push to `develop`**: build images, then SSH deploy to staging.
+   - Docs-only or root `README.md` changes do not trigger a staging deploy.
 3. Verify `https://staging.talk2record.com` loads and `/api/schema/` returns JSON.
 4. Promote: open a PR from `develop` to `main`, merge.
 5. `Deploy production` builds images, then **waits for approval** on the
