@@ -28,13 +28,19 @@ services:
       - edge
     healthcheck:
       test:
-        - CMD-SHELL
-        - >-
-          wget -q --tries=1 --timeout=5
-          --header="Host: staging.talk2record.com"
-          -O /dev/null http://127.0.0.1:5000/api/schema/ || exit 1
+        - CMD
+        - python
+        - -c
+        - |
+          import urllib.request as u, sys
+          req = u.Request('http://127.0.0.1:5000/api/schema/', headers={'Host': 'staging.talk2record.com'})
+          try:
+              r = u.urlopen(req, timeout=5)
+              sys.exit(0 if r.status == 200 else 1)
+          except Exception:
+              sys.exit(1)
       interval: 10s
-      timeout: 6s
+      timeout: 8s
       retries: 6
       start_period: 30s
 
@@ -106,6 +112,7 @@ services:
     command: /start-flower
     networks:
       - default
+      - edge
     healthcheck:
       disable: true
 

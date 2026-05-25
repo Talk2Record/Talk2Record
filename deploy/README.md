@@ -30,13 +30,22 @@ GitHub Actions automated deployments. The architecture and design are in
 
 Point all hostnames at the VPS IP (A records):
 
-| Host                          | Target       |
-| ----------------------------- | ------------ |
-| `talk2record.com`             | `<VPS IP>`   |
-| `www.talk2record.com`         | `<VPS IP>`   |
-| `staging.talk2record.com`     | `<VPS IP>`   |
+| Host                                | Target       | Purpose                                      | Required? |
+| ----------------------------------- | ------------ | -------------------------------------------- | --------- |
+| `talk2record.com`                   | `<VPS IP>`   | prod frontend + Django (api on `/api/*`)     | required  |
+| `www.talk2record.com`               | `<VPS IP>`   | prod (redirect/alias)                        | required  |
+| `staging.talk2record.com`           | `<VPS IP>`   | staging frontend + Django                    | required  |
+| `admin.talk2record.com`             | `<VPS IP>`   | prod Django admin                            | optional  |
+| `admin.staging.talk2record.com`     | `<VPS IP>`   | staging Django admin                         | optional  |
+| `docs.talk2record.com`              | `<VPS IP>`   | prod API docs (Swagger UI)                   | optional  |
+| `docs.staging.talk2record.com`      | `<VPS IP>`   | staging API docs                             | optional  |
+| `flower.talk2record.com`            | `<VPS IP>`   | prod Celery monitoring (basic auth)          | optional  |
+| `flower.staging.talk2record.com`    | `<VPS IP>`   | staging Celery monitoring (basic auth)       | optional  |
 
 Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
+Optional subdomains are routed by Traefik but only get certs once you create the
+DNS record — until then, you can still access everything via path prefixes on the
+root host (`https://staging.talk2record.com/api/docs/`, `/<DJANGO_ADMIN_URL>`, etc.).
 
 ## 3. One-time VPS bootstrap
 
@@ -284,7 +293,102 @@ ENVS_DIR=/opt/talk2record/envs/prod \
   run --rm django python manage.py migrate
 ```
 
-## 11. Backups (already scaffolded)
+## 11. Admin, docs, and monitoring
+
+All URLs below assume DNS is in place and the deploy succeeded.
+
+### 11.1 Django admin
+
+Admin is reachable two ways — pick the one you bookmark.
+
+- **Subdomain (clean):** `https://admin.<host>/<DJANGO_ADMIN_URL>`
+  e.g. `https://admin.staging.talk2record.com/adm-e84ecf45b4659a15/`
+- **Path on root host (backward compat):** `https://<host>/<DJANGO_ADMIN_URL>`
+
+The `DJANGO_ADMIN_URL` slug is still applied — the subdomain is just an
+alias for the same Django container. Look up your slug:
+
+```bash
+# On the VPS (or grab from GitHub Environment secrets → ENV_DJANGO):
+grep '^DJANGO_ADMIN_URL=' /opt/talk2record/envs/staging/.django
+# e.g. DJANGO_ADMIN_URL=adm-e84ecf45b4659a15/
+```
+
+Want clean URLs without the random slug? Set
+`DJANGO_ADMIN_URL=admin/` in `ENV_DJANGO` and the admin will live at
+`https://admin.<host>/admin/`. The random slug is unnecessary once admin
+is on a dedicated subdomain — restrict by IP via a Traefik middleware if
+you need real protection.
+
+Create the first superuser (one-time, per environment):
+
+```bash
+cd /opt/talk2record/repo/backend
+ENVS_DIR=/opt/talk2record/envs/staging \
+  docker compose -f docker-compose.staging.yml -p talk2record-staging \
+  exec django python manage.py createsuperuser
+```
+
+### 11.2 API docs (Swagger UI / OpenAPI)
+
+Same two styles, but the docs subdomain auto-redirects `/` to `/api/docs/`
+so you don't have to remember the path:
+
+- **Subdomain (clean):** `https://docs.<host>/` — Traefik rewrites `/` to
+  `/api/docs/`, so this lands directly on Swagger UI.
+  e.g. `https://docs.staging.talk2record.com`
+- **OpenAPI JSON:** `https://docs.<host>/api/schema/` (or
+  `https://<host>/api/schema/` on the root host).
+- **Path on root host (backward compat):** `https://<host>/api/docs/`
+
+The container healthcheck hits `127.0.0.1:5000/api/schema/` with
+`Host: <env-host>`, so if `/api/schema/` is broken the deploy fails before
+ever exposing the docs subdomain.
+
+### 11.3 Celery / Flower monitoring
+
+Flower runs in its own container (`talk2record-<env>-flower`) on port 5555 and
+is now exposed on a dedicated subdomain with HTTP basic auth:
+
+| Environment | URL                                      | Credentials                                                            |
+| ----------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| staging     | `https://flower.staging.talk2record.com` | `CELERY_FLOWER_USER` / `CELERY_FLOWER_PASSWORD` (staging `ENV_DJANGO`) |
+| production  | `https://flower.talk2record.com`         | `CELERY_FLOWER_USER` / `CELERY_FLOWER_PASSWORD` (prod `ENV_DJANGO`)    |
+
+**Why a subdomain?** Three reasons:
+
+1. **Clear network boundary.** Flower exposes raw worker state; isolating it on
+   its own host header makes it easy to firewall/IP-restrict later via Traefik
+   middleware without touching the app router.
+2. **Cookie/CSRF isolation.** Flower's session cookie cannot accidentally leak
+   into the main app's cookie scope.
+3. **Independent cert + access logs.** Easier to audit who visited the admin
+   monitoring vs. real users.
+
+Path-based hosting (e.g. `talk2record.com/flower/`) would have required
+configuring Flower's `--url_prefix` and rewriting headers. The subdomain is
+the same effort with a cleaner blast radius.
+
+If you don't want to expose Flower publicly at all, just **don't create the DNS
+record** — Traefik will refuse the route and only the in-stack containers
+(workers, beat) can reach Flower on the internal `default` network. You can
+still inspect it via `docker exec` when needed.
+
+### 11.4 Seed data
+
+`deploy.sh` runs `python manage.py seed_data` after each successful migration.
+The command is idempotent (only provisions reference data — legal documents,
+integration singletons, plans/prices/entitlements; never tenant data) so it's
+safe to run on every deploy. Re-seed manually:
+
+```bash
+cd /opt/talk2record/repo/backend
+ENVS_DIR=/opt/talk2record/envs/staging \
+  docker compose -f docker-compose.staging.yml -p talk2record-staging \
+  run --rm django python manage.py seed_data
+```
+
+## 12. Backups (already scaffolded)
 
 The `awscli` service in the production compose is gated behind the `backup`
 profile. To run an ad-hoc backup:
@@ -297,7 +401,7 @@ ENVS_DIR=/opt/talk2record/envs/prod \
 
 Schedule via cron on the VPS for automation (out of scope for this rollout).
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Postgres unhealthy: `superuser password is not specified`
 
@@ -315,15 +419,25 @@ ENV=staging /opt/talk2record/repo/deploy/scripts/reset-stack.sh
 It is destructive — DB data is lost. Use it on staging, on production only when
 you're resetting from a backup.
 
-### Django container never reports healthy (`DisallowedHost` in logs)
+### Django container never reports healthy
 
-The container healthcheck makes a request to itself. If `DJANGO_ALLOWED_HOSTS`
-doesn't include the Host header the healthcheck sends, Django returns 400 and the
-status stays `starting` until retries elapse.
+The container healthcheck makes an HTTP request to itself using **Python's
+`urllib`** (the production image is `python:3.13-slim-bookworm`, which has
+neither `wget` nor `curl` — only Python). It sends `Host: <env-host>` to match
+`DJANGO_ALLOWED_HOSTS`.
 
-The current healthchecks send `Host: staging.talk2record.com` / `Host: talk2record.com`
-to match `ALLOWED_HOSTS`. If you change the hostname in `ENV_DJANGO`, also update the
-`Host:` value in `backend/docker-compose.<env>.yml` (`healthcheck.test`).
+If healthchecks fail, check in order:
+
+1. **`DJANGO_ALLOWED_HOSTS` mismatch.** The healthcheck sends
+   `Host: staging.talk2record.com` (or `talk2record.com`). If you change the
+   public hostname, update both `ENV_DJANGO` *and* the `Host:` header literal
+   in `backend/docker-compose.<env>.yml`.
+2. **Gunicorn slow boot.** Workers take ~30–60s under cold cache. The compose
+   file gives Django `start_period: 30s` and 60 deploy-script retries × 5s =
+   300s of grace before failing.
+3. **Schema endpoint errors.** Visit `https://<host>/api/schema/` manually — a
+   misconfigured DRF spectacular component (e.g. missing serializer) can make
+   it 500.
 
 Inspect probe history on the VPS:
 

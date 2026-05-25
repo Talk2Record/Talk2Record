@@ -10,7 +10,8 @@ DJANGO_ADMIN_URL=change-me-to-random-slug/
 DJANGO_ALLOWED_HOSTS=.talk2record.com
 DJANGO_CORS_ALLOWED_ORIGINS=https://talk2record.com,https://www.talk2record.com
 DJANGO_CORS_ALLOW_CREDENTIALS=False
-DJANGO_CSRF_TRUSTED_ORIGINS=https://talk2record.com,https://www.talk2record.com
+# Add every subdomain that may POST to Django (admin, docs swagger "Try it out").
+DJANGO_CSRF_TRUSTED_ORIGINS=https://talk2record.com,https://www.talk2record.com,https://admin.talk2record.com,https://docs.talk2record.com
 
 # Security
 # ------------------------------------------------------------------------------

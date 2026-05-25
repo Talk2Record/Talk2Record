@@ -172,8 +172,15 @@ compose run --rm --no-deps \
   -e DJANGO_SETTINGS_MODULE=config.settings.production \
   django python manage.py migrate --noinput
 
+echo "==> Seeding reference data (idempotent)"
+if ! compose run --rm --no-deps \
+  -e DJANGO_SETTINGS_MODULE=config.settings.production \
+  django python manage.py seed_data; then
+  echo "WARNING: seed_data failed; deploy continues. Investigate and re-run manually." >&2
+fi
+
 echo "==> Starting / updating services"
-compose up -d postgres redis django frontend celeryworker celerybeat
+compose up -d postgres redis django frontend celeryworker celerybeat flower
 
 echo "==> Waiting for django to report healthy"
 django_ready=false

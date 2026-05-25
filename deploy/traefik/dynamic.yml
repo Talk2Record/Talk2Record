@@ -2,43 +2,95 @@ http:
   routers:
     # --- Production ---
     prod-django:
-      rule: '(Host(`talk2record.com`) || Host(`www.talk2record.com`)) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))'
-      entryPoints:
-        - web-secure
+      rule: >-
+        (Host(`talk2record.com`) || Host(`www.talk2record.com`)) &&
+        (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) ||
+         PathPrefix(`/adm-`) || PathPrefix(`/static`) || PathPrefix(`/media`))
+      entryPoints: [web-secure]
       service: prod-django
-      middlewares:
-        - csrf
+      middlewares: [csrf]
       priority: 100
       tls:
         certResolver: letsencrypt
 
     prod-frontend:
       rule: 'Host(`talk2record.com`) || Host(`www.talk2record.com`)'
-      entryPoints:
-        - web-secure
+      entryPoints: [web-secure]
       service: prod-frontend
       priority: 1
       tls:
         certResolver: letsencrypt
 
+    prod-admin:
+      rule: 'Host(`admin.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: prod-django
+      middlewares: [csrf]
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    prod-docs:
+      rule: 'Host(`docs.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: prod-django
+      middlewares: [docs-root-redirect]
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    prod-flower:
+      rule: 'Host(`flower.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: prod-flower
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
     # --- Staging ---
     staging-django:
-      rule: 'Host(`staging.talk2record.com`) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))'
-      entryPoints:
-        - web-secure
+      rule: >-
+        Host(`staging.talk2record.com`) &&
+        (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) ||
+         PathPrefix(`/adm-`) || PathPrefix(`/static`) || PathPrefix(`/media`))
+      entryPoints: [web-secure]
       service: staging-django
-      middlewares:
-        - csrf
+      middlewares: [csrf]
       priority: 100
       tls:
         certResolver: letsencrypt
 
     staging-frontend:
       rule: 'Host(`staging.talk2record.com`)'
-      entryPoints:
-        - web-secure
+      entryPoints: [web-secure]
       service: staging-frontend
       priority: 1
+      tls:
+        certResolver: letsencrypt
+
+    staging-admin:
+      rule: 'Host(`admin.staging.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: staging-django
+      middlewares: [csrf]
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    staging-docs:
+      rule: 'Host(`docs.staging.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: staging-django
+      middlewares: [docs-root-redirect]
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    staging-flower:
+      rule: 'Host(`flower.staging.talk2record.com`)'
+      entryPoints: [web-secure]
+      service: staging-flower
+      priority: 100
       tls:
         certResolver: letsencrypt
 
@@ -47,6 +99,13 @@ http:
       headers:
         hostsProxyHeaders:
           - X-CSRFToken
+    # Bare `https://docs.<host>/` lands on Swagger UI without forcing the
+    # user to remember the `/api/docs/` suffix. Other paths pass through
+    # untouched so the swagger UI can still fetch /api/schema/.
+    docs-root-redirect:
+      replacePathRegex:
+        regex: "^/$"
+        replacement: "/api/docs/"
 
   services:
     prod-django:
@@ -59,6 +118,11 @@ http:
         servers:
           - url: http://talk2record-prod-frontend:3000
         passHostHeader: true
+    prod-flower:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-prod-flower:5555
+        passHostHeader: true
     staging-django:
       loadBalancer:
         servers:
@@ -68,4 +132,9 @@ http:
       loadBalancer:
         servers:
           - url: http://talk2record-staging-frontend:3000
+        passHostHeader: true
+    staging-flower:
+      loadBalancer:
+        servers:
+          - url: http://talk2record-staging-flower:5555
         passHostHeader: true
