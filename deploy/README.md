@@ -279,9 +279,32 @@ Schedule via cron on the VPS for automation (out of scope for this rollout).
 
 ### Deploy migrate: `wait-for-it: timeout ... postgres:5432`
 
-Migrations used to run before Postgres was started (`compose run --no-deps`). `deploy.sh`
-now brings up `postgres` and `redis`, waits for Postgres health, then runs `migrate`.
-Pull the latest `develop` on the VPS (or re-run the deploy workflow) so `/opt/talk2record/repo/deploy/scripts/deploy.sh` is updated.
+Postgres was not running when `migrate` started. Current `deploy.sh` starts `postgres`
+and `redis` first, waits for health, then migrates.
+
+**On the VPS right now** (as `deploy` or `root`):
+
+```bash
+# 1. Stop the stuck migrate container
+docker rm -f talk2record-staging-django-run-14104ce3479d 2>/dev/null || true
+
+# 2. Ensure Traefik edge network exists (bootstrap creates this)
+docker network create talk2record_staging 2>/dev/null || true
+
+# 3. Start postgres + redis
+cd /opt/talk2record/repo/backend
+export ENVS_DIR=/opt/talk2record/envs/staging
+docker compose -f docker-compose.staging.yml -p talk2record-staging up -d postgres redis
+docker logs talk2record-staging-postgres --tail 30
+docker ps | grep staging
+
+# 4. Pull latest deploy.sh (must be on develop in GitHub)
+cd /opt/talk2record/repo && git fetch && git checkout develop && git pull
+```
+
+Ensure `/opt/talk2record/envs/staging/.postgres` has non-empty `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, and `POSTGRES_DB`. Then re-run the GitHub deploy workflow or
+`deploy.sh` manually.
 
 ### Deploy SSH: `unable to authenticate, attempted methods [none publickey]`
 

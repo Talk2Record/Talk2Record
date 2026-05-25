@@ -29,6 +29,7 @@ case "$ENV" in
     COMPOSE_FILE="docker-compose.production.yml"
     PROJECT="talk2record-prod"
     ENVS_DIR="/opt/talk2record/envs/prod"
+    EDGE_NETWORK="talk2record_prod"
     HEALTH_HOST="talk2record-prod-django"
     POSTGRES_CONTAINER="talk2record-prod-postgres"
     ;;
@@ -36,6 +37,7 @@ case "$ENV" in
     COMPOSE_FILE="docker-compose.staging.yml"
     PROJECT="talk2record-staging"
     ENVS_DIR="/opt/talk2record/envs/staging"
+    EDGE_NETWORK="talk2record_staging"
     HEALTH_HOST="talk2record-staging-django"
     POSTGRES_CONTAINER="talk2record-staging-postgres"
     ;;
@@ -44,6 +46,30 @@ case "$ENV" in
     exit 2
     ;;
 esac
+
+compose() {
+  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" "$@"
+}
+
+ensure_edge_network() {
+  if docker network inspect "$EDGE_NETWORK" >/dev/null 2>&1; then
+    return
+  fi
+  echo "==> Creating external Docker network $EDGE_NETWORK (required by compose)"
+  docker network create "$EDGE_NETWORK"
+}
+
+require_env_files() {
+  local missing=()
+  for name in .django .postgres .frontend; do
+    [[ -f "$ENVS_DIR/$name" ]] || missing+=("$ENVS_DIR/$name")
+  done
+  if ((${#missing[@]} > 0)); then
+    echo "ERROR: Missing env files on the VPS:" >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    exit 1
+  fi
+}
 
 REPO_DIR="${REPO_DIR:-/opt/talk2record/repo}"
 STATE_DIR="${STATE_DIR:-/opt/talk2record/state}"
@@ -66,14 +92,24 @@ fi
 
 cd "$BACKEND_DIR"
 
+ensure_edge_network
+require_env_files
+
 echo "==> Pulling images for $ENV @ $TAG"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" pull django frontend
+compose pull django frontend
 
 echo "==> Building local-only images (postgres, awscli) if needed"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" build postgres
+compose build postgres
+
+echo "==> Stopping stale one-off migrate containers (if any)"
+docker ps -aq --filter "name=${PROJECT}-django-run" | xargs -r docker rm -f
 
 echo "==> Starting postgres and redis before migrations"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" up -d postgres redis
+if ! compose up -d postgres redis; then
+  echo "ERROR: failed to start postgres/redis (is $EDGE_NETWORK present? env files valid?)" >&2
+  compose ps -a >&2
+  exit 1
+fi
 
 echo "==> Waiting for postgres to become healthy"
 postgres_ready=false
@@ -84,25 +120,29 @@ for i in $(seq 1 60); do
     echo "    postgres is healthy"
     break
   fi
+  if [[ "$status" == "exited" || "$status" == "dead" ]]; then
+    echo "ERROR: postgres container exited during startup" >&2
+    docker logs "$POSTGRES_CONTAINER" --tail 100 >&2 || true
+    exit 1
+  fi
   echo "    [$i/60] postgres status=$status"
   sleep 2
 done
 
 if [[ "$postgres_ready" != "true" ]]; then
   echo "ERROR: postgres did not become healthy within 120s" >&2
-  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" logs --tail=200 postgres >&2
+  compose logs --tail=200 postgres >&2
+  compose ps -a >&2
   exit 1
 fi
 
 echo "==> Running database migrations"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" \
-  run --rm --no-deps \
+compose run --rm --no-deps \
   -e DJANGO_SETTINGS_MODULE=config.settings.production \
   django python manage.py migrate --noinput
 
 echo "==> Starting / updating services"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" up -d \
-  postgres redis django frontend celeryworker celerybeat
+compose up -d postgres redis django frontend celeryworker celerybeat
 
 echo "==> Waiting for django to report healthy"
 for i in $(seq 1 30); do
@@ -117,7 +157,7 @@ done
 
 if [[ "${status:-}" != "healthy" ]]; then
   echo "ERROR: django did not become healthy within 150s" >&2
-  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" logs --tail=200 django >&2
+  compose logs --tail=200 django >&2
   exit 1
 fi
 
