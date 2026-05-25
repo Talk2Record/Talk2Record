@@ -92,6 +92,21 @@ create_networks() {
   done
 }
 
+# Monorepo deploy uses a single git root at REPO_DIR. A nested backend/.git (or
+# frontend/.git) usually means an old per-service clone was copied in; remove it
+# so deploy.sh git fetch/checkout at the repo root is authoritative.
+remove_nested_git_repos() {
+  if [[ ! -d "$REPO_DIR" ]]; then
+    return
+  fi
+  for sub in backend frontend; do
+    if [[ -d "$REPO_DIR/$sub/.git" ]]; then
+      echo "Removing nested git repo at $REPO_DIR/$sub/.git"
+      rm -rf "$REPO_DIR/$sub/.git"
+    fi
+  done
+}
+
 main() {
   require_root "$@"
   install_packages
@@ -100,6 +115,7 @@ main() {
   setup_firewall
   create_directories
   create_networks
+  remove_nested_git_repos
   cat <<EOF
 
 Bootstrap complete.

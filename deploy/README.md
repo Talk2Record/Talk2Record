@@ -54,6 +54,16 @@ Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
    `/opt/talk2record/{envs,state}` directory layout, and the external
    docker networks `talk2record_prod` and `talk2record_staging`.
 
+   **Only one git repo on the VPS:** the monorepo root at `/opt/talk2record/repo`.
+   `backend/` and `frontend/` must not contain their own `.git` directories (common
+   if you previously cloned those repos separately). Bootstrap removes nested
+   `.git` dirs automatically; you can also run manually:
+
+   ```bash
+   sudo rm -rf /opt/talk2record/repo/backend/.git /opt/talk2record/repo/frontend/.git
+   git -C /opt/talk2record/repo rev-parse --show-toplevel   # must print .../repo
+   ```
+
 3. **Set up the deploy user's GitHub access** so `deploy.sh` can `git fetch` on every deploy:
 
    ```bash
@@ -234,3 +244,21 @@ ENVS_DIR=/opt/talk2record/envs/prod \
 ```
 
 Schedule via cron on the VPS for automation (out of scope for this rollout).
+
+## 12. Troubleshooting
+
+### `backend/` (or `frontend/`) shows its own git branch in the shell
+
+The deploy layout expects **one** repository at `/opt/talk2record/repo`. GitHub
+Actions and `deploy.sh` run `git fetch` / `checkout` there—not inside `backend/`.
+
+If `cd /opt/talk2record/repo/backend && git status` works, you have a leftover
+nested clone. Remove it (safe; does not delete application code):
+
+```bash
+sudo rm -rf /opt/talk2record/repo/backend/.git /opt/talk2record/repo/frontend/.git
+git -C /opt/talk2record/repo status
+```
+
+If `/opt/talk2record/repo` itself is not a git repo, or points at the wrong
+remote, delete and re-clone the monorepo (section 3, step 3 re-clone as `deploy`).
