@@ -27,10 +27,15 @@ services:
       - default
       - edge
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- --tries=1 http://localhost:5000/api/schema/ >/dev/null || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q --tries=1 --timeout=5
+          --header="Host: talk2record.com"
+          -O /dev/null http://127.0.0.1:5000/api/schema/ || exit 1
+      interval: 10s
+      timeout: 6s
+      retries: 6
       start_period: 30s
 
   frontend:

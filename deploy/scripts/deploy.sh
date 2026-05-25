@@ -176,18 +176,27 @@ echo "==> Starting / updating services"
 compose up -d postgres redis django frontend celeryworker celerybeat
 
 echo "==> Waiting for django to report healthy"
-for i in $(seq 1 30); do
-  status=$(docker inspect --format='{{.State.Health.Status}}' "$HEALTH_HOST" 2>/dev/null || echo "starting")
+django_ready=false
+for i in $(seq 1 60); do
+  status=$(docker inspect --format='{{.State.Health.Status}}' "$HEALTH_HOST" 2>/dev/null || echo "missing")
   if [[ "$status" == "healthy" ]]; then
+    django_ready=true
     echo "    django is healthy"
     break
   fi
-  echo "    [$i/30] django status=$status"
+  if [[ "$status" == "exited" || "$status" == "dead" ]]; then
+    echo "ERROR: django container exited during startup" >&2
+    docker logs "$HEALTH_HOST" --tail 200 >&2 || true
+    exit 1
+  fi
+  echo "    [$i/60] django status=$status"
   sleep 5
 done
 
-if [[ "${status:-}" != "healthy" ]]; then
-  echo "ERROR: django did not become healthy within 150s" >&2
+if [[ "$django_ready" != "true" ]]; then
+  echo "ERROR: django did not become healthy within 300s" >&2
+  echo "==> docker inspect health (last 5 entries)" >&2
+  docker inspect --format='{{range .State.Health.Log}}{{printf "exit=%d output=%s\n" .ExitCode .Output}}{{end}}' "$HEALTH_HOST" 2>&1 | tail -n 20 >&2 || true
   compose logs --tail=200 django >&2
   exit 1
 fi

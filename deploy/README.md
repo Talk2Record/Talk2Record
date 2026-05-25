@@ -315,6 +315,23 @@ ENV=staging /opt/talk2record/repo/deploy/scripts/reset-stack.sh
 It is destructive — DB data is lost. Use it on staging, on production only when
 you're resetting from a backup.
 
+### Django container never reports healthy (`DisallowedHost` in logs)
+
+The container healthcheck makes a request to itself. If `DJANGO_ALLOWED_HOSTS`
+doesn't include the Host header the healthcheck sends, Django returns 400 and the
+status stays `starting` until retries elapse.
+
+The current healthchecks send `Host: staging.talk2record.com` / `Host: talk2record.com`
+to match `ALLOWED_HOSTS`. If you change the hostname in `ENV_DJANGO`, also update the
+`Host:` value in `backend/docker-compose.<env>.yml` (`healthcheck.test`).
+
+Inspect probe history on the VPS:
+
+```bash
+docker inspect --format='{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{"\n"}}{{end}}' \
+  talk2record-staging-django | tail -n 5
+```
+
 ### Stuck migrate container waiting on `postgres:5432`
 
 Older `deploy.sh` ran `migrate` before Postgres. Current `deploy.sh`:
