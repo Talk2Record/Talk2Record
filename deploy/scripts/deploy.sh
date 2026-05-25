@@ -30,12 +30,14 @@ case "$ENV" in
     PROJECT="talk2record-prod"
     ENVS_DIR="/opt/talk2record/envs/prod"
     HEALTH_HOST="talk2record-prod-django"
+    POSTGRES_CONTAINER="talk2record-prod-postgres"
     ;;
   staging)
     COMPOSE_FILE="docker-compose.staging.yml"
     PROJECT="talk2record-staging"
     ENVS_DIR="/opt/talk2record/envs/staging"
     HEALTH_HOST="talk2record-staging-django"
+    POSTGRES_CONTAINER="talk2record-staging-postgres"
     ;;
   *)
     echo "Unknown ENV: $ENV (expected prod|staging)" >&2
@@ -69,6 +71,28 @@ docker compose -f "$COMPOSE_FILE" -p "$PROJECT" pull django frontend
 
 echo "==> Building local-only images (postgres, awscli) if needed"
 docker compose -f "$COMPOSE_FILE" -p "$PROJECT" build postgres
+
+echo "==> Starting postgres and redis before migrations"
+docker compose -f "$COMPOSE_FILE" -p "$PROJECT" up -d postgres redis
+
+echo "==> Waiting for postgres to become healthy"
+postgres_ready=false
+for i in $(seq 1 60); do
+  status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$POSTGRES_CONTAINER" 2>/dev/null || echo "missing")
+  if [[ "$status" == "healthy" ]]; then
+    postgres_ready=true
+    echo "    postgres is healthy"
+    break
+  fi
+  echo "    [$i/60] postgres status=$status"
+  sleep 2
+done
+
+if [[ "$postgres_ready" != "true" ]]; then
+  echo "ERROR: postgres did not become healthy within 120s" >&2
+  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" logs --tail=200 postgres >&2
+  exit 1
+fi
 
 echo "==> Running database migrations"
 docker compose -f "$COMPOSE_FILE" -p "$PROJECT" \

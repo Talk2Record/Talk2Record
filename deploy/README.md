@@ -277,6 +277,12 @@ Schedule via cron on the VPS for automation (out of scope for this rollout).
 
 ## 12. Troubleshooting
 
+### Deploy migrate: `wait-for-it: timeout ... postgres:5432`
+
+Migrations used to run before Postgres was started (`compose run --no-deps`). `deploy.sh`
+now brings up `postgres` and `redis`, waits for Postgres health, then runs `migrate`.
+Pull the latest `develop` on the VPS (or re-run the deploy workflow) so `/opt/talk2record/repo/deploy/scripts/deploy.sh` is updated.
+
 ### Deploy SSH: `unable to authenticate, attempted methods [none publickey]`
 
 The workflow reached the VPS but the key was rejected. Checklist:
