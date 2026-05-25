@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { billingService } from "@/services/platform-service";
@@ -17,7 +17,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { usePreferencesStore } from "@/store/preferences-store";
 import type { BillingInterval, PlanCatalogItem, SubscriptionStatus } from "@/types/platform";
 
-export default function BillingPage() {
+function BillingPageContent() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -279,5 +279,13 @@ export default function BillingPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<BillingLoading />}>
+      <BillingPageContent />
+    </Suspense>
   );
 }

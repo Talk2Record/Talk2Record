@@ -1,20 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/shared/lib/auth/auth-context";
+import Link from "next/link";
+
 import { sanitizeRedirect } from "@/shared/lib/auth/safe-redirect";
-import { useLanguage } from "@/shared/lib/i18n/language-context";
+import { useAuth } from "@/shared/lib/auth/auth-context";
 import { getTranslations } from "@/shared/lib/i18n/get-translations";
+import { useLanguage } from "@/shared/lib/i18n/language-context";
 import { useTranslations } from "@/shared/lib/i18n/use-translations";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { PasswordInput } from "@/shared/ui/password-input";
+import { Skeleton } from "@/shared/ui/skeleton";
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLanguage();
@@ -151,5 +153,33 @@ export default function RegisterPage() {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+function RegisterPageFallback() {
+  return (
+    <Card className="border-primary/10 w-full max-w-md shadow-(--shadow-lg)">
+      <CardHeader className="space-y-3">
+        <Skeleton className="h-6 w-28 rounded-full" />
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterPageFallback />}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }
