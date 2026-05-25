@@ -66,31 +66,32 @@ jobs:
       - name: Validate deploy configuration
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ENV_DJANGO: ${{ secrets.ENV_DJANGO }}
+          ENV_POSTGRES: ${{ secrets.ENV_POSTGRES }}
+          ENV_FRONTEND: ${{ secrets.ENV_FRONTEND }}
         run: |
           missing=()
           [[ -z "${{ vars.SSH_HOST }}" ]] && missing+=(SSH_HOST)
           [[ -z "${{ vars.SSH_USER }}" ]] && missing+=(SSH_USER)
           [[ -z "$SSH_PRIVATE_KEY" ]] && missing+=(SSH_PRIVATE_KEY)
           [[ -z "${{ secrets.KNOWN_HOSTS }}" ]] && missing+=(KNOWN_HOSTS)
-          if [[ -z "${{ secrets.ENV_DJANGO }}" && -z "${{ secrets.ENV_DJANGO_B64 }}" ]]; then
-            missing+=(ENV_DJANGO)
-          fi
-          if [[ -z "${{ secrets.ENV_POSTGRES }}" && -z "${{ secrets.ENV_POSTGRES_B64 }}" ]]; then
-            missing+=(ENV_POSTGRES)
-          fi
-          if [[ -z "${{ secrets.ENV_FRONTEND }}" && -z "${{ secrets.ENV_FRONTEND_B64 }}" ]]; then
-            missing+=(ENV_FRONTEND)
-          fi
+          [[ -z "$ENV_DJANGO" ]] && missing+=(ENV_DJANGO)
+          [[ -z "$ENV_POSTGRES" ]] && missing+=(ENV_POSTGRES)
+          [[ -z "$ENV_FRONTEND" ]] && missing+=(ENV_FRONTEND)
           if ((${#missing[@]} > 0)); then
             echo "::error::Missing production environment config: ${missing[*]}. See deploy/README.md §6.1."
             exit 1
           fi
           if [[ "$SSH_PRIVATE_KEY" != *"BEGIN"* ]]; then
-            echo "::error::SSH_PRIVATE_KEY must be the full PEM private key (-----BEGIN ... -----END ...), not a public key or deploy-key id."
+            echo "::error::SSH_PRIVATE_KEY must be a full PEM private key (-----BEGIN ... -----END ...)."
+            exit 1
+          fi
+          if ! grep -qE '^POSTGRES_PASSWORD=.+' <<<"$ENV_POSTGRES"; then
+            echo "::error::ENV_POSTGRES secret must contain a non-empty POSTGRES_PASSWORD line."
             exit 1
           fi
 
-      - name: Prepare SSH credentials
+      - name: Prepare SSH key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
@@ -107,18 +108,12 @@ jobs:
           username: ${{ vars.SSH_USER }}
           port: ${{ vars.SSH_PORT || '22' }}
           key_path: ${{ env.DEPLOY_KEY_PATH }}
-          envs: >-
-            IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,
-            ENV_DJANGO,ENV_POSTGRES,ENV_FRONTEND,
-            ENV_DJANGO_B64,ENV_POSTGRES_B64,ENV_FRONTEND_B64
+          envs: IMAGE_NAMESPACE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,ENV_DJANGO,ENV_POSTGRES,ENV_FRONTEND
           command_timeout: 20m
           script: |
             set -euo pipefail
             export ENV=prod
             export TAG="$IMAGE_TAG"
-            export IMAGE_NAMESPACE="$IMAGE_NAMESPACE"
-            export GHCR_USER="$GHCR_USER"
-            export GHCR_TOKEN="$GHCR_TOKEN"
             /opt/talk2record/repo/deploy/scripts/deploy.sh
         env:
           IMAGE_NAMESPACE: ${{ needs.build.outputs.image_namespace }}
@@ -128,6 +123,3 @@ jobs:
           ENV_DJANGO: ${{ secrets.ENV_DJANGO }}
           ENV_POSTGRES: ${{ secrets.ENV_POSTGRES }}
           ENV_FRONTEND: ${{ secrets.ENV_FRONTEND }}
-          ENV_DJANGO_B64: ${{ secrets.ENV_DJANGO_B64 }}
-          ENV_POSTGRES_B64: ${{ secrets.ENV_POSTGRES_B64 }}
-          ENV_FRONTEND_B64: ${{ secrets.ENV_FRONTEND_B64 }}

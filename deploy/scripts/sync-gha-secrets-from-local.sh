@@ -15,10 +15,14 @@ ENVS_DIR="$REPO_ROOT/deploy/env/$ENV_NAME"
 
 for name in .django .postgres .frontend; do
   file="$ENVS_DIR/$name"
-  secret="ENV_${name#.}"
-  secret="${secret^^}"
+  base="${name#.}"
+  secret="ENV_$(printf '%s' "$base" | tr '[:lower:]' '[:upper:]')"
   if [[ ! -f "$file" ]]; then
     echo "Missing $file" >&2
+    exit 1
+  fi
+  if [[ "$name" == ".postgres" ]] && ! grep -qE '^POSTGRES_PASSWORD=.+' "$file"; then
+    echo "ERROR: $file has empty POSTGRES_PASSWORD" >&2
     exit 1
   fi
   echo "==> Setting $secret on GitHub environment $ENV_NAME"

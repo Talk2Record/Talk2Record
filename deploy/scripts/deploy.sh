@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 # Deploy a pre-built image tag to one environment on the VPS.
-# Invoked by GitHub Actions over SSH, but can also be run manually on the host.
+# Invoked by GitHub Actions over SSH; runnable manually for local recovery.
 #
-# Usage:
-#   ENV=prod    TAG=<git-sha> ./deploy.sh
-#   ENV=staging TAG=<git-sha> ./deploy.sh
-#
-# Required env vars on the host (or exported by the caller):
+# Inputs (env vars):
 #   ENV              prod | staging
 #   TAG              docker image tag to deploy (usually the git sha)
-#   IMAGE_NAMESPACE  e.g. ghcr.io/<owner>     (must match build-images.yml)
+#   IMAGE_NAMESPACE  e.g. ghcr.io/<owner>   (must match build-images.yml)
 #   GHCR_USER        GitHub user/org (for docker login)
-#   GHCR_TOKEN       a personal access / GITHUB_TOKEN with packages:read
+#   GHCR_TOKEN       PAT / GITHUB_TOKEN with packages:read
+#   ENV_DJANGO, ENV_POSTGRES, ENV_FRONTEND
+#                    Full env file contents (multiline). Written to
+#                    /opt/talk2record/envs/<env>/{.django,.postgres,.frontend}
+#                    before docker compose runs.
 #
-# Files expected on the host:
-#   /opt/talk2record/repo/                              git clone of this repo
-#   /opt/talk2record/envs/<env>/.django  .postgres  .frontend
-#   /opt/talk2record/state/                              writable
+# Files on the host:
+#   /opt/talk2record/repo/    monorepo clone
+#   /opt/talk2record/envs/<env>/  (recreated from GitHub secrets each deploy)
+#   /opt/talk2record/state/   writable
+#
+# Manual reset (first deploy or after rotating POSTGRES_PASSWORD):
+#   ENV=staging /opt/talk2record/repo/deploy/scripts/reset-stack.sh
 
 set -euo pipefail
 
@@ -59,14 +62,33 @@ ensure_edge_network() {
   docker network create "$EDGE_NETWORK"
 }
 
+require_env_var_in_file() {
+  local file="$ENVS_DIR/$1"
+  local key="$2"
+  if ! grep -qE "^${key}=.+$" "$file"; then
+    echo "ERROR: $file must define non-empty ${key}." >&2
+    return 1
+  fi
+}
+
 require_env_files() {
   local missing=()
+  local fail=0
   for name in .django .postgres .frontend; do
     [[ -f "$ENVS_DIR/$name" ]] || missing+=("$ENVS_DIR/$name")
   done
   if ((${#missing[@]} > 0)); then
     echo "ERROR: Missing env files on the VPS:" >&2
     printf '  %s\n' "${missing[@]}" >&2
+    echo "Run: ./deploy/scripts/sync-gha-secrets-from-local.sh $ENV  (or set ENV_* GitHub secrets)" >&2
+    exit 1
+  fi
+  require_env_var_in_file .postgres POSTGRES_PASSWORD || fail=1
+  require_env_var_in_file .postgres POSTGRES_USER || fail=1
+  require_env_var_in_file .postgres POSTGRES_DB || fail=1
+  require_env_var_in_file .django DJANGO_SECRET_KEY || fail=1
+  if ((fail)); then
+    echo "Fix $ENVS_DIR/.postgres (POSTGRES_PASSWORD is required for the postgres container)." >&2
     exit 1
   fi
 }
@@ -90,10 +112,14 @@ if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 fi
 
-if [[ -n "${ENV_DJANGO:-}${ENV_POSTGRES:-}${ENV_FRONTEND:-}${ENV_DJANGO_B64:-}${ENV_POSTGRES_B64:-}${ENV_FRONTEND_B64:-}" ]]; then
-  echo "==> Syncing env files from GitHub Actions"
-  bash "$REPO_DIR/deploy/scripts/sync-env-from-gha.sh" "$ENV"
+if [[ -z "${ENV_DJANGO:-}" || -z "${ENV_POSTGRES:-}" || -z "${ENV_FRONTEND:-}" ]]; then
+  echo "ERROR: ENV_DJANGO, ENV_POSTGRES, ENV_FRONTEND must all be set." >&2
+  echo "       (They come from GitHub Environment secrets via the deploy workflow.)" >&2
+  exit 1
 fi
+
+echo "==> Syncing env files from GitHub Actions into $ENVS_DIR"
+bash "$REPO_DIR/deploy/scripts/sync-env-from-gha.sh" "$ENV"
 
 cd "$BACKEND_DIR"
 

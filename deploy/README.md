@@ -114,40 +114,31 @@ Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
 
 ## 4. Env files
 
-**Recommended:** store filled-in file contents in GitHub Environment secrets
-`ENV_DJANGO`, `ENV_POSTGRES`, `ENV_FRONTEND` (see §6.1). Each deploy syncs them to the VPS.
+**Single source of truth: GitHub Environment secrets** (`ENV_DJANGO`,
+`ENV_POSTGRES`, `ENV_FRONTEND` — see §6.1). Each deploy writes them to
+`/opt/talk2record/envs/<env>/{.django,.postgres,.frontend}` before
+`docker compose` runs. No manual env editing on the VPS.
 
-**Manual fallback** on the server:
+Workflow during local edits:
 
-```bash
-sudo -u deploy bash <<'EOF'
-cp /opt/talk2record/repo/deploy/env/.django.example   /opt/talk2record/envs/prod/.django
-cp /opt/talk2record/repo/deploy/env/.postgres.example /opt/talk2record/envs/prod/.postgres
-cp /opt/talk2record/repo/deploy/env/.frontend.example /opt/talk2record/envs/prod/.frontend
+1. Edit `deploy/env/staging/<file>` (gitignored).
+2. `./deploy/scripts/sync-gha-secrets-from-local.sh staging` (or paste into the GitHub UI).
+3. Push to `develop` — the deploy job will rewrite the VPS env file on the next run.
 
-cp /opt/talk2record/repo/deploy/env/.django.example   /opt/talk2record/envs/staging/.django
-cp /opt/talk2record/repo/deploy/env/.postgres.example /opt/talk2record/envs/staging/.postgres
-cp /opt/talk2record/repo/deploy/env/.frontend.example /opt/talk2record/envs/staging/.frontend
+Key differences between envs:
 
-chmod 600 /opt/talk2record/envs/prod/.django /opt/talk2record/envs/prod/.postgres /opt/talk2record/envs/prod/.frontend
-chmod 600 /opt/talk2record/envs/staging/.django /opt/talk2record/envs/staging/.postgres /opt/talk2record/envs/staging/.frontend
-EOF
-```
+| Variable                         | production                                            | staging                            |
+| -------------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `DJANGO_ALLOWED_HOSTS`           | `.talk2record.com`                                    | `staging.talk2record.com`          |
+| `DJANGO_CORS_ALLOWED_ORIGINS`    | `https://talk2record.com,https://www.talk2record.com` | `https://staging.talk2record.com`  |
+| `DJANGO_CSRF_TRUSTED_ORIGINS`    | same as CORS                                          | `https://staging.talk2record.com`  |
+| `SENTRY_ENVIRONMENT`             | `production`                                          | `staging`                          |
+| Paddle keys                      | live keys                                             | sandbox keys                       |
+| `DJANGO_AWS_STORAGE_BUCKET_NAME` | prod bucket                                           | staging bucket (or prefix)         |
 
-Edit each file (or use the GitHub secrets above). Key differences between envs:
-
-| Variable                       | prod                                              | staging                                                          |
-| ------------------------------ | ------------------------------------------------- | ---------------------------------------------------------------- |
-| `DJANGO_ALLOWED_HOSTS`         | `.talk2record.com`                                | `staging.talk2record.com`                                        |
-| `DJANGO_CORS_ALLOWED_ORIGINS`  | `https://talk2record.com,https://www.talk2record.com` | `https://staging.talk2record.com`                            |
-| `DJANGO_CSRF_TRUSTED_ORIGINS`  | same as CORS                                      | `https://staging.talk2record.com`                                |
-| `SENTRY_ENVIRONMENT`           | `production`                                      | `staging`                                                        |
-| Paddle keys                    | live keys                                         | sandbox keys                                                     |
-| `DJANGO_AWS_STORAGE_BUCKET_NAME` | prod bucket                                     | staging bucket (or prefix)                                       |
-
-**Important: rotate every secret that was in the previously committed
-`backend/.envs/.production/*` files** (Django `SECRET_KEY`, `ADMIN_URL`,
-`POSTGRES_PASSWORD`, Flower credentials, any API keys).
+**Rotating `POSTGRES_PASSWORD`?** The volume keeps the original password. After
+updating the secret, run `ENV=<env> deploy/scripts/reset-stack.sh` on the VPS to
+wipe the DB volume, then trigger a fresh deploy.
 
 ## 5. Start Traefik (once)
 
@@ -308,34 +299,38 @@ Schedule via cron on the VPS for automation (out of scope for this rollout).
 
 ## 12. Troubleshooting
 
-### Deploy migrate: `wait-for-it: timeout ... postgres:5432`
+### Postgres unhealthy: `superuser password is not specified`
 
-Postgres was not running when `migrate` started. Current `deploy.sh` starts `postgres`
-and `redis` first, waits for health, then migrates.
-
-**On the VPS right now** (as `deploy` or `root`):
+The Postgres volume was initialized when `ENV_POSTGRES` was empty (or pointed at
+the template), so the DB has no superuser. Once `ENV_POSTGRES` is set correctly
+in GitHub, you must wipe the volume so Postgres re-initializes:
 
 ```bash
-# 1. Stop the stuck migrate container
-docker rm -f talk2record-staging-django-run-14104ce3479d 2>/dev/null || true
-
-# 2. Ensure Traefik edge network exists (bootstrap creates this)
-docker network create talk2record_staging 2>/dev/null || true
-
-# 3. Start postgres + redis
-cd /opt/talk2record/repo/backend
-export ENVS_DIR=/opt/talk2record/envs/staging
-docker compose -f docker-compose.staging.yml -p talk2record-staging up -d postgres redis
-docker logs talk2record-staging-postgres --tail 30
-docker ps | grep staging
-
-# 4. Pull latest deploy.sh (must be on develop in GitHub)
-cd /opt/talk2record/repo && git fetch && git checkout develop && git pull
+# On the VPS as `deploy`
+ENV=staging /opt/talk2record/repo/deploy/scripts/reset-stack.sh
+# Then re-run the GitHub deploy workflow (or push to develop).
 ```
 
-Ensure `/opt/talk2record/envs/staging/.postgres` has non-empty `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, and `POSTGRES_DB`. Then re-run the GitHub deploy workflow or
-`deploy.sh` manually.
+`reset-stack.sh` runs `docker compose down -v --remove-orphans` for the project.
+It is destructive — DB data is lost. Use it on staging, on production only when
+you're resetting from a backup.
+
+### Stuck migrate container waiting on `postgres:5432`
+
+Older `deploy.sh` ran `migrate` before Postgres. Current `deploy.sh`:
+
+1. Syncs env files from GitHub secrets
+2. Starts `postgres` + `redis`
+3. Waits up to 120s for Postgres health
+4. Then runs `migrate`
+
+If a stuck `talk2record-<env>-django-run-*` container is still around, remove it:
+
+```bash
+docker ps -aq --filter "name=talk2record-staging-django-run" | xargs -r docker rm -f
+```
+
+Then re-trigger the deploy workflow.
 
 ### Deploy SSH: `unable to authenticate, attempted methods [none publickey]`
 
