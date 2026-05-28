@@ -46,11 +46,11 @@ Edit the local files and re-sync secrets for:
 
 Paddle keys are configured in Django admin, not these files.
 
-## Admin URLs (save privately)
+## Admin URLs
 
-| Env        | `DJANGO_ADMIN_URL`   |
-| ---------- | -------------------- |
-| Staging    | See `staging/.django` |
-| Production | See `production/.django` |
+| Env        | URL                                              |
+| ---------- | ------------------------------------------------ |
+| Staging    | `https://admin.staging.talk2record.com/admin/`   |
+| Production | `https://admin.talk2record.com/admin/`           |
 
-Full paths: `https://staging.talk2record.com/<ADMIN_URL>` and `https://talk2record.com/<ADMIN_URL>`.
+Also reachable on the root host at `/admin/` for backward compatibility.

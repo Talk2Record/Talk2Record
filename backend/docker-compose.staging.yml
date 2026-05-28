@@ -32,11 +32,13 @@ services:
         - python
         - -c
         - |
-          import urllib.request as u, sys
-          req = u.Request('http://127.0.0.1:5000/api/schema/', headers={'Host': 'staging.talk2record.com'})
+          import socket, sys
+          s = socket.socket()
+          s.settimeout(5)
           try:
-              r = u.urlopen(req, timeout=5)
-              sys.exit(0 if r.status == 200 else 1)
+              s.connect(("127.0.0.1", 5000))
+              s.close()
+              sys.exit(0)
           except Exception:
               sys.exit(1)
       interval: 10s

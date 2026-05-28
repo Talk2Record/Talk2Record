@@ -45,7 +45,7 @@ Point all hostnames at the VPS IP (A records):
 Let's Encrypt http-01 challenge requires these to resolve before Traefik starts.
 Optional subdomains are routed by Traefik but only get certs once you create the
 DNS record — until then, you can still access everything via path prefixes on the
-root host (`https://staging.talk2record.com/api/docs/`, `/<DJANGO_ADMIN_URL>`, etc.).
+root host (`https://staging.talk2record.com/api/docs/`, `/admin/`, etc.).
 
 ## 3. One-time VPS bootstrap
 
@@ -299,26 +299,14 @@ All URLs below assume DNS is in place and the deploy succeeded.
 
 ### 11.1 Django admin
 
-Admin is reachable two ways — pick the one you bookmark.
+Admin lives at a dedicated subdomain:
 
-- **Subdomain (clean):** `https://admin.<host>/<DJANGO_ADMIN_URL>`
-  e.g. `https://admin.staging.talk2record.com/adm-e84ecf45b4659a15/`
-- **Path on root host (backward compat):** `https://<host>/<DJANGO_ADMIN_URL>`
+- **Subdomain (bookmark this):** `https://admin.<host>/admin/`
+  e.g. `https://admin.staging.talk2record.com/admin/`
+- **Path on root host (backward compat):** `https://<host>/admin/`
 
-The `DJANGO_ADMIN_URL` slug is still applied — the subdomain is just an
-alias for the same Django container. Look up your slug:
-
-```bash
-# On the VPS (or grab from GitHub Environment secrets → ENV_DJANGO):
-grep '^DJANGO_ADMIN_URL=' /opt/talk2record/envs/staging/.django
-# e.g. DJANGO_ADMIN_URL=adm-e84ecf45b4659a15/
-```
-
-Want clean URLs without the random slug? Set
-`DJANGO_ADMIN_URL=admin/` in `ENV_DJANGO` and the admin will live at
-`https://admin.<host>/admin/`. The random slug is unnecessary once admin
-is on a dedicated subdomain — restrict by IP via a Traefik middleware if
-you need real protection.
+`DJANGO_ADMIN_URL=admin/` in `ENV_DJANGO`. Restrict access by IP via a
+Traefik middleware on the `admin.*` router if you need extra protection.
 
 Create the first superuser (one-time, per environment):
 

@@ -5,7 +5,7 @@ http:
       rule: >-
         (Host(`talk2record.com`) || Host(`www.talk2record.com`)) &&
         (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) ||
-         PathPrefix(`/adm-`) || PathPrefix(`/static`) || PathPrefix(`/media`))
+         PathPrefix(`/static`) || PathPrefix(`/media`))
       entryPoints: [web-secure]
       service: prod-django
       middlewares: [csrf]
@@ -52,7 +52,7 @@ http:
       rule: >-
         Host(`staging.talk2record.com`) &&
         (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/admin`) ||
-         PathPrefix(`/adm-`) || PathPrefix(`/static`) || PathPrefix(`/media`))
+         PathPrefix(`/static`) || PathPrefix(`/media`))
       entryPoints: [web-secure]
       service: staging-django
       middlewares: [csrf]
