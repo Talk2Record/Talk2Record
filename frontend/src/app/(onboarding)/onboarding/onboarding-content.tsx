@@ -53,7 +53,7 @@ export function OnboardingPageContent() {
   const snapshot = useOnboardingSnapshot();
   const legal = useLegalStatus();
 
-  const [activeTab, setActiveTab] = useState<OnboardingTabId>("legal");
+  const [manualTab, setManualTab] = useState<OnboardingTabId>("legal");
   const [skippedTabs, setSkippedTabs] = useState<Set<OnboardingTabId>>(() => new Set());
 
   const [voiceDataConsent, setVoiceDataConsent] = useState(false);
@@ -63,6 +63,7 @@ export function OnboardingPageContent() {
 
   const reasonParam = searchParams?.get("reason");
   const showLegalForced = reasonParam === "legal-required";
+  const checkoutResult = searchParams?.get("checkout");
 
   const companyComplete = stepById(snapshot.steps, "company-setup")?.completed ?? false;
   const planComplete = stepById(snapshot.steps, "choose-plan")?.completed ?? false;
@@ -89,14 +90,14 @@ export function OnboardingPageContent() {
     snapshot.requiredStepsComplete,
   ]);
 
-  useEffect(() => {
-    setActiveTab((current) => {
-      const currentIndex = TAB_ORDER.indexOf(current);
-      const furthestIndex = TAB_ORDER.indexOf(furthestTab);
-      if (furthestIndex > currentIndex) return furthestTab;
-      return current;
-    });
-  }, [furthestTab]);
+  const activeTab = useMemo((): OnboardingTabId => {
+    if (checkoutResult === "success") return "plan";
+
+    const manualIndex = TAB_ORDER.indexOf(manualTab);
+    const furthestIndex = TAB_ORDER.indexOf(furthestTab);
+    if (furthestIndex > manualIndex) return furthestTab;
+    return manualTab;
+  }, [checkoutResult, furthestTab, manualTab]);
 
   const acceptLegalMutation = useMutation({
     mutationFn: () =>
@@ -108,13 +109,12 @@ export function OnboardingPageContent() {
       queryClient.setQueryData(LEGAL_STATUS_QUERY_KEY, next);
       toast({ title: "Legal acceptance recorded" });
       trackEvent("onboarding_legal_accepted", {});
-      setActiveTab("company");
+      setManualTab("company");
     },
     onError: (caughtError) => notifyApiError(caughtError, { title: "Could not save acceptance" }),
   });
 
   useEffect(() => {
-    const checkoutResult = searchParams?.get("checkout");
     if (!checkoutResult) return;
 
     if (checkoutResult === "success") {
@@ -125,7 +125,6 @@ export function OnboardingPageContent() {
       invalidateBillingQueries(queryClient);
       void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY });
       trackEvent("billing_checkout_returned", { result: "success", context: "onboarding" });
-      setActiveTab("plan");
     } else {
       toast({
         title: "Checkout cancelled",
@@ -136,12 +135,12 @@ export function OnboardingPageContent() {
     }
 
     router.replace("/onboarding");
-  }, [searchParams, queryClient, router]);
+  }, [checkoutResult, queryClient, router]);
 
   const goToNextTab = useCallback(() => {
     const index = TAB_ORDER.indexOf(activeTab);
     const next = TAB_ORDER[index + 1];
-    if (next) setActiveTab(next);
+    if (next) setManualTab(next);
   }, [activeTab]);
 
   const skipOptionalTab = useCallback(() => {
@@ -221,7 +220,7 @@ export function OnboardingPageContent() {
           skippedTabs={skippedTabs}
           legalComplete={legal.isSignupCompliant}
           onSelectTab={(tab) => {
-            if (canNavigateToTab(tab)) setActiveTab(tab);
+            if (canNavigateToTab(tab)) setManualTab(tab);
           }}
         />
 
@@ -241,12 +240,12 @@ export function OnboardingPageContent() {
         ) : null}
 
         {activeTab === "company" ? (
-          <CompanySetupStage onSaved={() => setActiveTab("plan")} />
+          <CompanySetupStage onSaved={() => setManualTab("plan")} />
         ) : null}
 
         {activeTab === "plan" ? (
           <ChoosePlanStage
-            onPlanActive={() => setActiveTab("whatsapp")}
+            onPlanActive={() => setManualTab("whatsapp")}
             planComplete={planComplete}
           />
         ) : null}

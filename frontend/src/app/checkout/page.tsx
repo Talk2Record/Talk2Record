@@ -8,21 +8,21 @@ import { useSearchParams } from "next/navigation";
 
 function CheckoutLauncher() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const transactionId = searchParams.get("_ptxn");
+  const missingTransactionError = transactionId ? null : "Missing checkout transaction.";
 
   useEffect(() => {
-    const transactionId = searchParams.get("_ptxn");
-    if (!transactionId) {
-      setError("Missing checkout transaction.");
-      return;
-    }
+    if (!transactionId) return;
 
     void openPaddleCheckout({ transactionId }).then((opened) => {
       if (!opened) {
-        setError("Could not open Paddle checkout.");
+        setLaunchError("Could not open Paddle checkout.");
       }
     });
-  }, [searchParams]);
+  }, [transactionId]);
+
+  const error = missingTransactionError ?? launchError;
 
   if (error) {
     return (
