@@ -51,6 +51,7 @@ help:
 	@printf "\nPython (uv):\n"
 	@printf "  make deps-mac         Install macOS build deps (psycopg)\n"
 	@printf "  make uv-sync          Install deps (incl dev)\n"
+	@printf "  make uv-lock-ci       Regenerate uv.lock with CI uv image (deterministic)\n"
 	@printf "  make venv             Create .venv (uv-managed)\n"
 	@printf "  make venv-reset       Recreate .venv from scratch\n"
 	@printf "  make run              Run Django locally (no Docker)\n"
@@ -184,6 +185,14 @@ uv-sync:
 	else \
 		uv sync; \
 	fi
+
+.PHONY: uv-lock-ci
+uv-lock-ci:
+	docker run --rm \
+		-v "$$(pwd):/app" \
+		-w /app \
+		ghcr.io/astral-sh/uv:python3.13-bookworm-slim \
+		uv lock
 
 .PHONY: venv
 venv:

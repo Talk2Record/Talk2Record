@@ -80,7 +80,9 @@ export function DashboardTopbar({ onOpenPalette }: DashboardTopbarProps) {
                   <span className="block truncate text-sm font-medium">
                     {user?.name || "Workspace user"}
                   </span>
-                  <span className="text-muted-foreground block truncate text-xs">{user?.email}</span>
+                  <span className="text-muted-foreground block truncate text-xs">
+                    {user?.email}
+                  </span>
                 </span>
                 <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
               </span>

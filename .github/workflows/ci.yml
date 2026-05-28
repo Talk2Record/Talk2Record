@@ -3,6 +3,7 @@ name: CI
 env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   pull_request:
@@ -67,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version-file: backend/.python-version
       - name: Cache pre-commit
@@ -95,12 +96,11 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Build local django image (cached)
-        uses: docker/bake-action@v6
+        uses: docker/bake-action@v7
         with:
           push: false
           load: true
-          workdir: backend
-          files: docker-compose.local.yml
+          files: backend/docker-compose.local.yml
           targets: django
           set: |
             django.cache-from=type=gha,scope=django-cached-tests

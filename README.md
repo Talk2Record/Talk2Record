@@ -4,12 +4,12 @@ Talk2Record turns WhatsApp voice notes from business staff into structured busin
 
 This repository is a **monorepo**:
 
-| Path | Role |
-| --- | --- |
-| [`frontend/`](frontend/) | Next.js 16 marketing site and authenticated dashboard |
-| [`backend/`](backend/) | Django + DRF API, Celery workers, Channels WebSockets |
-| [`deploy/`](deploy/) | VPS deployment runbook (Traefik, GitHub Actions, env templates) |
-| [`docs/`](docs/) | Architecture, auth, and integration notes |
+| Path                     | Role                                                            |
+| ------------------------ | --------------------------------------------------------------- |
+| [`frontend/`](frontend/) | Next.js 16 marketing site and authenticated dashboard           |
+| [`backend/`](backend/)   | Django + DRF API, Celery workers, Channels WebSockets           |
+| [`deploy/`](deploy/)     | VPS deployment runbook (Traefik, GitHub Actions, env templates) |
+| [`docs/`](docs/)         | Architecture, auth, and integration notes                       |
 
 Production: [talk2record.com](https://talk2record.com) · Staging: [staging.talk2record.com](https://staging.talk2record.com)
 
@@ -65,7 +65,14 @@ make seed        # platform reference data (plans, legal docs, etc.)
 
 Local env files live under `backend/.envs/.local/` (committed templates). For Paddle checkout and webhooks in dev, see [Paddle billing (local dev)](backend/README.md#paddle-billing-local-dev) in the backend README.
 
-Useful commands: `make help`, `make logs`, `make bash`, `make manage ARGS='...'`.
+Useful commands: `make help`, `make logs`, `make bash`, `make manage ARGS='...'`, `make uv-lock-ci`.
+
+If CI fails on `Backend uv.lock (production uv)`, regenerate lock deterministically (same image/version CI uses):
+
+```bash
+cd backend
+make uv-lock-ci
+```
 
 ### Frontend (port 3000)
 
@@ -86,7 +93,7 @@ Open [http://localhost:3000](http://localhost:3000). The API client defaults to 
 
 ## Repository layout
 
-```
+```text
 talk2record/
 ├── backend/           # Django project (talk2record.* apps, compose, Makefile)
 ├── frontend/          # Next.js App Router app
@@ -98,24 +105,43 @@ talk2record/
 
 ## CI and deployment
 
-| Branch | CI | Deploy target |
-| --- | --- | --- |
-| `develop` | lint + tests | staging (`staging.talk2record.com`) |
-| `main` | lint + tests | production (`talk2record.com`, manual approval) |
+| Branch    | CI           | Deploy target                                   |
+| --------- | ------------ | ----------------------------------------------- |
+| `develop` | lint + tests | staging (`staging.talk2record.com`)             |
+| `main`    | lint + tests | production (`talk2record.com`, manual approval) |
 
 Workflows: [`.github/workflows/ci.yml`](.github/workflows/ci.yml), build images, deploy staging/production.
 
 Operators: follow [`deploy/README.md`](deploy/README.md) for VPS bootstrap, secrets, Traefik, and rollback.
 
+### Deployment secrets sync (GitHub Environments)
+
+Push local deploy env files to GitHub Environment secrets:
+
+```bash
+cd backend
+make sync-gha-env-staging
+# or
+make sync-gha-env-production
+```
+
+Equivalent generic form:
+
+```bash
+cd backend
+make sync-gha-env GHA_ENV=staging
+make sync-gha-env GHA_ENV=production
+```
+
 ## Documentation
 
-| Topic | Location |
-| --- | --- |
-| Frontend features, routes, env | [`frontend/README.md`](frontend/README.md) |
-| Django commands, Celery, Paddle dev | [`backend/README.md`](backend/README.md) |
-| JWT vs Google OAuth | [`docs/AUTH.md`](docs/AUTH.md) |
-| System architecture | [`docs/system-architecture.md`](docs/system-architecture.md) |
-| Production/staging ops | [`deploy/README.md`](deploy/README.md) |
+| Topic                               | Location                                                     |
+| ----------------------------------- | ------------------------------------------------------------ |
+| Frontend features, routes, env      | [`frontend/README.md`](frontend/README.md)                   |
+| Django commands, Celery, Paddle dev | [`backend/README.md`](backend/README.md)                     |
+| JWT vs Google OAuth                 | [`docs/AUTH.md`](docs/AUTH.md)                               |
+| System architecture                 | [`docs/system-architecture.md`](docs/system-architecture.md) |
+| Production/staging ops              | [`deploy/README.md`](deploy/README.md)                       |
 
 ## License
 

@@ -41,6 +41,22 @@ To run the tests, check your test coverage, and generate an HTML coverage report
 
     uv run pytest
 
+### `uv.lock` consistency (local vs CI)
+
+The CI lockfile check uses a pinned uv Docker image (`ghcr.io/astral-sh/uv:python3.13-bookworm-slim`).
+To avoid local/CI drift, regenerate the lock file with the same image:
+
+    cd backend
+    make uv-lock-ci
+
+When you change Python dependencies:
+
+1. Edit `pyproject.toml`
+2. Run `make uv-lock-ci`
+3. Commit both `pyproject.toml` and `uv.lock`
+
+Avoid running ad-hoc local `uv lock` with a different uv version if you want CI to stay deterministic.
+
 ### Live reloading and Sass CSS compilation
 
 Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
@@ -112,4 +128,3 @@ Checkout requires both Paddle dashboard configuration and Django admin settings:
 The frontend opens Paddle.js overlay checkout using `transactionId` from `POST /api/billing/change-plan/`. The `/checkout` page handles payment-link redirects (`?_ptxn=`) from Paddle emails and payment-method updates.
 
 For Paddle webhooks in local dev, expose the backend with `make ngrok` and point your sandbox notification URL at `https://<your-ngrok-host>/api/billing/webhooks/paddle/`. Local settings already allow `*.ngrok-free.app` and `*.ngrok.io` in `ALLOWED_HOSTS`.
-

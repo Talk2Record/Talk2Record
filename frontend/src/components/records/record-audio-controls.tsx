@@ -23,7 +23,7 @@ interface RecordAudioControlsProps {
   /** Coordinates single playback across multiple rows in a list. */
   recordId?: string;
   activePlaybackId?: string | null;
-  onPlaybackChange?: (recordId: string | null) => void;
+  onPlaybackChange?: (_recordId: string | null) => void;
 }
 
 export function RecordAudioControls({
