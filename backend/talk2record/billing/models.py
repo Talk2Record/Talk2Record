@@ -41,7 +41,8 @@ class PaddleSettings(models.Model):
         max_length=128,
         blank=True,
         help_text=_(
-            "Paddle.js client-side token (test_… or live_…). Safe to expose to the browser.",
+            "Paddle.js client-side token (test_… or live_…). "
+            "Safe to expose to the browser.",
         ),
     )
     default_success_url = models.URLField(blank=True)
@@ -221,7 +222,8 @@ class Subscription(models.Model):
         blank=True,
         related_name="subscriptions",
         help_text=_(
-            "The exact PlanPrice (interval + amount) this subscription is billed against.",
+            "The exact PlanPrice (interval + amount) this subscription is "
+            "billed against.",
         ),
     )
     billing_interval = models.CharField(
@@ -230,7 +232,8 @@ class Subscription(models.Model):
         default=PlanPrice.Interval.MONTH,
         db_index=True,
         help_text=_(
-            "Denormalised from price.interval so dashboards can filter without joining.",
+            "Denormalised from price.interval so dashboards can filter "
+            "without joining.",
         ),
     )
     provider_subscription_id = models.CharField(max_length=255, blank=True)

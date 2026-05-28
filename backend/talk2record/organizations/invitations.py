@@ -16,6 +16,7 @@ import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import transaction
@@ -31,7 +32,9 @@ from talk2record.events.names import MEMBERSHIP_ROLE_CHANGED
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import MembershipInvitation
 from talk2record.organizations.models import Organization
-from talk2record.users.models import User
+
+if TYPE_CHECKING:
+    from talk2record.users.models import User
 
 INVITE_TTL_DAYS = 7
 INVITE_SECRET_BYTES = 32
@@ -70,16 +73,19 @@ class MembershipInvitationService:
     ) -> CreatedInvitation:
         email = email.strip().lower()
         if not email:
-            raise InvitationError("Email is required.")
+            msg = "Email is required."
+            raise InvitationError(msg)
         if role not in dict(Membership.Role.choices):
-            raise InvitationError(f"Invalid role: {role}")
+            msg = f"Invalid role: {role}"
+            raise InvitationError(msg)
 
         existing_member = Membership.objects.filter(
             organization=organization,
             user__email__iexact=email,
         ).exists()
         if existing_member:
-            raise InvitationError("User is already a member of this organization.")
+            msg = "User is already a member of this organization."
+            raise InvitationError(msg)
 
         MembershipInvitation.objects.filter(
             organization=organization,
@@ -130,7 +136,8 @@ class MembershipInvitationService:
         actor: User | None = None,
     ) -> MembershipInvitation:
         if invitation.status != MembershipInvitation.Status.PENDING:
-            raise InvitationError("Only pending invitations can be revoked.")
+            msg = "Only pending invitations can be revoked."
+            raise InvitationError(msg)
         invitation.status = MembershipInvitation.Status.REVOKED
         invitation.revoked_at = timezone.now()
         invitation.save(update_fields=["status", "revoked_at", "updated_at"])
@@ -171,16 +178,20 @@ class MembershipInvitationService:
     def accept(cls, *, raw_token: str, user: User) -> Membership:
         invitation = cls.find_by_token(raw_token)
         if invitation is None:
-            raise InvitationError("Invalid invitation token.")
+            msg = "Invalid invitation token."
+            raise InvitationError(msg)
         if invitation.status != MembershipInvitation.Status.PENDING:
-            raise InvitationError("This invitation is no longer pending.")
+            msg = "This invitation is no longer pending."
+            raise InvitationError(msg)
         if invitation.expires_at <= timezone.now():
             invitation.status = MembershipInvitation.Status.EXPIRED
             invitation.save(update_fields=["status", "updated_at"])
-            raise InvitationError("This invitation has expired.")
+            msg = "This invitation has expired."
+            raise InvitationError(msg)
         if user.email.lower() != invitation.email.lower():
+            msg = "This invitation was issued to a different email address."
             raise InvitationError(
-                "This invitation was issued to a different email address.",
+                msg,
             )
 
         membership, created = Membership.objects.get_or_create(
@@ -228,7 +239,8 @@ class MembershipInvitationService:
         actor: User | None = None,
     ) -> Membership:
         if new_role not in dict(Membership.Role.choices):
-            raise InvitationError(f"Invalid role: {new_role}")
+            msg = f"Invalid role: {new_role}"
+            raise InvitationError(msg)
         if membership.role == new_role:
             return membership
         previous_role = membership.role
@@ -268,8 +280,9 @@ class MembershipInvitationService:
                 .exists()
             )
             if not other_owners:
+                msg = "Cannot remove the last owner of the organization."
                 raise InvitationError(
-                    "Cannot remove the last owner of the organization.",
+                    msg,
                 )
         organization_id = membership.organization_id
         user_id = membership.user_id

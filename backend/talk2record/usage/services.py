@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -13,6 +12,8 @@ from talk2record.billing.models import Subscription
 from talk2record.usage.models import AIUsage
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from talk2record.organizations.models import Organization
     from talk2record.records.models import Record
 
@@ -109,7 +110,7 @@ class UsageTrackingService:
         included = cls.monthly_usage_limit(organization)
         percent = 0
         if included > 0:
-            percent = min(100, int(round((used / included) * 100)))
+            percent = min(100, round((used / included) * 100))
 
         subscription = _active_subscription(organization)
         return UsageSummary(
@@ -158,11 +159,14 @@ def _active_subscription(organization: Organization) -> Subscription | None:
     )
 
 
+DECEMBER = 12
+
+
 def _current_cycle(now: datetime) -> tuple[datetime, datetime]:
     """Return ``(period_start, period_end)`` for the calendar month of ``now``."""
 
     period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if period_start.month == 12:
+    if period_start.month == DECEMBER:
         period_end = period_start.replace(
             year=period_start.year + 1,
             month=1,

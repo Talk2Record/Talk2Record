@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +10,6 @@ from rest_framework.test import APIClient
 
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
-from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
 from talk2record.whatsapp.models import WhatsAppAccount
 from talk2record.whatsapp.models import WhatsAppConversation
@@ -17,6 +17,9 @@ from talk2record.whatsapp.models import WhatsAppInboundRoute
 from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.whatsapp.services.inbound import WhatsAppInboundService
+
+if TYPE_CHECKING:
+    from talk2record.users.models import User
 
 
 @pytest.fixture

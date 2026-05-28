@@ -163,7 +163,7 @@ class AIProviderAdmin(ModelAdmin):
                 messages.error(request, f"{label}: {detail}")
 
 
-def _ping_provider(provider: AIProvider) -> tuple[bool, str]:
+def _ping_provider(provider: AIProvider) -> tuple[bool, str]:  # noqa: PLR0911
     """Run a tiny request against ``provider`` and report success/failure."""
 
     spec = AIProviderRegistry.get(provider.slug)

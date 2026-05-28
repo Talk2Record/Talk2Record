@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.cache import cache
 
 from talk2record.audit.models import AuditLog
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class AuditService:
@@ -14,7 +17,7 @@ class AuditService:
     CACHE_KEY_PREFIX = "audit:api_key_used:"
 
     @staticmethod
-    def log(
+    def log(  # noqa: PLR0913
         *,
         action: str,
         resource_type: str,

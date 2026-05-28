@@ -18,7 +18,7 @@ from talk2record.users.models import User
 class RegistrationService:
     @staticmethod
     @transaction.atomic
-    def register_user(
+    def register_user(  # noqa: PLR0913
         *,
         email: str,
         password: str,

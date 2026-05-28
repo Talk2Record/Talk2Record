@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
 from datetime import timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -26,8 +26,10 @@ from talk2record.legal.services import LegalAcceptanceService
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
 from talk2record.records.models import Record
-from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
+
+if TYPE_CHECKING:
+    from talk2record.users.models import User
 
 
 @pytest.fixture
@@ -117,7 +119,7 @@ def record(workspace_user: User) -> Record:
 def daily_metric(workspace_user: User) -> DailyMetric:
     return DailyMetric.objects.create(
         organization=workspace_user.current_organization,
-        metric_date=date.today(),
+        metric_date=timezone.now().date(),
         voice_processed=10,
         records_created=8,
         revenue=Decimal("900.00"),

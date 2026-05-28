@@ -136,6 +136,45 @@ lint.ignore = [
   # Deactivated because it can make the code slow:
   # https://github.com/astral-sh/ruff/issues/7871
 ]
+# Test modules: lazy imports, magic values, fixture passwords, and namespace packages.
+lint.per-file-ignores."**/tests/**/*.py" = [
+  "E501",
+  "INP001",
+  "PLC0415",
+  "PLR0913",
+  "PLR2004",
+  "PT011",
+  "PT019",
+  "RUF003",
+  "S105",
+  "S106",
+  "SIM117",
+  "SLF001",
+]
+# Local Docker dev binds to all interfaces intentionally.
+lint.per-file-ignores."config/settings/local.py" = [ "S104" ]
+# Lazy imports: optional AI SDKs and provider registration at startup.
+lint.per-file-ignores."talk2record/ai/providers/registry.py" = [ "PLC0415" ]
+# Lazy imports: recovery and usage modules cross-reference each other.
+lint.per-file-ignores."talk2record/billing/recovery_service.py" = [ "PLC0415" ]
+# DRF serializers expose camelCase fields matching the frontend / Paddle API.
+lint.per-file-ignores."talk2record/billing/serializers.py" = [ "N802", "N815" ]
+# Lazy imports: Celery task modules defer Django/model imports until task execution.
+lint.per-file-ignores."talk2record/billing/tasks.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/conftest.py" = [ "DTZ011", "PLC0415" ]
+# Lazy imports: event bus defers task/model imports to break circular dependencies.
+lint.per-file-ignores."talk2record/events/bus.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/events/tasks.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/ingestion/serializers.py" = [ "N815" ]
+lint.per-file-ignores."talk2record/ingestion/tasks.py" = [ "PLC0415" ]
+# Lazy imports: billing reset helpers loaded inside admin actions to avoid cycles.
+lint.per-file-ignores."talk2record/organizations/admin.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/organizations/serializers.py" = [ "N815" ]
+lint.per-file-ignores."talk2record/usage/services.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/users/admin.py" = [ "PLC0415" ]
+lint.per-file-ignores."talk2record/users/serializers/user.py" = [ "N802", "N815" ]
+lint.per-file-ignores."talk2record/users/views/admin_user_view_set.py" = [ "N802", "N815" ]
+lint.per-file-ignores."talk2record/users/views/sessions_view.py" = [ "N802", "N815" ]
 lint.isort.force-single-line = true
 
 [tool.pyproject-fmt]

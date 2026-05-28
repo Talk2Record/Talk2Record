@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from django.core import signing
 
 from talk2record.core.vault import SecretVault
 from talk2record.whatsapp.config import parse_whatsapp_credential_blob
-from talk2record.whatsapp.models import WhatsAppSettings
+
+if TYPE_CHECKING:
+    from talk2record.whatsapp.models import WhatsAppSettings
 
 
 def merge_whatsapp_credential_plaintext(

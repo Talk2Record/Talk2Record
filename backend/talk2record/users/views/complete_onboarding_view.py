@@ -19,14 +19,19 @@ class CompleteOnboardingView(APIView):
         if not is_company_setup_complete(organization):
             return Response(
                 {
-                    "detail": "Company profile must be saved before completing onboarding.",
+                    "detail": (
+                        "Company profile must be saved before completing onboarding."
+                    ),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not has_active_subscription(organization):
             return Response(
                 {
-                    "detail": "A subscription plan must be selected before completing onboarding.",
+                    "detail": (
+                        "A subscription plan must be selected before completing "
+                        "onboarding."
+                    ),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

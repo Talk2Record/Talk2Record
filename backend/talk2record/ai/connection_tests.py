@@ -24,7 +24,8 @@ def _test_ai() -> tuple[bool, str]:
             _(
                 "No active chat AI provider or model is configured. "
                 "Add an AI provider (category: chat), set it active, "
-                "enter the API key, and ensure default model or an extraction task binding exists.",
+                "enter the API key, and ensure default model or an "
+                "extraction task binding exists.",
             ),
         )
 

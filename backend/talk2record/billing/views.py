@@ -27,6 +27,10 @@ from talk2record.billing.paddle_service import format_paddle_checkout_error
 from talk2record.billing.serializers import BillingCheckoutSerializer
 from talk2record.billing.serializers import PlanCatalogSerializer
 from talk2record.billing.serializers import SubscriptionSerializer
+from talk2record.billing.tasks import process_paddle_webhook
+from talk2record.billing.webhook_pipeline import _create_event_row
+from talk2record.billing.webhook_pipeline import _resolve_org_version
+from talk2record.billing.webhook_pipeline import extract_event_metadata
 from talk2record.billing.webhook_pipeline import process_payload
 from talk2record.billing.webhook_pipeline import verify_paddle_signature
 from talk2record.legal.models import LegalDocumentVersion
@@ -345,7 +349,7 @@ class BillingActionViewSet(GenericViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"], url_path="change-plan")
-    def change_plan(self, request):
+    def change_plan(self, request):  # noqa: PLR0911
         serializer = BillingCheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if not serializer.validated_data["acceptedBillingTerms"]:
@@ -525,10 +529,6 @@ class BillingWebhookView(APIView):
             # Async path: still do the idempotency insert synchronously
             # (so Paddle redeliveries within the worker's queue lag are
             # deduped) but defer the actual dispatch to a worker.
-            from talk2record.billing.tasks import process_paddle_webhook
-            from talk2record.billing.webhook_pipeline import _create_event_row
-            from talk2record.billing.webhook_pipeline import _resolve_org_version
-            from talk2record.billing.webhook_pipeline import extract_event_metadata
 
             metadata = extract_event_metadata(payload)
             if not metadata.event_id:

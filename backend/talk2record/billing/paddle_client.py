@@ -13,7 +13,7 @@ SDK.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 from typing import Any
 
 import requests
@@ -22,7 +22,12 @@ from django.core import signing
 from talk2record.billing.models import PaddleSettings
 from talk2record.core.vault import SecretVault
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 logger = logging.getLogger(__name__)
+
+HTTP_CLIENT_ERROR = 400
 
 
 PADDLE_API_VERSION = "1"
@@ -101,7 +106,8 @@ class PaddleClient:
         timeout: int = DEFAULT_TIMEOUT,
     ) -> dict[str, Any]:
         if not self.is_configured():
-            raise PaddleAPIError("Paddle credentials are not configured.")
+            msg = "Paddle credentials are not configured."
+            raise PaddleAPIError(msg)
         url = f"{self.base_url()}{path}"
         try:
             response = requests.request(
@@ -113,14 +119,18 @@ class PaddleClient:
                 timeout=timeout,
             )
         except requests.RequestException as exc:
+            msg = f"Paddle {method} {path} transport error: {exc}"
             raise PaddleAPIError(
-                f"Paddle {method} {path} transport error: {exc}",
+                msg,
             ) from exc
 
-        if response.status_code >= 400:
-            raise PaddleAPIError(
+        if response.status_code >= HTTP_CLIENT_ERROR:
+            msg = (
                 f"Paddle {method} {path} failed: "
-                f"{response.status_code} {response.text[:500]}",
+                f"{response.status_code} {response.text[:500]}"
+            )
+            raise PaddleAPIError(
+                msg,
                 status_code=response.status_code,
             )
         if not response.content:
@@ -128,8 +138,9 @@ class PaddleClient:
         try:
             data = response.json()
         except ValueError as exc:
+            msg = f"Paddle {method} {path} returned invalid JSON."
             raise PaddleAPIError(
-                f"Paddle {method} {path} returned invalid JSON.",
+                msg,
             ) from exc
         return data if isinstance(data, dict) else {"data": data}
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Max
@@ -15,6 +15,9 @@ from talk2record.events.names import LEGAL_ATTESTED
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_LEGAL_DOCUMENTS = {
     LegalDocumentVersion.DocumentKey.PRIVACY_POLICY: {
@@ -218,7 +221,7 @@ class LegalAcceptanceService:
         return acceptances
 
     @staticmethod
-    def record_attestation(
+    def record_attestation(  # noqa: PLR0913
         *,
         user,
         kind: str,

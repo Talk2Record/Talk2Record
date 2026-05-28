@@ -10,7 +10,7 @@ ferrailleur, coffrage, …).
 
 Source notes (audit trail):
 
-* CSA G30.18:21 metric rebar sizes 10M–55M and Type R/W grades 400W/500W:
+* CSA G30.18:21 metric rebar sizes 10M-55M and Type R/W grades 400W/500W:
   https://aamasonry.ca/what-are-rebar-sizes-grades-and-types/
   https://www.pittini.com/wp-content/uploads/sites/21/Pittini-Group-rebar-SPB305.pdf
 * National Building Code of Canada (NBC) Section 1.4 defined terms:
@@ -274,7 +274,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "industry": _INDUSTRY,
         "category": None,
         "term": "CNESST",
-        "normalized_term": "Commission des normes, équité, santé et sécurité du travail (QC)",
+        "normalized_term": (
+            "Commission des normes, équité, santé et sécurité du travail (QC)"
+        ),
     },
     {
         "industry": _INDUSTRY,

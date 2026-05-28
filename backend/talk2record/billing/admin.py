@@ -22,6 +22,7 @@ from talk2record.billing.models import Transaction
 from talk2record.billing.paddle_client import PaddleAPIError
 from talk2record.billing.paddle_service import PaddleBillingService
 from talk2record.billing.recovery_service import BillingRecoveryService
+from talk2record.billing.webhook_pipeline import replay_event
 from talk2record.core.vault import SecretVault
 from talk2record.organizations.models import Organization
 
@@ -98,9 +99,7 @@ def _render_reset_confirmation(
     return render(request, "admin/billing/reset_confirm.html", context)
 
 
-# ---------------------------------------------------------------------------
-# PaddleSettings (singleton)
-# ---------------------------------------------------------------------------
+# -- PaddleSettings admin section --
 
 
 class PaddleSettingsAdminForm(forms.ModelForm):
@@ -463,8 +462,6 @@ class PaddleWebhookEventAdmin(ModelAdmin):
     @admin.action(description=_("Replay selected webhook events"))
     def replay_events(self, request, queryset) -> None:
         # Local import keeps the admin module light at startup time.
-        from talk2record.billing.webhook_pipeline import replay_event
-
         replayed = 0
         failed = 0
         for event in queryset:

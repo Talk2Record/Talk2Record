@@ -12,7 +12,7 @@ CATEGORY_DEFINITIONS: tuple[dict, ...] = (
         "industry": "construction",
         "slug": "material_delivery",
         "name": "Material delivery",
-        "description": "Deliveries of cement, aggregate, rebar, mesh, lumber, blocks, …",
+        "description": "Cement, aggregate, rebar, mesh, lumber, blocks, etc.",
         "priority": 10,
     },
     {

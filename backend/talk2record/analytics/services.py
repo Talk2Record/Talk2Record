@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from talk2record.analytics.models import Event
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class AnalyticsService:

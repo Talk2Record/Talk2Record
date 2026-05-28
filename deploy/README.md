@@ -104,7 +104,7 @@ root host (`https://staging.talk2record.com/api/docs/`, `/admin/`, etc.).
      ```
 
    - In GitHub **staging** / **production** environment **secrets**, set `SSH_PRIVATE_KEY` to the
-     **entire** contents of `gha_deploy_key` (including `-----BEGIN OPENSSH PRIVATE KEY-----` lines).
+     **entire** contents of `gha_deploy_key` (including the OpenSSH `BEGIN`/`END` key marker lines).  # pragma: allowlist secret
      Do not use the VPS `id_ed25519` key from step 3 — that key is for git on the server, not Actions→VPS.
 
    - Verify from your laptop before relying on CI:

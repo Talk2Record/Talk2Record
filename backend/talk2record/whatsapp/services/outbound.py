@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
+from uuid import uuid4
 
 from django.db import transaction
 from django.utils import timezone
@@ -71,7 +72,7 @@ class WhatsAppOutboundService:
         )
 
     @classmethod
-    def send_template(
+    def send_template(  # noqa: PLR0913
         cls,
         *,
         organization: Organization,
@@ -105,7 +106,7 @@ class WhatsAppOutboundService:
         )
 
     @classmethod
-    def _send(
+    def _send(  # noqa: PLR0913
         cls,
         *,
         organization: Organization,
@@ -118,14 +119,16 @@ class WhatsAppOutboundService:
     ) -> OutboundResult:
         account = cls._resolve_account(organization, account)
         if account is None:
+            msg = "This organization does not have a WhatsApp account configured."
             raise OutboundSendError(
-                "This organization does not have a WhatsApp account configured.",
+                msg,
             )
 
         wa_settings = load_whatsapp_cloud_settings()
         if wa_settings is None or not wa_settings.access_token:
+            msg = "WhatsApp Cloud API credentials are not configured."
             raise OutboundSendError(
-                "WhatsApp Cloud API credentials are not configured.",
+                msg,
             )
 
         conversation = cls._get_or_create_conversation(account, to)
@@ -231,7 +234,7 @@ class WhatsAppOutboundService:
         return conversation
 
     @staticmethod
-    def sync_template_record(
+    def sync_template_record(  # noqa: PLR0913
         *,
         organization: Organization,
         name: str,
@@ -267,6 +270,4 @@ def _extract_sent_message_id(response: dict[str, Any]) -> str:
 
 
 def _fallback_wa_message_id() -> str:
-    from uuid import uuid4
-
     return f"local.{uuid4().hex}"

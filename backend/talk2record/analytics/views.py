@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 from collections import Counter
+from collections import defaultdict
 from decimal import Decimal
 
 from django.db.models import Count
@@ -206,10 +208,20 @@ class AnalyticsSnapshotView(APIView):
             },
         ]
 
+        active_operators = Membership.objects.filter(
+            organization=organization,
+            status=Membership.Status.ACTIVE,
+        ).count()
         heatmap_summary = [
-            f"{sum(metric.voice_processed for metric in daily_metrics)} voice notes tracked in recent metrics.",
-            f"{len(sales_per_product)} product categories currently active in extracted records.",
-            f"{Membership.objects.filter(organization=organization, status=Membership.Status.ACTIVE).count()} active operators contributing to the workspace.",
+            (
+                f"{sum(metric.voice_processed for metric in daily_metrics)} "
+                "voice notes tracked in recent metrics."
+            ),
+            (
+                f"{len(sales_per_product)} product categories "
+                "currently active in extracted records."
+            ),
+            (f"{active_operators} active operators contributing to the workspace."),
         ]
 
         return Response(
@@ -232,26 +244,20 @@ def _sum_revenue_from_artifacts(organization) -> Decimal:
         record_id__in=record_ids,
         key="extraction",
     ):
-        try:
+        with contextlib.suppress(Exception):
             total += Decimal(str(artifact.content.get("amount", "0") or "0"))
-        except Exception:
-            pass
     return total
 
 
 def _build_revenue_trends(record_ids: list) -> list:
-    from collections import defaultdict
-
     monthly: dict = defaultdict(Decimal)
     for artifact in RecordArtifact.objects.filter(
         record_id__in=record_ids,
         key="extraction",
     ).select_related("record"):
         month_label = artifact.record.created_at.strftime("%b")
-        try:
+        with contextlib.suppress(Exception):
             monthly[month_label] += Decimal(
                 str(artifact.content.get("amount", "0") or "0"),
             )
-        except Exception:
-            pass
     return [{"label": label, "value": float(val)} for label, val in monthly.items()]

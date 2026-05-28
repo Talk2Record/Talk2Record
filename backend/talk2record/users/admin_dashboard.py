@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections import OrderedDict
+from contextlib import suppress
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
@@ -271,31 +272,24 @@ def _selected_organization(raw: str) -> Organization | None:
 
 def _count_enabled_providers() -> int:
     count = 0
-    try:
+    with suppress(Exception):
         if WhatsAppSettings.get_solo().enabled:
             count += 1
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
         if AISettings.get_solo().enabled:
             count += 1
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
         paddle = PaddleSettings.get_solo()
         if paddle.enabled and paddle.encrypted_api_key:
             count += 1
-    except Exception:
-        pass
     count += AIProvider.objects.filter(is_active=True).count()
     return count
 
 
 def _format_currency(value: Decimal) -> str:
-    try:
+    with suppress(Exception):
         return f"${value:,.2f}"
-    except Exception:
-        return f"${value}"
+    return f"${value}"
 
 
 def _build_charts(

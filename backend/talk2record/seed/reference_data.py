@@ -15,6 +15,7 @@ is never touched here — it's user-generated.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from talk2record.ai.models import AIModel
@@ -45,6 +46,8 @@ from talk2record.taxonomy.models import Industry
 from talk2record.taxonomy.models import ProcessingRule
 from talk2record.taxonomy.models import PromptTemplate
 from talk2record.whatsapp.models import WhatsAppSettings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +131,7 @@ def _sync_plans(summary) -> dict[str, Plan]:
     return plans
 
 
-def _sync_integrations(summary) -> None:
+def _sync_integrations(summary) -> None:  # noqa: C901
     """Ensure the integration singletons exist.
 
     Only structural fields (``enabled``, baseline ``config``) are seeded.
@@ -182,7 +185,7 @@ def _sync_integrations(summary) -> None:
                 )
                 paddle_updates.append("default_success_url")
             if not paddle.client_side_token:
-                paddle.client_side_token = "test_682f6606c513770393dc78e0b1a"
+                paddle.client_side_token = "test_682f6606c513770393dc78e0b1a"  # noqa: S105
                 paddle_updates.append("client_side_token")
             if paddle_updates:
                 paddle_updates.append("updated_at")
@@ -302,14 +305,13 @@ def _sync_ai_task_bindings(summary) -> None:
                 category=definition["category"],
                 model=definition["model"],
             )
-        except Exception:  # noqa: BLE001 - validation failures are non-fatal here.
+        except Exception as exc:  # noqa: BLE001 - validation failures are non-fatal here.
+            logger.debug("Skipped AI task binding %s: %s", task, exc)
             continue
         summary.bump("ai_task_bindings", created=True)
 
 
-# ---------------------------------------------------------------------------
-# Taxonomy (industries, categories, schemas, prompts, dictionary, rules)
-# ---------------------------------------------------------------------------
+# -- Taxonomy seed section --
 
 
 def _sync_taxonomy(summary) -> None:

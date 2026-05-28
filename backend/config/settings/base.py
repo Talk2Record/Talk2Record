@@ -8,6 +8,8 @@ from pathlib import Path
 import environ
 from corsheaders.defaults import default_headers
 
+from .unfold import UNFOLD  # noqa: F401  # exported into Django settings namespace
+
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # talk2record/
 APPS_DIR = BASE_DIR / "talk2record"

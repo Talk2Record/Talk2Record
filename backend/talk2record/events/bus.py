@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 
@@ -44,7 +44,11 @@ from talk2record.events.names import WHATSAPP_MESSAGE_READ
 from talk2record.events.names import WHATSAPP_MESSAGE_RECEIVED
 from talk2record.events.names import WHATSAPP_MESSAGE_SENT
 from talk2record.events.names import WHATSAPP_STATUS_UPDATED
-from talk2record.events.types import DomainEvent
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from talk2record.events.types import DomainEvent
 
 _AUDIT = "talk2record.audit.tasks.handle_domain_event_for_audit"
 _ANALYTICS = "talk2record.analytics.tasks.handle_domain_event_for_analytics"
@@ -94,7 +98,7 @@ class EventBus:
         cls._bootstrapped = True
 
 
-def register_defaults(register: Callable[[str, str], None]) -> None:
+def register_defaults(register: Callable[[str, str], None]) -> None:  # noqa: PLR0915
     # Ingestion
     register(INGESTION_RECEIVED, _AUDIT)
     register(INGESTION_VALIDATED, _AUDIT)

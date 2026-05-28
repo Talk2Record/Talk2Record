@@ -8,13 +8,31 @@ returns a list that the admin dashboard renders as a progress checklist.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
+from typing import TYPE_CHECKING
 
+from django.contrib.sites.models import Site
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError
 from django.db.models import Count
 from django.urls import NoReverseMatch
 from django.urls import reverse
+
+from talk2record.ai.models import AIModel
+from talk2record.ai.models import AIProvider
+from talk2record.ai.models import AITask
+from talk2record.ai.models import AITaskBinding
+from talk2record.billing.models import PaddleSettings
+from talk2record.billing.models import Plan
+from talk2record.billing.models import PlanEntitlement
+from talk2record.legal.models import LegalDocumentVersion
+from talk2record.organizations.models import Organization
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -45,7 +63,7 @@ class _StepSpec:
     depends_on: str | None = None
     optional: bool = False
 
-    def resolve_url(self, complete: bool) -> str:
+    def resolve_url(self, *, complete: bool) -> str:
         name = self.admin_url_name
         if not complete and self.admin_url_empty_name:
             name = self.admin_url_empty_name
@@ -56,8 +74,6 @@ class _StepSpec:
 
 
 def _check_legal_documents() -> bool:
-    from talk2record.legal.models import LegalDocumentVersion
-
     required_keys = {
         LegalDocumentVersion.DocumentKey.TERMS_OF_SERVICE,
         LegalDocumentVersion.DocumentKey.PRIVACY_POLICY,
@@ -73,10 +89,9 @@ def _check_legal_documents() -> bool:
 
 def _check_site_configured() -> bool:
     try:
-        from django.contrib.sites.models import Site
-    except Exception:
+        site = Site.objects.first()
+    except (DatabaseError, ImportError):
         return True
-    site = Site.objects.first()
     if site is None:
         return False
     domain = (site.domain or "").lower()
@@ -84,18 +99,14 @@ def _check_site_configured() -> bool:
 
 
 def _check_paddle_configured() -> bool:
-    from talk2record.billing.models import PaddleSettings
-
     try:
         settings = PaddleSettings.get_solo()
-    except Exception:
+    except (DatabaseError, ObjectDoesNotExist):
         return False
     return bool(settings.enabled and settings.encrypted_api_key)
 
 
 def _check_plan_with_price() -> bool:
-    from talk2record.billing.models import Plan
-
     return (
         Plan.objects.annotate(
             price_count=Count("prices"),
@@ -106,27 +117,18 @@ def _check_plan_with_price() -> bool:
 
 
 def _check_plan_entitlements() -> bool:
-    from talk2record.billing.models import PlanEntitlement
-
     return PlanEntitlement.objects.exists()
 
 
 def _check_ai_provider_config() -> bool:
-    from talk2record.ai.models import AIProvider
-
     return AIProvider.objects.filter(is_active=True).exists()
 
 
 def _check_ai_models_seeded() -> bool:
-    from talk2record.ai.models import AIModel
-
     return AIModel.objects.exists()
 
 
 def _check_ai_task_bindings() -> bool:
-    from talk2record.ai.models import AITask
-    from talk2record.ai.models import AITaskBinding
-
     required = {AITask.TRANSCRIPTION, AITask.EXTRACTION}
     present = set(
         AITaskBinding.objects.filter(task__in=list(required)).values_list(
@@ -138,24 +140,18 @@ def _check_ai_task_bindings() -> bool:
 
 
 def _check_whatsapp_enabled() -> bool:
-    from talk2record.whatsapp.models import WhatsAppSettings
-
     try:
         settings = WhatsAppSettings.get_solo()
-    except Exception:
+    except (DatabaseError, ObjectDoesNotExist):
         return False
     return bool(settings.enabled and settings.encrypted_credential)
 
 
 def _check_whatsapp_inbound_route() -> bool:
-    from talk2record.whatsapp.models import WhatsAppInboundRoute
-
     return WhatsAppInboundRoute.objects.exists()
 
 
 def _check_first_organization() -> bool:
-    from talk2record.organizations.models import Organization
-
     # Any organisation row counts — staff often create the tenant via admin or
     # the first member may be admin/operator rather than owner; requiring an
     # active *owner* membership incorrectly left this step incomplete.
@@ -326,7 +322,7 @@ class OnboardingReport:
     def percent(self) -> int:
         if self.total == 0:
             return 100
-        return int(round((self.completed / self.total) * 100))
+        return round((self.completed / self.total) * 100)
 
     @property
     def all_complete(self) -> bool:
@@ -350,7 +346,13 @@ class OnboardingService:
         for spec in _STEPS:
             try:
                 completion[spec.key] = bool(spec.check())
-            except Exception:
+            except (
+                DatabaseError,
+                ObjectDoesNotExist,
+                AttributeError,
+                TypeError,
+                ValueError,
+            ):
                 completion[spec.key] = False
 
         steps: list[OnboardingStep] = []

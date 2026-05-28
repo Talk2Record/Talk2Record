@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
+
+if TYPE_CHECKING:
+    from talk2record.users.models import User
 
 
 @pytest.mark.django_db

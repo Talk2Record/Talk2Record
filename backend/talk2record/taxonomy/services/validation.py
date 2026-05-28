@@ -9,12 +9,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field
+from typing import TYPE_CHECKING
 from typing import Any
 
 import jsonschema
-from jsonschema.exceptions import ValidationError as JSONSchemaValidationError
 
-from talk2record.taxonomy.models import ExtractionSchema
+if TYPE_CHECKING:
+    from jsonschema.exceptions import ValidationError as JSONSchemaValidationError
+
+    from talk2record.taxonomy.models import ExtractionSchema
 
 
 @dataclass
@@ -49,15 +52,14 @@ class SchemaValidator:
                 errors=[{"path": "", "message": f"Invalid schema: {exc.message}"}],
             )
 
-        errors: list[dict] = []
-        for err in sorted(validator.iter_errors(payload), key=lambda e: e.path):
-            errors.append(
-                {
-                    "path": _format_path(err),
-                    "message": err.message,
-                    "validator": err.validator,
-                },
-            )
+        errors = [
+            {
+                "path": _format_path(err),
+                "message": err.message,
+                "validator": err.validator,
+            }
+            for err in sorted(validator.iter_errors(payload), key=lambda e: e.path)
+        ]
 
         return ValidationResult(ok=not errors, errors=errors)
 
@@ -80,15 +82,14 @@ class SchemaValidator:
                 ok=False,
                 errors=[{"path": "", "message": f"Invalid schema: {exc.message}"}],
             )
-        errors = []
-        for err in sorted(validator.iter_errors(payload), key=lambda e: e.path):
-            errors.append(
-                {
-                    "path": _format_path(err),
-                    "message": err.message,
-                    "validator": err.validator,
-                },
-            )
+        errors = [
+            {
+                "path": _format_path(err),
+                "message": err.message,
+                "validator": err.validator,
+            }
+            for err in sorted(validator.iter_errors(payload), key=lambda e: e.path)
+        ]
         return ValidationResult(ok=not errors, errors=errors)
 
 

@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
-from talk2record.organizations.models import Organization
-from talk2record.users.models import User
 from talk2record.whatsapp.client import WhatsAppCloudClientError
 from talk2record.whatsapp.models import WhatsAppAccount
 from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.whatsapp.services.outbound import OutboundSendError
 from talk2record.whatsapp.services.outbound import WhatsAppOutboundService
+
+if TYPE_CHECKING:
+    from talk2record.organizations.models import Organization
+    from talk2record.users.models import User
 
 
 @pytest.mark.django_db

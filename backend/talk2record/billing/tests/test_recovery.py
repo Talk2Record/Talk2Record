@@ -300,7 +300,7 @@ def test_reset_calls_paddle_cancel_when_client_configured(
 
     # Operational cancel of the active subscription.
     fake_service.cancel.assert_called_once()
-    cancel_args, cancel_kwargs = fake_service.cancel.call_args
+    _cancel_args, cancel_kwargs = fake_service.cancel.call_args
     assert cancel_kwargs.get("effective_from") == "immediately"
 
     # Pending transaction was voided via PATCH /transactions/{id}.

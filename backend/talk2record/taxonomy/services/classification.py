@@ -273,7 +273,7 @@ class ClassificationService:
         )
 
 
-def _score_rule(rule: ProcessingRule, text: str) -> float:
+def _score_rule(rule: ProcessingRule, text: str) -> float:  # noqa: PLR0911
     config = rule.rule_config or {}
     weight = float(config.get("weight", 0.3))
 
@@ -317,18 +317,18 @@ def _build_catalog() -> dict:
                 "description": industry.description,
             },
         )
-        for category in Category.objects.filter(
-            industry=industry,
-            enabled=True,
-        ).order_by("priority", "slug"):
-            categories.append(
-                {
-                    "industry": industry.slug,
-                    "slug": category.slug,
-                    "name": category.name,
-                    "description": category.description,
-                },
-            )
+        categories.extend(
+            {
+                "industry": industry.slug,
+                "slug": category.slug,
+                "name": category.name,
+                "description": category.description,
+            }
+            for category in Category.objects.filter(
+                industry=industry,
+                enabled=True,
+            ).order_by("priority", "slug")
+        )
     return {"industries": industries, "categories": categories}
 
 

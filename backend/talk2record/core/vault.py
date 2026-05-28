@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django.core import signing
 
+_MIN_UNMASKED_LENGTH = 8
+
 
 class SecretVault:
     @staticmethod
@@ -21,4 +23,6 @@ class SecretVault:
     def mask(value: str) -> str:
         if not value:
             return ""
-        return f"{value[:4]}***{value[-4:]}" if len(value) > 8 else "****"
+        if len(value) > _MIN_UNMASKED_LENGTH:
+            return f"{value[:4]}***{value[-4:]}"
+        return "****"

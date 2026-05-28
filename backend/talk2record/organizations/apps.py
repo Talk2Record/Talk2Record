@@ -8,4 +8,4 @@ class OrganizationsConfig(AppConfig):
     verbose_name = _("Organizations")
 
     def ready(self):
-        from talk2record.organizations import signals  # noqa: F401
+        from talk2record.organizations import signals  # noqa: F401, PLC0415

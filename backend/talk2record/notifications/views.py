@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -26,16 +27,12 @@ class NotificationViewSet(ReadOnlyModelViewSet):
     def mark_read(self, request, pk=None):
         notification = self.get_object()
         if notification.read_at is None:
-            from django.utils import timezone
-
             notification.read_at = timezone.now()
             notification.save(update_fields=["read_at"])
         return Response(NotificationSerializer(notification).data)
 
     @action(detail=False, methods=["post"])
     def mark_all_read(self, request):
-        from django.utils import timezone
-
         updated = Notification.objects.filter(
             user=request.user,
             read_at__isnull=True,

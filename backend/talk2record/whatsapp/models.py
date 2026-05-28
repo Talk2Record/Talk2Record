@@ -6,7 +6,8 @@ from django.utils.translation import gettext_lazy as _
 
 class WhatsAppSettings(models.Model):
     """
-    Singleton (``pk=1``) for WhatsApp Cloud API: public config JSON and encrypted credential blob.
+    Singleton (``pk=1``) for WhatsApp Cloud API: public config JSON and
+    encrypted credential blob.
     """
 
     enabled = models.BooleanField(default=True)

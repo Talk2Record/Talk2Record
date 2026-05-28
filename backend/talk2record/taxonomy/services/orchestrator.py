@@ -91,13 +91,13 @@ class PipelineOutcome:
     def validation_errors(self) -> list[dict]:
         errors: list[dict] = []
         for extraction in self.extractions:
-            for err in extraction.validation.errors:
-                errors.append(
-                    {
-                        "category": extraction.category_slug,
-                        **err,
-                    },
-                )
+            errors.extend(
+                {
+                    "category": extraction.category_slug,
+                    **err,
+                }
+                for err in extraction.validation.errors
+            )
         return errors
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import requests
 
+from talk2record.whatsapp.config import DEFAULT_GRAPH_API_VERSION
 from talk2record.whatsapp.config import load_whatsapp_cloud_settings
 
 _GRAPH_API_BASE = "https://graph.facebook.com"
@@ -37,8 +38,6 @@ class WhatsAppMediaService:
     def _graph_version(cls) -> str:
         s = cls._settings()
         if s is None:
-            from talk2record.whatsapp.config import DEFAULT_GRAPH_API_VERSION
-
             return DEFAULT_GRAPH_API_VERSION
         return s.graph_api_version.strip()
 

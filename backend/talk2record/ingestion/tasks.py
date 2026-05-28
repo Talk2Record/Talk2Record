@@ -98,8 +98,10 @@ class ProcessingStepRunner:
 
         Skipped when:
         - The record is not from WhatsApp.
-        - The record already has an audio_url (downloaded previously or supplied directly).
-        - WhatsApp access token is not configured (graceful skip; mock transcription proceeds).
+        - The record already has an audio_url (downloaded previously or supplied
+          directly).
+        - WhatsApp access token is not configured (graceful skip; mock
+          transcription proceeds).
         """
         from talk2record.whatsapp.config import load_whatsapp_cloud_settings
 
@@ -127,7 +129,7 @@ class ProcessingStepRunner:
 
         record.status = Record.Status.TRANSCRIBING
         record.save(update_fields=["status", "updated_at"])
-        self._append_state(Record.Status.TRANSCRIBING)
+        self.append_state(Record.Status.TRANSCRIBING)
 
         publish_after_commit(
             DomainEvent(
@@ -163,7 +165,7 @@ class ProcessingStepRunner:
                 },
             ),
         )
-        self._append_state(
+        self.append_state(
             Record.Status.TRANSCRIBED,
             {
                 "provider": result.provider,
@@ -189,7 +191,7 @@ class ProcessingStepRunner:
         record.status = Record.Status.EXTRACTING
         record.processing_step = "extract"
         record.save(update_fields=["status", "processing_step", "updated_at"])
-        self._append_state(Record.Status.EXTRACTING)
+        self.append_state(Record.Status.EXTRACTING)
 
         publish_after_commit(
             DomainEvent(
@@ -254,7 +256,7 @@ class ProcessingStepRunner:
                 },
             ),
         )
-        self._append_state(
+        self.append_state(
             next_status,
             {
                 "provider": primary_provider,
@@ -272,10 +274,10 @@ class ProcessingStepRunner:
         if record.status == Record.Status.REVIEW:
             # Low confidence or schema-invalid records park in review and
             # never auto-transition to STORED — operators must approve.
-            self._append_state(Record.Status.REVIEW)
+            self.append_state(Record.Status.REVIEW)
             return
         RecordProcessingService.store(record)
-        self._append_state(Record.Status.STORED)
+        self.append_state(Record.Status.STORED)
 
     # ------------------------------------------------------------------
     # Retry / failure handling
@@ -324,7 +326,7 @@ class ProcessingStepRunner:
                 "updated_at",
             ],
         )
-        self._append_state(
+        self.append_state(
             Record.Status.FAILED,
             {"step": step, "error": error, "permanent": permanent},
         )
@@ -333,7 +335,7 @@ class ProcessingStepRunner:
             record.status = Record.Status.DEAD_LETTER
             record.dead_lettered_at = timezone.now()
             record.save(update_fields=["status", "dead_lettered_at", "updated_at"])
-            self._append_state(
+            self.append_state(
                 Record.Status.DEAD_LETTER,
                 {"step": step, "error": error},
             )
@@ -351,7 +353,7 @@ class ProcessingStepRunner:
                 metadata={"record_id": record.pk},
             )
 
-    def _append_state(self, status: str, details: dict | None = None) -> None:
+    def append_state(self, status: str, details: dict | None = None) -> None:
         RecordProcessingState.objects.create(
             record=self.record,
             status=status,
@@ -418,7 +420,7 @@ def process_whatsapp_record(
                 "updated_at",
             ],
         )
-        runner._append_state(Record.Status.RECEIVED, {"force_reprocess": True})
+        runner.append_state(Record.Status.RECEIVED, {"force_reprocess": True})
         log_ingestion_event(
             "processing.record.reprocess_started",
             request_id=normalized_request_id,

@@ -7,6 +7,7 @@ They are protected by :class:`IsPlatformStaff` so only ``is_staff`` /
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import timedelta
 
 from django.db.models import Q
@@ -32,6 +33,11 @@ from talk2record.events.names import USER_REACTIVATED
 from talk2record.events.names import USER_SUSPENDED
 from talk2record.organizations.permissions import IsPlatformStaff
 from talk2record.users.models import User
+
+try:
+    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+except ImportError:
+    OutstandingToken = None  # type: ignore[misc, assignment]
 
 
 class AdminUserSerializer(drf_serializers.ModelSerializer[User]):
@@ -220,16 +226,12 @@ class AdminUserViewSet(
 
 def _revoke_all_sessions(user: User) -> None:
     """Blacklist every outstanding refresh token for the given user."""
-    try:
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-    except ImportError:
+    if OutstandingToken is None:
         return
     tokens = OutstandingToken.objects.filter(user=user)
     for token_row in tokens:
-        try:
+        with suppress(Exception):
             RefreshToken(token_row.token).blacklist()
-        except Exception:  # noqa: BLE001
-            continue
     # Also mark ``UserSession`` rows revoked if present.
     from talk2record.users.models import UserSession  # noqa: PLC0415
 

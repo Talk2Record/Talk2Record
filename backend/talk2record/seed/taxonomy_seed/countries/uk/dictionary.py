@@ -624,7 +624,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "industry": _INDUSTRY,
         "category": None,
         "term": "RIDDOR",
-        "normalized_term": "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations",
+        "normalized_term": (
+            "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations"
+        ),
     },
     {
         "industry": _INDUSTRY,
@@ -1086,7 +1088,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "industry": _INDUSTRY,
         "category": None,
         "term": "Part G",
-        "normalized_term": "Building Regs Part G (sanitation, hot water and water efficiency)",
+        "normalized_term": (
+            "Building Regs Part G (sanitation, hot water and water efficiency)"
+        ),
     },
     {
         "industry": _INDUSTRY,

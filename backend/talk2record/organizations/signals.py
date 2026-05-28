@@ -13,13 +13,13 @@ from talk2record.organizations.models import Membership
 def notify_membership_created(
     sender,
     instance: Membership,
-    created: bool,
+    created: bool,  # noqa: FBT001
     **kwargs,
 ) -> None:
     """Notify user when they are added to an organization (invite scenario)."""
     if not created:
         return
-    # Skip if this is the first/only member (registration flow - user created their own org)
+    # Skip first member: registration flow creates the user's own org
     if instance.organization.memberships.count() <= 1:
         return
     NotificationService.create(

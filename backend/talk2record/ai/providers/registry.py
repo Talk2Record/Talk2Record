@@ -8,10 +8,13 @@ creating a small adapter and registering it here.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
+from typing import TYPE_CHECKING
 from typing import Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -84,12 +87,8 @@ def _build_default_registry() -> None:
             slug="mock",
             display_name="Mock (testing)",
             capabilities=("chat", "transcription"),
-            chat_factory=lambda *, api_key="", model="", base_url="": (
-                MockExtractionProvider()
-            ),
-            transcription_factory=(
-                lambda *, api_key="", model="", base_url="": MockTranscriptionProvider()
-            ),
+            chat_factory=MockExtractionProvider,
+            transcription_factory=(MockTranscriptionProvider),
         ),
     )
 

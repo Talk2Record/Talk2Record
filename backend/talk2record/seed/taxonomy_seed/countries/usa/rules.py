@@ -1,7 +1,7 @@
 """Deterministic classifier rules tuned for US construction voice notes.
 
 Keyword lists prioritise US-specific vocabulary; the regex rules catch
-ASTM C150 cement types (Type I–V) and ASTM A615 imperial rebar codes
+ASTM C150 cement types (Type I-V) and ASTM A615 imperial rebar codes
 (#3 through #11).
 """
 

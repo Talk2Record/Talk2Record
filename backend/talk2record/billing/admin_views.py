@@ -6,7 +6,7 @@ just lists registered changelists. This module adds an operational dashboard
 
 - MRR / ARR / Active / Trialing (ending soon) / Past-due / Failed payments /
   Revenue this month / Voluntary churn rate
-- Plan distribution (subs per plan × interval)
+- Plan distribution (subs per plan x interval)
 - Trialing subscriptions ending soon
 - Recent transactions (last 20)
 - Top organizations by spend (90d)
@@ -49,6 +49,7 @@ from talk2record.billing.models import PlanPrice
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
 from talk2record.billing.recovery_service import BillingRecoveryService
+from talk2record.billing.tasks import sync_paddle_state
 from talk2record.organizations.models import Organization
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,8 @@ def _monthly_amount(amount: Decimal, interval: str) -> Decimal:
 def _compute_mrr_arr() -> tuple[Decimal, Decimal]:
     """Sum monthly-normalised amounts across all *currently billing* subs."""
     rows = Subscription.objects.filter(status__in=_BILLING_STATUSES).values_list(
-        "amount", "billing_interval",
+        "amount",
+        "billing_interval",
     )
     mrr = sum((_monthly_amount(_to_decimal(a), i) for a, i in rows), Decimal("0"))
     return mrr, mrr * Decimal("12")
@@ -147,7 +149,7 @@ def _compute_kpis(now: datetime.datetime) -> list[dict[str, Any]]:
         {
             "title": _("Annual Run Rate"),
             "metric": f"${arr:,.2f}",
-            "footer": _("MRR × 12"),
+            "footer": _("MRR x 12"),
         },
         {
             "title": _("Active subscriptions"),
@@ -183,7 +185,7 @@ def _compute_kpis(now: datetime.datetime) -> list[dict[str, Any]]:
 
 
 def _plan_distribution() -> list[dict[str, Any]]:
-    """Subscription count grouped by plan × interval (active + trialing only)."""
+    """Subscription count grouped by plan x interval (active + trialing only)."""
     rows = (
         Subscription.objects.filter(status__in=_BILLING_STATUSES)
         .values(
@@ -233,7 +235,8 @@ def _trialing_soon(now: datetime.datetime) -> list[dict[str, Any]]:
                     args=[sub.organization_id],
                 ),
                 "subscription_change_url": reverse(
-                    "admin:billing_subscription_change", args=[sub.pk],
+                    "admin:billing_subscription_change",
+                    args=[sub.pk],
                 ),
             },
         )
@@ -319,31 +322,31 @@ def _recent_webhook_events(organization_id: int, limit: int = 20):
 
 def _org_subscription_rows(organization: Organization) -> list[dict[str, Any]]:
     """Render-friendly snapshot of an org's subscriptions for the review page."""
-    rows = []
-    for sub in (
+    subs = (
         Subscription.objects.filter(organization=organization)
         .select_related("plan", "price")
         .order_by("-created_at")
-    ):
-        rows.append(
-            {
-                "id": sub.pk,
-                "plan_name": sub.plan.name if sub.plan_id else "",
-                "plan_code": sub.plan.code if sub.plan_id else "",
-                "status": sub.status,
-                "billing_interval": sub.billing_interval,
-                "amount": sub.amount,
-                "currency": sub.currency,
-                "provider_subscription_id": sub.provider_subscription_id,
-                "paddle_customer_id": sub.paddle_customer_id,
-                "current_period_end": sub.current_period_end,
-                "canceled_at": sub.canceled_at,
-                "change_url": reverse(
-                    "admin:billing_subscription_change", args=[sub.pk],
-                ),
-            },
-        )
-    return rows
+    )
+    return [
+        {
+            "id": sub.pk,
+            "plan_name": sub.plan.name if sub.plan_id else "",
+            "plan_code": sub.plan.code if sub.plan_id else "",
+            "status": sub.status,
+            "billing_interval": sub.billing_interval,
+            "amount": sub.amount,
+            "currency": sub.currency,
+            "provider_subscription_id": sub.provider_subscription_id,
+            "paddle_customer_id": sub.paddle_customer_id,
+            "current_period_end": sub.current_period_end,
+            "canceled_at": sub.canceled_at,
+            "change_url": reverse(
+                "admin:billing_subscription_change",
+                args=[sub.pk],
+            ),
+        }
+        for sub in subs
+    ]
 
 
 def billing_organization_review_view(request, organization_id: int):
@@ -381,7 +384,8 @@ def billing_organization_review_view(request, organization_id: int):
         "entitlements": entitlements,
         "paddle_customer_id": paddle_customer_id,
         "reset_url": reverse(
-            "admin_billing_reset_organization", args=[organization.pk],
+            "admin_billing_reset_organization",
+            args=[organization.pk],
         ),
         "dashboard_url": reverse("admin_billing_dashboard"),
     }
@@ -426,9 +430,12 @@ def billing_reset_organization_view(request, organization_id: int):
             reason=reason,
             also_reset_onboarding=also_reset_onboarding,
         )
-    except Exception as exc:  # noqa: BLE001 — surfaced as admin message
+    except Exception as exc:
         logger.exception("BillingRecoveryService failed for org=%s", organization.pk)
-        messages.error(request, _("Billing reset failed: %(detail)s") % {"detail": str(exc)})
+        messages.error(
+            request,
+            _("Billing reset failed: %(detail)s") % {"detail": str(exc)},
+        )
         return redirect(
             reverse(
                 "admin_billing_organization_review",
@@ -441,13 +448,15 @@ def billing_reset_organization_view(request, organization_id: int):
             request,
             _(
                 "Billing reset completed locally, but %(count)d Paddle calls "
-                "reported errors — see audit log for details."
-            ) % {"count": len(report.paddle_errors)},
+                "reported errors — see audit log for details.",
+            )
+            % {"count": len(report.paddle_errors)},
         )
     else:
         messages.success(
             request,
-            _("Billing reset for %(name)s completed (state v%(v)s).") % {
+            _("Billing reset for %(name)s completed (state v%(v)s).")
+            % {
                 "name": organization.name,
                 "v": report.new_billing_state_version,
             },
@@ -471,8 +480,6 @@ def billing_sync_all_view(request):
 
     # Local import to avoid pulling Celery into module import time
     # (keeps the dashboard view fast and testable without a broker).
-    from talk2record.billing.tasks import sync_paddle_state
-
     pending_subs = Subscription.objects.exclude(provider_subscription_id="").count()
     active_plans = Plan.objects.filter(is_active=True).count()
     active_prices = PlanPrice.objects.filter(active=True).count()
@@ -497,7 +504,7 @@ def billing_sync_all_view(request):
             },
             timeout=7 * 24 * 60 * 60,
         )
-    except Exception as exc:  # noqa: BLE001 — surfaced to the admin user
+    except Exception as exc:
         logger.exception("Failed to enqueue Paddle sync-all task")
         messages.error(
             request,
@@ -509,7 +516,7 @@ def billing_sync_all_view(request):
         request,
         _(
             "Queued Paddle sync: %(plans)d plans, %(prices)d prices, "
-            "%(entitlements)d entitlements, %(subs)d subscriptions."
+            "%(entitlements)d entitlements, %(subs)d subscriptions.",
         )
         % {
             "plans": active_plans,

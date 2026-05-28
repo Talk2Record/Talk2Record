@@ -29,7 +29,9 @@ class OnboardingStepsView(APIView):
             {
                 "id": "company-setup",
                 "title": "Set up company details",
-                "description": "Confirm your workspace name, timezone, and billing currency.",
+                "description": (
+                    "Confirm your workspace name, timezone, and billing currency."
+                ),
                 "completed": is_company_setup_complete(organization),
                 "required": True,
             },

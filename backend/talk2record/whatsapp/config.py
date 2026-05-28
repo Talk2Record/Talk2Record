@@ -14,7 +14,8 @@ from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
 #   WABA-ID              -> waba_id
 #   Business-ID          -> business_id
 #   hub.verify_token     -> verify_token
-#   User-Access-Token    -> encrypted credential ``access_token`` (JSON) or whole blob (plain)
+#   User-Access-Token    -> encrypted credential ``access_token`` (JSON)
+#                           or whole blob (plain)
 #   App Secret (webhook) -> encrypted credential ``app_secret`` (JSON only)
 
 DEFAULT_GRAPH_API_VERSION = "v25.0"
@@ -53,7 +54,8 @@ class WhatsAppCloudSettings:
 
 def load_whatsapp_cloud_settings() -> WhatsAppCloudSettings | None:
     """
-    Load WhatsApp Cloud settings from :class:`~talk2record.whatsapp.models.WhatsAppSettings`.
+    Load WhatsApp Cloud settings from
+    :class:`~talk2record.whatsapp.models.WhatsAppSettings`.
     Returns ``None`` when settings are missing or disabled.
     """
     settings_row = get_active_whatsapp_settings()

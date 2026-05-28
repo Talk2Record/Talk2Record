@@ -4,9 +4,9 @@
 
 {# Must not be named admin/index.html — DIRS would shadow Unfold and break extends. #}
 {% block content %}
-  <div class="space-y-6">
+  <div class="flex flex-col gap-6 pb-2">
     {# Quick connection tests #}
-    <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+    <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
       <div class="flex items-start justify-between gap-3 mb-3">
         <div>
           <h2 class="font-semibold text-sm text-font-important-light dark:text-font-important-dark">
@@ -48,7 +48,7 @@
     <details class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900"
              {% if not onboarding_complete %}open{% endif %}>
       <summary class="list-none cursor-pointer">
-        <div class="flex items-start justify-between gap-4 mb-4">
+        <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
               {% if onboarding_complete %}
@@ -60,7 +60,7 @@
             <p class="text-sm text-font-subtle-light dark:text-font-subtle-dark">
               {% blocktranslate with completed=onboarding_completed total=onboarding_total %}{{ completed }} of {{ total }} required steps complete{% endblocktranslate %}
               {% if onboarding_report.optional_total %}
-                &middot;
+                ·
                 {% blocktranslate with oc=onboarding_report.optional_completed ot=onboarding_report.optional_total %}{{ oc }}/{{ ot }} optional{% endblocktranslate %}
               {% endif %}
             </p>
@@ -76,7 +76,7 @@
           </div>
         </div>
       </summary>
-      <div class="h-2 w-full rounded-full bg-base-100 dark:bg-base-800 overflow-hidden mb-5">
+      <div class="mt-4 h-2 w-full rounded-full bg-base-100 dark:bg-base-800 overflow-hidden mb-5">
         <div class="h-2 rounded-full bg-primary-500"
              style="width: {{ onboarding_percent }}%"></div>
       </div>
@@ -139,8 +139,8 @@
     {# Filters #}
     <form method="get"
           action="{% url 'admin:index' %}"
-          class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-      <div class="flex flex-wrap items-end gap-3">
+          class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+      <div class="flex flex-wrap items-center gap-4">
         <label class="flex flex-col gap-1 text-xs">
           <span class="font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Date range" %}</span>
           <select name="range"
@@ -186,9 +186,9 @@
       </div>
     </form>
     {# KPI cards #}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
       {% for card in kpi_cards %}
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
           <div class="text-xs uppercase tracking-wide font-medium text-font-subtle-light dark:text-font-subtle-dark">
             {{ card.title }}
           </div>
@@ -202,44 +202,44 @@
       {% endfor %}
     </div>
     {# Charts #}
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-4 text-font-important-light dark:text-font-important-dark">
           {% translate "Records per day" %}
         </h3>
-        <div class="relative h-64">
+        <div class="relative h-72">
           <canvas id="chart-records-per-day"></canvas>
         </div>
       </div>
-      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+      <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-4 text-font-important-light dark:text-font-important-dark">
           {% translate "Records by status" %}
         </h3>
-        <div class="relative h-64">
+        <div class="relative h-72">
           <canvas id="chart-records-by-status"></canvas>
         </div>
       </div>
-      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+      <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-4 text-font-important-light dark:text-font-important-dark">
           {% translate "Revenue per month" %}
         </h3>
-        <div class="relative h-64">
+        <div class="relative h-72">
           <canvas id="chart-revenue-per-month"></canvas>
         </div>
       </div>
-      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+      <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-4 text-font-important-light dark:text-font-important-dark">
           {% translate "Top organizations" %}
         </h3>
-        <div class="relative h-64">
+        <div class="relative h-72">
           <canvas id="chart-top-organizations"></canvas>
         </div>
       </div>
-      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900 xl:col-span-2">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+      <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900 xl:col-span-2">
+        <h3 class="text-sm font-semibold mb-4 text-font-important-light dark:text-font-important-dark">
           {% translate "Record source mix" %}
         </h3>
-        <div class="relative h-64">
+        <div class="relative h-72">
           <canvas id="chart-provider-mix"></canvas>
         </div>
       </div>
@@ -362,4 +362,4 @@
       }
     })();
   </script>
-{% endblock %}
+{% endblock content %}

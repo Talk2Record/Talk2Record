@@ -56,7 +56,7 @@ class OrganizationAPIKeyService:
     }
 
     @classmethod
-    def create_key(
+    def create_key(  # noqa: PLR0913
         cls,
         *,
         organization: Organization,

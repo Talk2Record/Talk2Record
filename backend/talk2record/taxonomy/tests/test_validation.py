@@ -62,7 +62,8 @@ def test_null_labor_payment_fields_returns_ok():
             schema = definition["json_schema"]
             break
     else:
-        raise AssertionError("labor_payment schema not found")
+        msg = "labor_payment schema not found"
+        raise AssertionError(msg)
 
     payload = {
         "worker": "Worker",

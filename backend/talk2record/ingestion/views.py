@@ -23,6 +23,7 @@ from talk2record.ingestion.serializers import PublicIngestionRecordSerializer
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import PublicIngestionRateThrottle
 from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 
 
 class PublicRecordIngestionView(APIView):
@@ -95,8 +96,6 @@ class PublicRecordIngestionView(APIView):
         ],
     )
     def post(self, request):
-        from talk2record.records.models import RecordArtifact
-
         request_id = request_id_from_request(request)
         event_id = new_event_id()
         serializer = PublicIngestionRecordSerializer(data=request.data)

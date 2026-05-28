@@ -10,10 +10,10 @@ rails (ACH, wire, Venmo, Zelle).
 
 Source notes (audit trail):
 
-* ASTM C150/C150M Portland cement types I–V (plus IA/IIA/IIIA):
+* ASTM C150/C150M Portland cement types I-V (plus IA/IIA/IIIA):
   https://www.astm.org/c0150_c0150m-21.html
   https://blog.ansi.org/ansi/portland-cement-types-specifications-astm-c150
-* ASTM A615 rebar grades 40/60/75/80 and bar sizes #3–#8:
+* ASTM A615 rebar grades 40/60/75/80 and bar sizes #3-#8:
   https://www.astm.org/a0615_a0615m-20.html
   https://www.portlandbolt.com/technical/specifications/astm-a615/
 * Nominal vs actual softwood lumber dimensions (2x4 = 1.5" x 3.5", …):
@@ -40,7 +40,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "industry": _INDUSTRY,
         "category": None,
         "term": "Type II",
-        "normalized_term": "ASTM C150 Type II moderate-sulfate-resistance Portland cement",
+        "normalized_term": (
+            "ASTM C150 Type II moderate-sulfate-resistance Portland cement"
+        ),
     },
     {
         "industry": _INDUSTRY,
@@ -378,7 +380,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "category": None,
         "term": "Sawzall",
         "normalized_term": "reciprocating saw",
-        "description": "Sawzall is a registered Milwaukee trademark used as a generic noun.",
+        "description": (
+            "Sawzall is a registered Milwaukee trademark used as a generic noun."
+        ),
     },
     {
         "industry": _INDUSTRY,
@@ -404,7 +408,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "category": None,
         "term": "Bobcat",
         "normalized_term": "skid-steer loader",
-        "description": "Bobcat is a registered trademark used as a generic noun in the US.",
+        "description": (
+            "Bobcat is a registered trademark used as a generic noun in the US."
+        ),
     },
     {
         "industry": _INDUSTRY,
@@ -1134,7 +1140,9 @@ DICTIONARY_DEFINITIONS: tuple[dict, ...] = (
         "industry": _INDUSTRY,
         "category": None,
         "term": "SMACNA",
-        "normalized_term": "Sheet Metal and Air Conditioning Contractors National Association",
+        "normalized_term": (
+            "Sheet Metal and Air Conditioning Contractors National Association"
+        ),
     },
     {
         "industry": _INDUSTRY,

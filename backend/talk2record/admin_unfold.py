@@ -10,10 +10,14 @@ def ensure_unfold_admin_site() -> None:
     templates and media resolve through django-unfold consistently.
     """
     admin.autodiscover()
-    # Named template extends Unfold's admin/index.html (not talk2record/.../admin/index.html in DIRS).
+    # Named template extends Unfold's admin/index.html
+    # (not talk2record/.../admin/index.html in DIRS).
     admin.site.index_template = "admin/provider_connection_index.html"
 
-    for model, admin_instance in list(admin.site._registry.items()):
+    # Django AdminSite exposes no public iterator over registered ModelAdmin
+    # instances; _registry is the supported internal hook for re-registration.
+    registry = admin.site._registry  # noqa: SLF001
+    for model, admin_instance in list(registry.items()):
         admin_class = admin_instance.__class__
         if issubclass(admin_class, ModelAdmin):
             continue

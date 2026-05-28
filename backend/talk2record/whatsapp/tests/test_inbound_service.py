@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from talk2record.organizations.models import Organization
 from talk2record.whatsapp.models import WhatsAppAccount
 from talk2record.whatsapp.models import WhatsAppConversation
 from talk2record.whatsapp.models import WhatsAppInboundRoute
 from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.services.inbound import WhatsAppInboundService
+
+if TYPE_CHECKING:
+    from talk2record.organizations.models import Organization
 
 
 def _audio_payload(

@@ -10,7 +10,7 @@ from talk2record.whatsapp.models import WhatsAppSettings
 
 
 class WhatsAppSettingsAdminForm(forms.ModelForm):
-    """Maps Meta / Graph identifiers into ``WhatsAppSettings.config`` + encrypted credential."""
+    """Maps Meta / Graph identifiers into ``WhatsAppSettings.config``."""
 
     graph_api_version = forms.CharField(
         label=_("Graph API version"),
@@ -82,7 +82,7 @@ class WhatsAppSettingsAdminForm(forms.ModelForm):
                 cfg.get("verify_token", "") or "",
             ).strip()
 
-    def save(self, commit: bool = True) -> WhatsAppSettings:
+    def save(self, commit: bool = True) -> WhatsAppSettings:  # noqa: FBT001, FBT002
         instance = super().save(commit=False)
         cfg = dict(instance.config) if isinstance(instance.config, dict) else {}
         cfg["graph_api_version"] = (

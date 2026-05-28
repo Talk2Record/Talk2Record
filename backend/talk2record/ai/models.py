@@ -7,6 +7,8 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from talk2record.ai.providers.registry import AIProviderRegistry
+
 
 class AISettings(models.Model):
     """Singleton (``pk=1``) global kill-switch for AI features.
@@ -90,7 +92,9 @@ class AIProvider(models.Model):
     category = models.CharField(
         max_length=20,
         choices=AICategory,
-        help_text="Capability bucket. The resolver picks the active provider per category.",
+        help_text=(
+            "Capability bucket. The resolver picks the active provider per category."
+        ),
     )
     display_name = models.CharField(max_length=120, blank=True)
     base_url = models.URLField(
@@ -131,9 +135,21 @@ class AIProvider(models.Model):
     def __str__(self) -> str:
         return f"{self.name} ({self.category})"
 
+    def save(self, *args, **kwargs) -> None:
+        with transaction.atomic():
+            if self.is_active:
+                others = AIProvider.objects.filter(
+                    category=self.category,
+                    is_active=True,
+                )
+                if self.pk:
+                    others = others.exclude(pk=self.pk)
+                others.update(is_active=False, updated_at=timezone.now())
+            self.full_clean()
+            super().save(*args, **kwargs)
+
     def clean(self) -> None:
         super().clean()
-        from talk2record.ai.providers.registry import AIProviderRegistry
 
         spec = AIProviderRegistry.get(self.slug)
         if spec is None:
@@ -167,19 +183,6 @@ class AIProvider(models.Model):
                         ),
                     },
                 )
-
-    def save(self, *args, **kwargs) -> None:
-        with transaction.atomic():
-            if self.is_active:
-                others = AIProvider.objects.filter(
-                    category=self.category,
-                    is_active=True,
-                )
-                if self.pk:
-                    others = others.exclude(pk=self.pk)
-                others.update(is_active=False, updated_at=timezone.now())
-            self.full_clean()
-            super().save(*args, **kwargs)
 
 
 class AIModel(models.Model):
@@ -276,6 +279,12 @@ class AITaskBinding(models.Model):
     def __str__(self) -> str:
         return f"{self.task} -> {self.category}:{self.model}"
 
+    def save(self, *args, **kwargs) -> None:
+        if not self.category:
+            self.category = TASK_TO_CATEGORY.get(self.task, "")
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self) -> None:
         super().clean()
         expected_category = TASK_TO_CATEGORY.get(self.task)
@@ -306,9 +315,3 @@ class AITaskBinding(models.Model):
                             ),
                         },
                     )
-
-    def save(self, *args, **kwargs) -> None:
-        if not self.category:
-            self.category = TASK_TO_CATEGORY.get(self.task, "")
-        self.full_clean()
-        super().save(*args, **kwargs)

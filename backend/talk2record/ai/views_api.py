@@ -129,7 +129,8 @@ class AIProviderSerializer(serializers.ModelSerializer[AIProvider]):
     def validate_category(self, value: str) -> str:
         valid = {choice.value for choice in AICategory}
         if value not in valid:
-            raise serializers.ValidationError(f"Unknown category: {value!r}.")
+            msg = f"Unknown category: {value!r}."
+            raise serializers.ValidationError(msg)
         return value
 
 

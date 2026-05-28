@@ -409,11 +409,11 @@ class WhatsAppInboundService:
         return mapping
 
     @classmethod
-    def _extract_content(
+    def _extract_content(  # noqa: C901, PLR0912
         cls,
         message: Mapping[str, object],
     ) -> tuple[str, str, str, str, str, str]:
-        """Returns (message_type, media_id, media_url, media_mime, media_sha256, body)."""
+        """Return message_type, media_id, media_url, media_mime, media_sha256, body."""
         raw_type = str(message.get("type", "")).strip().lower()
         message_type = cls._map_message_type(raw_type)
 

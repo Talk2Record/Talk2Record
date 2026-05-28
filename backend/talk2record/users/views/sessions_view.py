@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -11,6 +13,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from talk2record.users.models import UserSession
+
+try:
+    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+    from rest_framework_simplejwt.tokens import RefreshToken
+except ImportError:
+    OutstandingToken = None  # type: ignore[misc, assignment]
+    RefreshToken = None  # type: ignore[misc, assignment]
 
 
 class UserSessionSerializer(serializers.ModelSerializer[UserSession]):
@@ -64,18 +73,13 @@ class UserSessionRevokeView(APIView):
         session.revoked_at = timezone.now()
         session.save(update_fields=["revoked_at"])
 
-        try:
-            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-            from rest_framework_simplejwt.tokens import RefreshToken  # noqa: PLC0415
-        except ImportError:
+        if OutstandingToken is None or RefreshToken is None:
             return Response(status=status.HTTP_204_NO_CONTENT)
         outstanding = OutstandingToken.objects.filter(
             user=request.user,
             jti=session.refresh_jti,
         ).first()
         if outstanding is not None:
-            try:
+            with suppress(Exception):
                 RefreshToken(outstanding.token).blacklist()
-            except Exception:  # noqa: BLE001
-                pass
         return Response(status=status.HTTP_204_NO_CONTENT)

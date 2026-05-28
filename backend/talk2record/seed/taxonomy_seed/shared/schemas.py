@@ -29,12 +29,16 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
             "properties": {
                 "material": {
                     "type": ["string", "null"],
-                    "description": "Material delivered (e.g. cement, sand, rebar, lumber).",
+                    "description": (
+                        "Material delivered (e.g. cement, sand, rebar, lumber)."
+                    ),
                 },
                 "quantity": _NULLABLE_NUMBER,
                 "unit": {
                     "type": ["string", "null"],
-                    "description": "Unit of measure (bags, m3, cu yd, tons, pieces, …).",
+                    "description": (
+                        "Unit of measure (bags, m3, cu yd, tons, pieces, …)."
+                    ),
                 },
                 "site": _NULLABLE_STRING,
                 "supplier": _NULLABLE_STRING,
@@ -66,7 +70,9 @@ SCHEMA_DEFINITIONS: tuple[dict, ...] = (
                 "amount": _NULLABLE_NUMBER,
                 "currency": {
                     "type": ["string", "null"],
-                    "description": "ISO 4217 code (KES, USD, GBP, …) inferred from context.",
+                    "description": (
+                        "ISO 4217 code (KES, USD, GBP, …) inferred from context."
+                    ),
                 },
                 "payment_method": _NULLABLE_STRING,
                 "site": _NULLABLE_STRING,

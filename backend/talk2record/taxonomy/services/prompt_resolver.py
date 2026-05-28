@@ -18,13 +18,16 @@ that omit a placeholder still render cleanly.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from talk2record.taxonomy.models import Category
 from talk2record.taxonomy.models import Industry
 from talk2record.taxonomy.models import PromptPurpose
 from talk2record.taxonomy.models import PromptTemplate
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)

@@ -229,7 +229,7 @@ def _resolve_organization_pk(
     return None
 
 
-def _upsert_paddle_subscription(
+def _upsert_paddle_subscription(  # noqa: C901, PLR0912
     event_type: str,
     event_data: dict,
     org_id: str | None,
@@ -246,7 +246,8 @@ def _upsert_paddle_subscription(
     )
     if resolved_org_id is None:
         logger.warning(
-            "Webhook %s skipped: no organization for org_id=%s sub_id=%s customer_id=%s",
+            "Webhook %s skipped: no organization for org_id=%s sub_id=%s "
+            "customer_id=%s",
             event_type,
             org_id,
             sub_id,
@@ -502,8 +503,7 @@ def _create_event_row(
     signature_header: str,
     snapshot_version: int | None,
 ) -> tuple[PaddleWebhookEvent | None, bool]:
-    """Insert a ``PaddleWebhookEvent``; on duplicate paddle_event_id, return ``(existing, True)``.
-
+    """Insert a ``PaddleWebhookEvent``; on duplicate paddle_event_id, return existing.
     Returns ``(row, is_duplicate)``. The unique constraint on
     ``paddle_event_id`` is the natural idempotency key.
 
