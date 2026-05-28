@@ -60,7 +60,7 @@
             <p class="text-sm text-font-subtle-light dark:text-font-subtle-dark">
               {% blocktranslate with completed=onboarding_completed total=onboarding_total %}{{ completed }} of {{ total }} required steps complete{% endblocktranslate %}
               {% if onboarding_report.optional_total %}
-                ·
+                &middot;
                 {% blocktranslate with oc=onboarding_report.optional_completed ot=onboarding_report.optional_total %}{{ oc }}/{{ ot }} optional{% endblocktranslate %}
               {% endif %}
             </p>
@@ -362,4 +362,4 @@
       }
     })();
   </script>
-{% endblock content %}
+{% endblock %}

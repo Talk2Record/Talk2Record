@@ -98,9 +98,10 @@ jobs:
       - name: Build local django image (cached)
         uses: docker/bake-action@v7
         with:
+          source: backend
           push: false
           load: true
-          files: backend/docker-compose.local.yml
+          files: docker-compose.local.yml
           targets: django
           set: |
             django.cache-from=type=gha,scope=django-cached-tests

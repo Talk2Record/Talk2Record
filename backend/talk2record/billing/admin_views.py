@@ -86,8 +86,7 @@ def _monthly_amount(amount: Decimal, interval: str) -> Decimal:
 def _compute_mrr_arr() -> tuple[Decimal, Decimal]:
     """Sum monthly-normalised amounts across all *currently billing* subs."""
     rows = Subscription.objects.filter(status__in=_BILLING_STATUSES).values_list(
-        "amount",
-        "billing_interval",
+        "amount", "billing_interval",
     )
     mrr = sum((_monthly_amount(_to_decimal(a), i) for a, i in rows), Decimal("0"))
     return mrr, mrr * Decimal("12")
@@ -234,8 +233,7 @@ def _trialing_soon(now: datetime.datetime) -> list[dict[str, Any]]:
                     args=[sub.organization_id],
                 ),
                 "subscription_change_url": reverse(
-                    "admin:billing_subscription_change",
-                    args=[sub.pk],
+                    "admin:billing_subscription_change", args=[sub.pk],
                 ),
             },
         )
@@ -341,8 +339,7 @@ def _org_subscription_rows(organization: Organization) -> list[dict[str, Any]]:
                 "current_period_end": sub.current_period_end,
                 "canceled_at": sub.canceled_at,
                 "change_url": reverse(
-                    "admin:billing_subscription_change",
-                    args=[sub.pk],
+                    "admin:billing_subscription_change", args=[sub.pk],
                 ),
             },
         )
@@ -384,8 +381,7 @@ def billing_organization_review_view(request, organization_id: int):
         "entitlements": entitlements,
         "paddle_customer_id": paddle_customer_id,
         "reset_url": reverse(
-            "admin_billing_reset_organization",
-            args=[organization.pk],
+            "admin_billing_reset_organization", args=[organization.pk],
         ),
         "dashboard_url": reverse("admin_billing_dashboard"),
     }
@@ -430,12 +426,9 @@ def billing_reset_organization_view(request, organization_id: int):
             reason=reason,
             also_reset_onboarding=also_reset_onboarding,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — surfaced as admin message
         logger.exception("BillingRecoveryService failed for org=%s", organization.pk)
-        messages.error(
-            request,
-            _("Billing reset failed: %(detail)s") % {"detail": str(exc)},
-        )
+        messages.error(request, _("Billing reset failed: %(detail)s") % {"detail": str(exc)})
         return redirect(
             reverse(
                 "admin_billing_organization_review",
@@ -448,15 +441,13 @@ def billing_reset_organization_view(request, organization_id: int):
             request,
             _(
                 "Billing reset completed locally, but %(count)d Paddle calls "
-                "reported errors — see audit log for details.",
-            )
-            % {"count": len(report.paddle_errors)},
+                "reported errors — see audit log for details."
+            ) % {"count": len(report.paddle_errors)},
         )
     else:
         messages.success(
             request,
-            _("Billing reset for %(name)s completed (state v%(v)s).")
-            % {
+            _("Billing reset for %(name)s completed (state v%(v)s).") % {
                 "name": organization.name,
                 "v": report.new_billing_state_version,
             },
@@ -506,7 +497,7 @@ def billing_sync_all_view(request):
             },
             timeout=7 * 24 * 60 * 60,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — surfaced to the admin user
         logger.exception("Failed to enqueue Paddle sync-all task")
         messages.error(
             request,
@@ -518,7 +509,7 @@ def billing_sync_all_view(request):
         request,
         _(
             "Queued Paddle sync: %(plans)d plans, %(prices)d prices, "
-            "%(entitlements)d entitlements, %(subs)d subscriptions.",
+            "%(entitlements)d entitlements, %(subs)d subscriptions."
         )
         % {
             "plans": active_plans,

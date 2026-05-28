@@ -48,9 +48,9 @@ Paddle keys are configured in Django admin, not these files.
 
 ## Admin URLs
 
-| Env        | URL                                            |
-| ---------- | ---------------------------------------------- |
-| Staging    | `https://admin.staging.talk2record.com/admin/` |
-| Production | `https://admin.talk2record.com/admin/`         |
+| Env        | URL                                              |
+| ---------- | ------------------------------------------------ |
+| Staging    | `https://admin.staging.talk2record.com/admin/`   |
+| Production | `https://admin.talk2record.com/admin/`           |
 
 Also reachable on the root host at `/admin/` for backward compatibility.

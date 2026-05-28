@@ -1,26 +1,28 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 
+import { Loader2 } from "lucide-react";
 import { openPaddleCheckout } from "@/shared/hooks/use-paddle-checkout";
+import { useSearchParams } from "next/navigation";
 
 function CheckoutLauncher() {
   const searchParams = useSearchParams();
-  const transactionId = searchParams.get("_ptxn");
-  const [launchError, setLaunchError] = useState<string | null>(null);
-  const error = transactionId === null ? "Missing checkout transaction." : launchError;
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!transactionId) return;
+    const transactionId = searchParams.get("_ptxn");
+    if (!transactionId) {
+      setError("Missing checkout transaction.");
+      return;
+    }
 
     void openPaddleCheckout({ transactionId }).then((opened) => {
       if (!opened) {
-        setLaunchError("Could not open Paddle checkout.");
+        setError("Could not open Paddle checkout.");
       }
     });
-  }, [transactionId]);
+  }, [searchParams]);
 
   if (error) {
     return (

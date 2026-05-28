@@ -1,29 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ExternalLink, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
-
-import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
-import { PlanChangeModal } from "@/components/billing/plan-change-modal";
-import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
-import { useAuth } from "@/shared/lib/auth/auth-context";
-import { legalService, settingsService, whatsappService } from "@/services/platform-service";
-import { useLegalStatus, LEGAL_STATUS_QUERY_KEY } from "@/shared/hooks/use-legal-status";
-import { ONBOARDING_STEPS_QUERY_KEY, useOnboardingSnapshot } from "@/shared/hooks/use-onboarding";
-import { usePlans } from "@/shared/hooks/use-plans";
-import { invalidateBillingQueries } from "@/shared/hooks/use-change-plan";
-import { trackEvent } from "@/lib/analytics";
-import type { PlanChangeKind } from "@/lib/plan-display";
-import { Button } from "@/shared/ui/button";
+import type { BillingInterval, PlanCatalogItem, SettingsProfile } from "@/types/platform";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { CheckCircle2, ExternalLink, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
+import { LEGAL_STATUS_QUERY_KEY, useLegalStatus } from "@/shared/hooks/use-legal-status";
+import { ONBOARDING_STEPS_QUERY_KEY, useOnboardingSnapshot } from "@/shared/hooks/use-onboarding";
+import { legalService, settingsService, whatsappService } from "@/services/platform-service";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import { BrowserVoiceRecorder } from "@/components/records/browser-voice-recorder";
+import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { toast } from "@/shared/hooks/use-toast";
-import { notifyApiError } from "@/shared/lib/notify-api-error";
+import { PlanCatalogGrid } from "@/components/billing/plan-catalog-grid";
+import type { PlanChangeKind } from "@/lib/plan-display";
+import { PlanChangeModal } from "@/components/billing/plan-change-modal";
 import { cn } from "@/shared/lib/utils";
-import type { BillingInterval, PlanCatalogItem, SettingsProfile } from "@/types/platform";
+import { invalidateBillingQueries } from "@/shared/hooks/use-change-plan";
+import { notifyApiError } from "@/shared/lib/notify-api-error";
+import { toast } from "@/shared/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
+import { useAuth } from "@/shared/lib/auth/auth-context";
+import { usePlans } from "@/shared/hooks/use-plans";
 
 type OnboardingTabId = "legal" | "company" | "plan" | "whatsapp" | "voice" | "confirm" | "complete";
 
@@ -89,12 +89,14 @@ export function OnboardingPageContent() {
     snapshot.requiredStepsComplete,
   ]);
 
-  const resolvedActiveTab = useMemo((): OnboardingTabId => {
-    const currentIndex = TAB_ORDER.indexOf(activeTab);
-    const furthestIndex = TAB_ORDER.indexOf(furthestTab);
-    if (furthestIndex > currentIndex) return furthestTab;
-    return activeTab;
-  }, [activeTab, furthestTab]);
+  useEffect(() => {
+    setActiveTab((current) => {
+      const currentIndex = TAB_ORDER.indexOf(current);
+      const furthestIndex = TAB_ORDER.indexOf(furthestTab);
+      if (furthestIndex > currentIndex) return furthestTab;
+      return current;
+    });
+  }, [furthestTab]);
 
   const acceptLegalMutation = useMutation({
     mutationFn: () =>
@@ -123,7 +125,7 @@ export function OnboardingPageContent() {
       invalidateBillingQueries(queryClient);
       void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY });
       trackEvent("billing_checkout_returned", { result: "success", context: "onboarding" });
-      queueMicrotask(() => setActiveTab("plan"));
+      setActiveTab("plan");
     } else {
       toast({
         title: "Checkout cancelled",
@@ -137,16 +139,16 @@ export function OnboardingPageContent() {
   }, [searchParams, queryClient, router]);
 
   const goToNextTab = useCallback(() => {
-    const index = TAB_ORDER.indexOf(resolvedActiveTab);
+    const index = TAB_ORDER.indexOf(activeTab);
     const next = TAB_ORDER[index + 1];
     if (next) setActiveTab(next);
-  }, [resolvedActiveTab]);
+  }, [activeTab]);
 
   const skipOptionalTab = useCallback(() => {
-    if (!OPTIONAL_TABS.has(resolvedActiveTab)) return;
-    setSkippedTabs((prev) => new Set(prev).add(resolvedActiveTab));
+    if (!OPTIONAL_TABS.has(activeTab)) return;
+    setSkippedTabs((prev) => new Set(prev).add(activeTab));
     goToNextTab();
-  }, [resolvedActiveTab, goToNextTab]);
+  }, [activeTab, goToNextTab]);
 
   function canNavigateToTab(tab: OnboardingTabId): boolean {
     if (tab === "complete") return user?.onboardingCompleted ?? false;
@@ -208,12 +210,12 @@ export function OnboardingPageContent() {
         <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
           Guided setup
         </div>
-        <CardTitle>{titleByTab[resolvedActiveTab]}</CardTitle>
-        <CardDescription>{descriptionByTab[resolvedActiveTab]}</CardDescription>
+        <CardTitle>{titleByTab[activeTab]}</CardTitle>
+        <CardDescription>{descriptionByTab[activeTab]}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <OnboardingTabBar
-          activeTab={resolvedActiveTab}
+          activeTab={activeTab}
           furthestTab={furthestTab}
           steps={snapshot.steps}
           skippedTabs={skippedTabs}
@@ -223,13 +225,13 @@ export function OnboardingPageContent() {
           }}
         />
 
-        {showLegalForced && resolvedActiveTab === "legal" ? (
+        {showLegalForced && activeTab === "legal" ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
             Accept the documents below to access your dashboard.
           </div>
         ) : null}
 
-        {resolvedActiveTab === "legal" ? (
+        {activeTab === "legal" ? (
           <LegalAcceptanceStage
             missingSignup={legal.missingSignup}
             isLoading={legal.isLoading}
@@ -238,18 +240,18 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {resolvedActiveTab === "company" ? (
+        {activeTab === "company" ? (
           <CompanySetupStage onSaved={() => setActiveTab("plan")} />
         ) : null}
 
-        {resolvedActiveTab === "plan" ? (
+        {activeTab === "plan" ? (
           <ChoosePlanStage
             onPlanActive={() => setActiveTab("whatsapp")}
             planComplete={planComplete}
           />
         ) : null}
 
-        {resolvedActiveTab === "whatsapp" ? (
+        {activeTab === "whatsapp" ? (
           <WhatsAppSetupStage
             completed={whatsappComplete}
             onSkip={skipOptionalTab}
@@ -257,7 +259,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {resolvedActiveTab === "voice" ? (
+        {activeTab === "voice" ? (
           <VoiceNoteStage
             completed={voiceComplete}
             onSkip={skipOptionalTab}
@@ -265,7 +267,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {resolvedActiveTab === "confirm" ? (
+        {activeTab === "confirm" ? (
           <ConfirmStage
             error={error}
             isAuthLoading={isAuthLoading}
@@ -279,7 +281,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {resolvedActiveTab === "complete" ? (
+        {activeTab === "complete" ? (
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm">
               Onboarding is complete. Open the dashboard to start reviewing extracted records.

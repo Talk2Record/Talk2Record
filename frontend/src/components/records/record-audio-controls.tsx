@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
-import { resolveMediaUrl } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+
 import { Button } from "@/shared/ui/button";
 import type { RecordStatus } from "@/types/platform";
+import { resolveMediaUrl } from "@/lib/api";
 
 const REPROCESSABLE_STATUSES: readonly RecordStatus[] = [
   "failed",
@@ -76,6 +77,7 @@ export function RecordAudioControls({
 
     if (activePlaybackId !== recordId && !audio.paused) {
       audio.pause();
+      setIsPlaying(false);
     }
   }, [activePlaybackId, recordId]);
 
