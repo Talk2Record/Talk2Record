@@ -22,6 +22,7 @@ from typing import Any
 from django.conf import settings as django_settings
 
 from talk2record.billing.models import Plan
+from talk2record.billing.models import PlanEntitlement
 from talk2record.billing.models import PlanPrice
 from talk2record.billing.models import Subscription
 from talk2record.billing.paddle_client import PaddleAPIError
@@ -262,6 +263,23 @@ class PaddleBillingService:
     # Plan / Price upserts
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _entitlements_payload(plan: Plan) -> list[dict[str, Any]]:
+        """Serialize active ``PlanEntitlement`` rows into stable Paddle metadata."""
+        rows = (
+            plan.entitlements.filter(enabled=True)
+            .order_by("feature_key", "period")
+            .values("feature_key", "limit", "period")
+        )
+        return [
+            {
+                "feature_key": str(row["feature_key"]),
+                "limit": int(row["limit"] or 0),
+                "period": str(row["period"] or PlanEntitlement.Period.NONE),
+            }
+            for row in rows
+        ]
+
     def push_plan(self, plan: Plan) -> None:
         payload = {
             "name": plan.name,
@@ -270,6 +288,9 @@ class PaddleBillingService:
             "custom_data": {
                 "plan_code": plan.code,
                 "region": plan.region or "",
+                # Publish local entitlement definitions so Paddle-side metadata
+                # reflects what checkout/admin currently grants in Django.
+                "entitlements": self._entitlements_payload(plan),
             },
         }
         if plan.paddle_product_id:

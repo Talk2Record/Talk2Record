@@ -10,12 +10,13 @@ just lists registered changelists. This module adds an operational dashboard
 - Trialing subscriptions ending soon
 - Recent transactions (last 20)
 - Top organizations by spend (90d)
-- "Sync all from Paddle" quick action (enqueues a Celery task)
+- "Sync all from Paddle" quick action (enqueues push+pull sync task)
 
 Source of truth note: every number here is derived from local Django tables
 written by Paddle webhooks (control-plane view of the financial ledger).
-Re-running ``Sync all from Paddle`` is the way to refresh stale rows; we
-never mutate Paddle from this view.
+Re-running ``Sync all from Paddle`` refreshes stale rows. The queued task also
+pushes local active plan/price catalog rows to Paddle before pulling
+subscriptions so seeded billing config can be published from admin.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from typing import Any
 
 from django.contrib import admin
 from django.contrib import messages
+from django.core.cache import cache
 from django.db.models import Count
 from django.db.models import DecimalField
 from django.db.models import F
@@ -41,6 +43,8 @@ from django.utils.translation import gettext_lazy as _
 
 from talk2record.billing.entitlements import EntitlementService
 from talk2record.billing.models import PaddleWebhookEvent
+from talk2record.billing.models import Plan
+from talk2record.billing.models import PlanEntitlement
 from talk2record.billing.models import PlanPrice
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
@@ -48,6 +52,7 @@ from talk2record.billing.recovery_service import BillingRecoveryService
 from talk2record.organizations.models import Organization
 
 logger = logging.getLogger(__name__)
+PADDLE_SYNC_SUMMARY_CACHE_KEY = "billing:paddle_sync:last_summary"
 
 # Recurring-revenue snapshot: only subs that are currently billing.
 _BILLING_STATUSES = (Subscription.Status.ACTIVE, Subscription.Status.TRIALING)
@@ -269,6 +274,7 @@ def _top_orgs_by_spend(now: datetime.datetime) -> list[dict[str, Any]]:
 def billing_dashboard_view(request):
     """Render the ``/admin/billing/dashboard/`` Unfold page."""
     now = timezone.now()
+    last_sync_summary = cache.get(PADDLE_SYNC_SUMMARY_CACHE_KEY)
     context = {
         **admin.site.each_context(request),
         "title": _("Billing dashboard"),
@@ -293,6 +299,7 @@ def billing_dashboard_view(request):
         ),
         "test_paddle_url": reverse("admin_test_paddle_connection"),
         "sync_all_url": reverse("admin_billing_sync_all"),
+        "last_sync_summary": last_sync_summary,
     }
     return render(request, "admin/billing/dashboard.html", context)
 
@@ -454,7 +461,7 @@ def billing_reset_organization_view(request, organization_id: int):
 
 
 def billing_sync_all_view(request):
-    """Enqueue a full Paddle re-sync for every subscription with a Paddle id.
+    """Enqueue push+pull Paddle sync for catalog and subscriptions.
 
     POST only — admin-protected by ``admin.site.admin_view`` wrapper in
     ``config/urls.py``. Returns a redirect with a flash message.
@@ -466,9 +473,30 @@ def billing_sync_all_view(request):
     # (keeps the dashboard view fast and testable without a broker).
     from talk2record.billing.tasks import sync_paddle_state
 
-    pending = Subscription.objects.exclude(provider_subscription_id="").count()
+    pending_subs = Subscription.objects.exclude(provider_subscription_id="").count()
+    active_plans = Plan.objects.filter(is_active=True).count()
+    active_prices = PlanPrice.objects.filter(active=True).count()
+    active_entitlements = PlanEntitlement.objects.filter(
+        plan__is_active=True,
+        enabled=True,
+    ).count()
     try:
-        sync_paddle_state.delay()
+        task = sync_paddle_state.delay()
+        cache.set(
+            PADDLE_SYNC_SUMMARY_CACHE_KEY,
+            {
+                "status": "queued",
+                "queued_at": timezone.now().isoformat(),
+                "task_id": getattr(task, "id", ""),
+                "plans_pushed": 0,
+                "prices_pushed": 0,
+                "entitlements_published": 0,
+                "synced": 0,
+                "failed": 0,
+                "skipped": 0,
+            },
+            timeout=7 * 24 * 60 * 60,
+        )
     except Exception as exc:  # noqa: BLE001 — surfaced to the admin user
         logger.exception("Failed to enqueue Paddle sync-all task")
         messages.error(
@@ -479,6 +507,15 @@ def billing_sync_all_view(request):
 
     messages.success(
         request,
-        _("Queued Paddle sync for %(count)d subscriptions.") % {"count": pending},
+        _(
+            "Queued Paddle sync: %(plans)d plans, %(prices)d prices, "
+            "%(entitlements)d entitlements, %(subs)d subscriptions."
+        )
+        % {
+            "plans": active_plans,
+            "prices": active_prices,
+            "entitlements": active_entitlements,
+            "subs": pending_subs,
+        },
     )
     return redirect(reverse("admin_billing_dashboard"))

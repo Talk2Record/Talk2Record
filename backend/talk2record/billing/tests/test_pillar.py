@@ -222,6 +222,13 @@ class TestPaddleService:
 
     def test_push_plan_creates_product_when_no_paddle_id(self, plan):
         _configure_paddle()
+        PlanEntitlement.objects.create(
+            plan=plan,
+            feature_key="ai.usage",
+            enabled=True,
+            limit=1000,
+            period=PlanEntitlement.Period.MONTHLY,
+        )
         service = PaddleBillingService()
         with patch(
             "talk2record.billing.paddle_client.requests.request",
@@ -230,6 +237,14 @@ class TestPaddleService:
             service.push_plan(plan)
         assert mock_request.call_args.args[0] == "POST"
         assert mock_request.call_args.args[1].endswith("/products")
+        payload = mock_request.call_args.kwargs["json"]
+        assert payload["custom_data"]["entitlements"] == [
+            {
+                "feature_key": "ai.usage",
+                "limit": 1000,
+                "period": PlanEntitlement.Period.MONTHLY,
+            },
+        ]
         plan.refresh_from_db()
         assert plan.paddle_product_id == "pro_123"
 

@@ -684,7 +684,14 @@ def test_sync_paddle_state_task_short_circuits_when_unconfigured():
         mock_service_cls.return_value.client.is_configured.return_value = False
         result = sync_paddle_state.apply().get()
 
-    assert result == {"synced": 0, "failed": 0, "skipped": 0}
+    assert result == {
+        "plans_pushed": 0,
+        "prices_pushed": 0,
+        "entitlements_published": 0,
+        "synced": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
 
 
 # ---------------------------------------------------------------------------

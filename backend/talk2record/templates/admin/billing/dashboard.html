@@ -3,7 +3,9 @@
 
 {# Custom billing dashboard at /admin/billing/dashboard/.
    Surfaces MRR/ARR, trial cliffs, payment health, plan mix and a "Sync all
-   from Paddle" lifeline. Reads are local — Paddle is never mutated. #}
+   with Paddle" lifeline. The sync task pushes active local plan/price catalog
+   rows and entitlement metadata to Paddle, then pulls live subscription state
+   back into Django. #}
 
 {% block breadcrumbs %}
 <div class="px-4">
@@ -16,17 +18,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="px-4 md:px-6 pb-6 space-y-6">
 
     {# Header + quick actions #}
-    <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+    <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
                     {% translate "Billing dashboard" %}
                 </h2>
                 <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-1">
-                    {% blocktranslate with ts=now|date:"Y-m-d H:i" %}Snapshot @ {{ ts }} UTC. Numbers come from local tables written by Paddle webhooks — refresh via "Sync all" below if a recent webhook missed.{% endblocktranslate %}
+                    {% blocktranslate with ts=now|date:"Y-m-d H:i" %}Snapshot @ {{ ts }} UTC. Numbers come from local tables written by Paddle webhooks — use "Sync all with Paddle" below to publish local catalog + entitlements and refresh subscription state.{% endblocktranslate %}
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -34,7 +36,7 @@
                     {% csrf_token %}
                     <button type="submit" class="inline-flex cursor-pointer items-center gap-2 rounded-default bg-primary-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-primary-700">
                         <span class="material-symbols-outlined text-base leading-none">sync</span>
-                        {% translate "Sync all from Paddle" %}
+                        {% translate "Sync all with Paddle" %}
                     </button>
                 </form>
                 <form method="post" action="{{ test_paddle_url }}">
@@ -68,10 +70,35 @@
         </div>
     </div>
 
+    {% if last_sync_summary %}
+    <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h3 class="text-sm font-semibold text-font-important-light dark:text-font-important-dark">
+                    {% translate "Last Paddle Sync" %}
+                </h3>
+                <p class="mt-1 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                    {% blocktranslate with status=last_sync_summary.status|default:"unknown" task=last_sync_summary.task_id|default:"-" %}
+                    Status: {{ status }} • Task: {{ task }}
+                    {% endblocktranslate %}
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                <div>Plans pushed: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.plans_pushed|default:0 }}</span></div>
+                <div>Prices pushed: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.prices_pushed|default:0 }}</span></div>
+                <div>Entitlements published: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.entitlements_published|default:0 }}</span></div>
+                <div>Subscriptions synced: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.synced|default:0 }}</span></div>
+                <div>Failed: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.failed|default:0 }}</span></div>
+                <div>Finished at: <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ last_sync_summary.finished_at|default:last_sync_summary.queued_at|default:last_sync_summary.started_at|default:"-" }}</span></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {# KPI cards #}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {% for card in kpi_cards %}
-            <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+            <div class="bg-white rounded-default border border-base-200 p-5 shadow-xs dark:border-base-800 dark:bg-base-900">
                 <div class="text-xs uppercase tracking-wide font-medium text-font-subtle-light dark:text-font-subtle-dark">{{ card.title }}</div>
                 <div class="mt-2 text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ card.metric }}</div>
                 {% if card.footer %}
@@ -82,8 +109,8 @@
     </div>
 
     {# Plan distribution + Trialing soon (side by side on wide screens) #}
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
                 {% translate "Plan distribution" %}
                 <span class="text-xs font-normal text-font-subtle-light dark:text-font-subtle-dark">
@@ -119,7 +146,7 @@
             {% endif %}
         </div>
 
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
                 {% translate "Trialing — ending in 7 days" %}
             </h3>
@@ -160,8 +187,8 @@
     </div>
 
     {# Top orgs by spend + recent transactions #}
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
             <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
                 {% translate "Top organizations by spend" %}
                 <span class="text-xs font-normal text-font-subtle-light dark:text-font-subtle-dark">&middot; {% translate "last 90 days" %}</span>
@@ -190,7 +217,7 @@
             {% endif %}
         </div>
 
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <div class="bg-white rounded-default border border-base-200 p-5 md:p-6 shadow-xs dark:border-base-800 dark:bg-base-900">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-semibold text-font-important-light dark:text-font-important-dark">{% translate "Recent transactions" %}</h3>
                 <a href="{{ transaction_changelist_url }}" class="text-xs text-primary-600 hover:underline dark:text-primary-300">{% translate "View all" %}</a>
