@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from talk2record.taxonomy.models import (
-    Category,
-    DomainDictionary,
-    ExtractionSchema,
-    Industry,
-    ProcessingRule,
-    PromptTemplate,
-    PromptPurpose,
-    RuleType,
-)
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import DomainDictionary
+from talk2record.taxonomy.models import ExtractionSchema
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import PromptPurpose
+from talk2record.taxonomy.models import PromptTemplate
+from talk2record.taxonomy.models import RuleType
 
 
 @pytest.fixture

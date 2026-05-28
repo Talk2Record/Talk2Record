@@ -1,7 +1,8 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Record, RecordArtifact
+from .models import Record
+from .models import RecordArtifact
 
 
 @admin.register(Record)

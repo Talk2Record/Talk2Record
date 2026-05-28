@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from talk2record.records.models import Record, RecordArtifact
+from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 
 
 class RecordArtifactSerializer(serializers.ModelSerializer[RecordArtifact]):

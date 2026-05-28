@@ -39,7 +39,6 @@ from talk2record.records.models import Record
 from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.models import WhatsAppSettings
 
-
 _RANGE_DAYS = {
     "7d": 7,
     "30d": 30,
@@ -101,7 +100,9 @@ def dashboard_callback(request, context):
         .distinct()
         .count()
     )
-    revenue_total = transactions_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    revenue_total = transactions_qs.aggregate(total=Sum("amount"))["total"] or Decimal(
+        "0",
+    )
     records_total = records_qs.count()
     whatsapp_messages_total = whatsapp_messages_qs.count()
     ai_bindings_total = AITaskBinding.objects.count()
@@ -150,7 +151,7 @@ def dashboard_callback(request, context):
     ]
 
     available_organizations = list(
-        Organization.objects.order_by("name").values("id", "name", "slug")
+        Organization.objects.order_by("name").values("id", "name", "slug"),
     )
 
     charts = _build_charts(
@@ -351,12 +352,18 @@ def _records_by_status(records_qs) -> list[dict[str, Any]]:
     rows = records_qs.values("status").annotate(value=Count("id"))
     label_map = dict(Record.Status.choices)
     return [
-        {"label": str(label_map.get(row["status"], row["status"])), "value": row["value"]}
+        {
+            "label": str(label_map.get(row["status"], row["status"])),
+            "value": row["value"],
+        }
         for row in rows
     ]
 
 
-def _revenue_per_month(transactions_qs, organization: Organization | None) -> list[dict[str, Any]]:
+def _revenue_per_month(
+    transactions_qs,
+    organization: Organization | None,
+) -> list[dict[str, Any]]:
     qs = transactions_qs
     if organization is not None:
         qs = qs.filter(subscription__organization=organization)
@@ -370,7 +377,10 @@ def _revenue_per_month(transactions_qs, organization: Organization | None) -> li
     return [{"label": label, "value": float(value)} for label, value in items]
 
 
-def _top_organizations(records_qs, organization: Organization | None) -> list[dict[str, Any]]:
+def _top_organizations(
+    records_qs,
+    organization: Organization | None,
+) -> list[dict[str, Any]]:
     if organization is not None:
         total = records_qs.count()
         return [{"label": organization.name, "value": total}] if total else []
@@ -380,7 +390,8 @@ def _top_organizations(records_qs, organization: Organization | None) -> list[di
         .order_by("-value")[:5]
     )
     return [
-        {"label": row["organization__name"] or "—", "value": row["value"]} for row in rows
+        {"label": row["organization__name"] or "—", "value": row["value"]}
+        for row in rows
     ]
 
 

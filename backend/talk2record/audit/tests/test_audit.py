@@ -1,5 +1,5 @@
-from http import HTTPStatus
 from datetime import timedelta
+from http import HTTPStatus
 
 import pytest
 from django.core.management import call_command
@@ -41,7 +41,11 @@ def test_audit_admin_page(admin_client, workspace_user, organization):
 
 
 @pytest.mark.django_db
-def test_log_api_key_used_if_sampled_respects_interval(workspace_user, organization, settings):
+def test_log_api_key_used_if_sampled_respects_interval(
+    workspace_user,
+    organization,
+    settings,
+):
     settings.AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES = 5
     a = AuditService.log_api_key_used_if_sampled(
         api_key_id=1,
@@ -63,7 +67,11 @@ def test_log_api_key_used_if_sampled_respects_interval(workspace_user, organizat
 
 
 @pytest.mark.django_db
-def test_log_api_key_used_zero_interval_logs_every_time(workspace_user, organization, settings):
+def test_log_api_key_used_zero_interval_logs_every_time(
+    workspace_user,
+    organization,
+    settings,
+):
     settings.AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES = 0
     a = AuditService.log_api_key_used_if_sampled(
         api_key_id=2,

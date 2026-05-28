@@ -98,8 +98,7 @@ def test_seed_data_provisions_admin_records_only() -> None:
     # immediately after seeding (admins still need to add the API key).
     assert AIProvider.objects.filter(category="chat", is_active=True).count() == 1
     assert (
-        AIProvider.objects.filter(category="transcription", is_active=True).count()
-        == 1
+        AIProvider.objects.filter(category="transcription", is_active=True).count() == 1
     )
 
     # Tenant data must never be touched by the seed command.

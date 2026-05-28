@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Django Unfold admin configuration.
 
 Kept in its own module so ``base.py`` stays focused on Django settings.
@@ -127,7 +126,9 @@ UNFOLD = {
                     {
                         "title": _("1. Legal documents"),
                         "icon": "gavel",
-                        "link": reverse_lazy("admin:legal_legaldocumentversion_changelist"),
+                        "link": reverse_lazy(
+                            "admin:legal_legaldocumentversion_changelist",
+                        ),
                     },
                     {
                         "title": _("2. Sites"),
@@ -147,7 +148,9 @@ UNFOLD = {
                     {
                         "title": _("5. WhatsApp settings"),
                         "icon": "tune",
-                        "link": reverse_lazy("admin:whatsapp_whatsappsettings_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappsettings_changelist",
+                        ),
                     },
                     {
                         "title": _("6. Industries & categories"),
@@ -157,7 +160,9 @@ UNFOLD = {
                     {
                         "title": _("7. First organization"),
                         "icon": "apartment",
-                        "link": reverse_lazy("admin:organizations_organization_changelist"),
+                        "link": reverse_lazy(
+                            "admin:organizations_organization_changelist",
+                        ),
                     },
                 ],
             },
@@ -182,22 +187,30 @@ UNFOLD = {
                     {
                         "title": _("Extraction schemas"),
                         "icon": "schema",
-                        "link": reverse_lazy("admin:taxonomy_extractionschema_changelist"),
+                        "link": reverse_lazy(
+                            "admin:taxonomy_extractionschema_changelist",
+                        ),
                     },
                     {
                         "title": _("Prompt templates"),
                         "icon": "smart_toy",
-                        "link": reverse_lazy("admin:taxonomy_prompttemplate_changelist"),
+                        "link": reverse_lazy(
+                            "admin:taxonomy_prompttemplate_changelist",
+                        ),
                     },
                     {
                         "title": _("Domain dictionary"),
                         "icon": "translate",
-                        "link": reverse_lazy("admin:taxonomy_domaindictionary_changelist"),
+                        "link": reverse_lazy(
+                            "admin:taxonomy_domaindictionary_changelist",
+                        ),
                     },
                     {
                         "title": _("Processing rules"),
                         "icon": "rule",
-                        "link": reverse_lazy("admin:taxonomy_processingrule_changelist"),
+                        "link": reverse_lazy(
+                            "admin:taxonomy_processingrule_changelist",
+                        ),
                     },
                 ],
             },
@@ -262,32 +275,44 @@ UNFOLD = {
                     {
                         "title": _("WhatsApp settings"),
                         "icon": "tune",
-                        "link": reverse_lazy("admin:whatsapp_whatsappsettings_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappsettings_changelist",
+                        ),
                     },
                     {
                         "title": _("Inbound phone routes"),
                         "icon": "alt_route",
-                        "link": reverse_lazy("admin:whatsapp_whatsappinboundroute_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappinboundroute_changelist",
+                        ),
                     },
                     {
                         "title": _("WhatsApp accounts"),
                         "icon": "business_center",
-                        "link": reverse_lazy("admin:whatsapp_whatsappaccount_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappaccount_changelist",
+                        ),
                     },
                     {
                         "title": _("Conversations"),
                         "icon": "forum",
-                        "link": reverse_lazy("admin:whatsapp_whatsappconversation_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappconversation_changelist",
+                        ),
                     },
                     {
                         "title": _("Messages"),
                         "icon": "chat",
-                        "link": reverse_lazy("admin:whatsapp_whatsappmessage_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsappmessage_changelist",
+                        ),
                     },
                     {
                         "title": _("Message templates"),
                         "icon": "text_snippet",
-                        "link": reverse_lazy("admin:whatsapp_whatsapptemplate_changelist"),
+                        "link": reverse_lazy(
+                            "admin:whatsapp_whatsapptemplate_changelist",
+                        ),
                     },
                 ],
             },
@@ -302,22 +327,30 @@ UNFOLD = {
                     {
                         "title": _("Organizations"),
                         "icon": "apartment",
-                        "link": reverse_lazy("admin:organizations_organization_changelist"),
+                        "link": reverse_lazy(
+                            "admin:organizations_organization_changelist",
+                        ),
                     },
                     {
                         "title": _("Memberships"),
                         "icon": "groups",
-                        "link": reverse_lazy("admin:organizations_membership_changelist"),
+                        "link": reverse_lazy(
+                            "admin:organizations_membership_changelist",
+                        ),
                     },
                     {
                         "title": _("Invitations"),
                         "icon": "mail",
-                        "link": reverse_lazy("admin:organizations_membershipinvitation_changelist"),
+                        "link": reverse_lazy(
+                            "admin:organizations_membershipinvitation_changelist",
+                        ),
                     },
                     {
                         "title": _("Organization API keys"),
                         "icon": "vpn_key",
-                        "link": reverse_lazy("admin:organizations_organizationapikey_changelist"),
+                        "link": reverse_lazy(
+                            "admin:organizations_organizationapikey_changelist",
+                        ),
                     },
                 ],
             },
@@ -364,7 +397,9 @@ UNFOLD = {
                     {
                         "title": _("Plan entitlements"),
                         "icon": "checklist",
-                        "link": reverse_lazy("admin:billing_planentitlement_changelist"),
+                        "link": reverse_lazy(
+                            "admin:billing_planentitlement_changelist",
+                        ),
                     },
                     {
                         "title": _("Subscriptions"),
@@ -379,7 +414,9 @@ UNFOLD = {
                     {
                         "title": _("Webhook events"),
                         "icon": "webhook",
-                        "link": reverse_lazy("admin:billing_paddlewebhookevent_changelist"),
+                        "link": reverse_lazy(
+                            "admin:billing_paddlewebhookevent_changelist",
+                        ),
                     },
                 ],
             },
@@ -394,12 +431,16 @@ UNFOLD = {
                     {
                         "title": _("Notifications"),
                         "icon": "notifications",
-                        "link": reverse_lazy("admin:notifications_notification_changelist"),
+                        "link": reverse_lazy(
+                            "admin:notifications_notification_changelist",
+                        ),
                     },
                     {
                         "title": _("Webhook payloads"),
                         "icon": "inbox",
-                        "link": reverse_lazy("admin:ingestion_whatsapprawpayload_changelist"),
+                        "link": reverse_lazy(
+                            "admin:ingestion_whatsapprawpayload_changelist",
+                        ),
                     },
                     {
                         "title": _("Events"),
@@ -429,27 +470,37 @@ UNFOLD = {
                     {
                         "title": _("Periodic tasks"),
                         "icon": "schedule",
-                        "link": reverse_lazy("admin:django_celery_beat_periodictask_changelist"),
+                        "link": reverse_lazy(
+                            "admin:django_celery_beat_periodictask_changelist",
+                        ),
                     },
                     {
                         "title": _("Interval schedules"),
                         "icon": "timer",
-                        "link": reverse_lazy("admin:django_celery_beat_intervalschedule_changelist"),
+                        "link": reverse_lazy(
+                            "admin:django_celery_beat_intervalschedule_changelist",
+                        ),
                     },
                     {
                         "title": _("Crontab schedules"),
                         "icon": "calendar_month",
-                        "link": reverse_lazy("admin:django_celery_beat_crontabschedule_changelist"),
+                        "link": reverse_lazy(
+                            "admin:django_celery_beat_crontabschedule_changelist",
+                        ),
                     },
                     {
                         "title": _("Clocked schedules"),
                         "icon": "alarm",
-                        "link": reverse_lazy("admin:django_celery_beat_clockedschedule_changelist"),
+                        "link": reverse_lazy(
+                            "admin:django_celery_beat_clockedschedule_changelist",
+                        ),
                     },
                     {
                         "title": _("Solar schedules"),
                         "icon": "wb_sunny",
-                        "link": reverse_lazy("admin:django_celery_beat_solarschedule_changelist"),
+                        "link": reverse_lazy(
+                            "admin:django_celery_beat_solarschedule_changelist",
+                        ),
                     },
                 ],
             },
@@ -489,27 +540,37 @@ UNFOLD = {
                     {
                         "title": _("Social accounts"),
                         "icon": "person_add",
-                        "link": reverse_lazy("admin:socialaccount_socialaccount_changelist"),
+                        "link": reverse_lazy(
+                            "admin:socialaccount_socialaccount_changelist",
+                        ),
                     },
                     {
                         "title": _("Social apps"),
                         "icon": "apps",
-                        "link": reverse_lazy("admin:socialaccount_socialapp_changelist"),
+                        "link": reverse_lazy(
+                            "admin:socialaccount_socialapp_changelist",
+                        ),
                     },
                     {
                         "title": _("Social tokens"),
                         "icon": "token",
-                        "link": reverse_lazy("admin:socialaccount_socialtoken_changelist"),
+                        "link": reverse_lazy(
+                            "admin:socialaccount_socialtoken_changelist",
+                        ),
                     },
                     {
                         "title": _("JWT outstanding tokens"),
                         "icon": "key",
-                        "link": reverse_lazy("admin:token_blacklist_outstandingtoken_changelist"),
+                        "link": reverse_lazy(
+                            "admin:token_blacklist_outstandingtoken_changelist",
+                        ),
                     },
                     {
                         "title": _("JWT blacklisted tokens"),
                         "icon": "block",
-                        "link": reverse_lazy("admin:token_blacklist_blacklistedtoken_changelist"),
+                        "link": reverse_lazy(
+                            "admin:token_blacklist_blacklistedtoken_changelist",
+                        ),
                     },
                     {
                         "title": _("Sites"),
@@ -529,17 +590,23 @@ UNFOLD = {
                     {
                         "title": _("Document versions"),
                         "icon": "gavel",
-                        "link": reverse_lazy("admin:legal_legaldocumentversion_changelist"),
+                        "link": reverse_lazy(
+                            "admin:legal_legaldocumentversion_changelist",
+                        ),
                     },
                     {
                         "title": _("Acceptances"),
                         "icon": "fact_check",
-                        "link": reverse_lazy("admin:legal_userlegalacceptance_changelist"),
+                        "link": reverse_lazy(
+                            "admin:legal_userlegalacceptance_changelist",
+                        ),
                     },
                     {
                         "title": _("Attestations"),
                         "icon": "verified",
-                        "link": reverse_lazy("admin:legal_userlegalattestation_changelist"),
+                        "link": reverse_lazy(
+                            "admin:legal_userlegalattestation_changelist",
+                        ),
                     },
                 ],
             },

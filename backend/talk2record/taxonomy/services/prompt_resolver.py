@@ -21,12 +21,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from talk2record.taxonomy.models import (
-    Category,
-    Industry,
-    PromptPurpose,
-    PromptTemplate,
-)
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import PromptPurpose
+from talk2record.taxonomy.models import PromptTemplate
 
 
 @dataclass(frozen=True)

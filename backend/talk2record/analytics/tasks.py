@@ -19,7 +19,7 @@ from talk2record.organizations.models import Organization
     retry_jitter=True,
     max_retries=5,
 )
-def handle_domain_event_for_analytics(self, event_payload: dict) -> None:  # noqa: ARG001
+def handle_domain_event_for_analytics(self, event_payload: dict) -> None:
     if already_handled(event_payload, "analytics"):
         return
 

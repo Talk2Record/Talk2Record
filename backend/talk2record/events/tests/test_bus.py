@@ -40,7 +40,10 @@ def test_get_handlers_bootstraps_and_returns_handlers():
     handlers = EventBus.get_handlers(RECORD_STORED)
     assert "talk2record.audit.tasks.handle_domain_event_for_audit" in handlers
     assert "talk2record.analytics.tasks.handle_domain_event_for_analytics" in handlers
-    assert "talk2record.notifications.tasks.handle_domain_event_for_notifications" in handlers
+    assert (
+        "talk2record.notifications.tasks.handle_domain_event_for_notifications"
+        in handlers
+    )
 
 
 def test_get_handlers_returns_empty_for_unknown_event():
@@ -50,16 +53,14 @@ def test_get_handlers_returns_empty_for_unknown_event():
 
 
 def test_register_defaults_covers_all_expected_events():
-    from talk2record.events.names import (
-        AI_EXTRACTION_COMPLETED,
-        AI_TRANSCRIPTION_COMPLETED,
-        BILLING_LIMIT_EXCEEDED,
-        INGESTION_RECEIVED,
-        RECORD_PROCESSING_COMPLETED,
-        RECORD_PROCESSING_FAILED,
-        RECORD_PROCESSING_STARTED,
-        USAGE_AI_INCREMENTED,
-    )
+    from talk2record.events.names import AI_EXTRACTION_COMPLETED
+    from talk2record.events.names import AI_TRANSCRIPTION_COMPLETED
+    from talk2record.events.names import BILLING_LIMIT_EXCEEDED
+    from talk2record.events.names import INGESTION_RECEIVED
+    from talk2record.events.names import RECORD_PROCESSING_COMPLETED
+    from talk2record.events.names import RECORD_PROCESSING_FAILED
+    from talk2record.events.names import RECORD_PROCESSING_STARTED
+    from talk2record.events.names import USAGE_AI_INCREMENTED
 
     registered: dict[str, list[str]] = {}
     register_defaults(lambda name, task: registered.setdefault(name, []).append(task))

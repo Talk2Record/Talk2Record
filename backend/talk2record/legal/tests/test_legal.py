@@ -55,7 +55,10 @@ def test_record_attestation_persists_metadata(workspace_user):
 
 
 @pytest.mark.django_db
-def test_get_user_compliance_reflects_required_acceptance(workspace_user, legal_versions):
+def test_get_user_compliance_reflects_required_acceptance(
+    workspace_user,
+    legal_versions,
+):
     before = LegalAcceptanceService.get_user_compliance(workspace_user)
     LegalAcceptanceService.accept_documents(
         user=workspace_user,

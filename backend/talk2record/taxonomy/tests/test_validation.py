@@ -48,7 +48,10 @@ def test_null_optional_fields_returns_ok():
         "vehicle": None,
         "delivered_at": None,
     }
-    result = SchemaValidator.validate_dict(payload, json_schema=_material_delivery_json_schema())
+    result = SchemaValidator.validate_dict(
+        payload,
+        json_schema=_material_delivery_json_schema(),
+    )
     assert result.ok is True
     assert result.errors == []
 

@@ -60,7 +60,7 @@ class ChangePlanResult:
     plan_code: str
 
 
-def _amount_to_paddle_minor_units(amount: Decimal | float | int | str) -> str:
+def _amount_to_paddle_minor_units(amount: Decimal | float | str) -> str:
     """Convert a decimal amount (e.g. ``49.00``) to Paddle's minor-unit string."""
 
     value = Decimal(str(amount or 0))
@@ -114,7 +114,10 @@ class PaddleBillingService:
         except PaddleAPIError as exc:
             return False, str(exc)
         env = self.client._settings().environment  # noqa: SLF001
-        return True, f"Paddle Billing API ({env}) responded successfully to a live ping."
+        return (
+            True,
+            f"Paddle Billing API ({env}) responded successfully to a live ping.",
+        )
 
     # ------------------------------------------------------------------
     # Checkout
@@ -123,7 +126,7 @@ class PaddleBillingService:
     def create_checkout(
         self,
         *,
-        organization: "Organization",
+        organization: Organization,
         plan: Plan,
         success_url: str | None = None,
         interval: str = DEFAULT_INTERVAL,
@@ -237,7 +240,8 @@ class PaddleBillingService:
 
     @staticmethod
     def _resolve_price(
-        plan: Plan, interval: str = DEFAULT_INTERVAL,
+        plan: Plan,
+        interval: str = DEFAULT_INTERVAL,
     ) -> PlanPrice | None:
         """Return the ``PlanPrice`` row matching ``interval``.
 
@@ -247,10 +251,11 @@ class PaddleBillingService:
         wrong cadence when an interval isn't published for a plan.
         """
 
-        exact = (
-            PlanPrice.objects.filter(plan=plan, active=True, interval=interval)
-            .first()
-        )
+        exact = PlanPrice.objects.filter(
+            plan=plan,
+            active=True,
+            interval=interval,
+        ).first()
         if exact is not None:
             return exact
         candidates = list(PlanPrice.objects.filter(plan=plan, active=True))
@@ -322,7 +327,9 @@ class PaddleBillingService:
         payload: dict[str, Any] = {
             "description": f"{plan.name} ({price.interval})",
             "unit_price": {
-                "amount": _amount_to_paddle_minor_units(price.amount or plan.base_price),
+                "amount": _amount_to_paddle_minor_units(
+                    price.amount or plan.base_price,
+                ),
                 "currency_code": (price.currency or plan.currency).upper(),
             },
             "billing_cycle": billing_cycle,
@@ -379,7 +386,10 @@ class PaddleBillingService:
     # ------------------------------------------------------------------
 
     def push_subscription_change(
-        self, sub: Subscription, *, before: dict[str, Any],
+        self,
+        sub: Subscription,
+        *,
+        before: dict[str, Any],
     ) -> None:
         """Reconcile admin edits to a Subscription row with Paddle.
 
@@ -428,11 +438,17 @@ class PaddleBillingService:
             return ""
         return price.paddle_price_id
 
-    def cancel(self, sub: Subscription, *, effective_from: str = "next_billing_period") -> None:
+    def cancel(
+        self,
+        sub: Subscription,
+        *,
+        effective_from: str = "next_billing_period",
+    ) -> None:
         if not sub.provider_subscription_id:
             return
         self.client.cancel_subscription(
-            sub.provider_subscription_id, effective_from=effective_from,
+            sub.provider_subscription_id,
+            effective_from=effective_from,
         )
 
     def pause(self, sub: Subscription) -> None:

@@ -1,5 +1,6 @@
-import pytest
 from decimal import Decimal
+
+import pytest
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -11,8 +12,6 @@ from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.whatsapp.models import WhatsAppInboundRoute
-from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.legal.models import UserLegalAcceptance
 from talk2record.legal.models import UserLegalAttestation
 from talk2record.organizations.models import Membership
@@ -21,6 +20,8 @@ from talk2record.records.models import Record
 from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
 from talk2record.users.views import UserViewSet
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 
 
 class TestUserViewSet:
@@ -232,7 +233,10 @@ class TestJWTAuthAPI:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_register_creates_org_membership_and_acceptances(self, api_client: APIClient):
+    def test_register_creates_org_membership_and_acceptances(
+        self,
+        api_client: APIClient,
+    ):
         response = api_client.post(
             reverse("api-auth-register"),
             {
@@ -262,7 +266,11 @@ class TestJWTAuthAPI:
             slug="acme-onboard-complete",
             profile_setup_completed=True,
         )
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         plan, _ = Plan.objects.get_or_create(
@@ -287,7 +295,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.post(
             reverse("api-onboarding-complete"),
@@ -302,13 +312,23 @@ class TestJWTAuthAPI:
         user.refresh_from_db()
         assert response.status_code == status.HTTP_200_OK
         assert user.onboarding_completed is True
-        assert UserLegalAttestation.objects.filter(user=user, context="onboarding").count() == 3
+        assert (
+            UserLegalAttestation.objects.filter(user=user, context="onboarding").count()
+            == 3
+        )
 
     def test_complete_onboarding_requires_company_and_plan(self, api_client: APIClient):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
-        organization = Organization.objects.create(name="Acme", slug="acme-onboard-guard")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        organization = Organization.objects.create(
+            name="Acme",
+            slug="acme-onboard-guard",
+        )
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         login_response = api_client.post(
@@ -316,7 +336,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.post(
             reverse("api-onboarding-complete"),
@@ -331,7 +353,10 @@ class TestJWTAuthAPI:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Company profile" in response.data["detail"]
 
-    def test_complete_onboarding_requires_all_acknowledgements(self, api_client: APIClient):
+    def test_complete_onboarding_requires_all_acknowledgements(
+        self,
+        api_client: APIClient,
+    ):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         login_response = api_client.post(
@@ -339,7 +364,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.post(
             reverse("api-onboarding-complete"),
@@ -369,7 +396,11 @@ class TestJWTAuthAPI:
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         organization = Organization.objects.create(name="Acme", slug="acme")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         ws = WhatsAppSettings.get_solo()
@@ -387,18 +418,26 @@ class TestJWTAuthAPI:
             type=Record.Type.VOICE_NOTE,
         )
         from talk2record.records.models import RecordArtifact
+
         RecordArtifact.objects.create(
             record=record,
             key="extraction",
             artifact_type=RecordArtifact.ArtifactType.JSON,
-            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
+            content={
+                "customer_name": "Kifaru",
+                "product": "Rice",
+                "amount": "100",
+                "currency": "USD",
+            },
         )
         login_response = api_client.post(
             reverse("api-auth-login"),
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.get(reverse("api-onboarding-steps"))
 
@@ -414,11 +453,21 @@ class TestJWTAuthAPI:
         assert response.data[3]["id"] == "first-voice-note"
         assert response.data[3]["completed"] is True
 
-    def test_onboarding_company_setup_completes_after_settings_patch(self, api_client: APIClient):
+    def test_onboarding_company_setup_completes_after_settings_patch(
+        self,
+        api_client: APIClient,
+    ):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password, email="owner@example.com")
-        organization = Organization.objects.create(name="Acme", slug="acme-onboard-settings")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        organization = Organization.objects.create(
+            name="Acme",
+            slug="acme-onboard-settings",
+        )
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         login_response = api_client.post(
@@ -426,7 +475,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         api_client.patch(
             reverse("api-settings-profile"),
@@ -441,10 +492,15 @@ class TestJWTAuthAPI:
         )
 
         response = api_client.get(reverse("api-onboarding-steps"))
-        company_step = next(row for row in response.data if row["id"] == "company-setup")
+        company_step = next(
+            row for row in response.data if row["id"] == "company-setup"
+        )
         assert company_step["completed"] is True
 
-    def test_onboarding_choose_plan_completes_with_subscription(self, api_client: APIClient):
+    def test_onboarding_choose_plan_completes_with_subscription(
+        self,
+        api_client: APIClient,
+    ):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         organization = Organization.objects.create(
@@ -452,7 +508,11 @@ class TestJWTAuthAPI:
             slug="acme-onboard-plan",
             profile_setup_completed=True,
         )
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         plan, _ = Plan.objects.get_or_create(
@@ -477,7 +537,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.get(reverse("api-onboarding-steps"))
         plan_step = next(row for row in response.data if row["id"] == "choose-plan")
@@ -492,7 +554,11 @@ class TestJWTAuthAPI:
             timezone="Africa/Nairobi",
             default_currency="KES",
         )
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         login_response = api_client.post(
@@ -500,7 +566,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         get_response = api_client.get(reverse("api-settings-profile"))
         patch_response = api_client.patch(
@@ -524,11 +592,18 @@ class TestJWTAuthAPI:
         assert user.email == "ops@example.com"
         assert organization.default_currency == "USD"
 
-    def test_dashboard_overview_returns_metrics_and_activity(self, api_client: APIClient):
+    def test_dashboard_overview_returns_metrics_and_activity(
+        self,
+        api_client: APIClient,
+    ):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         organization = Organization.objects.create(name="Acme", slug="acme-dashboard")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         record = Record.objects.create(
@@ -539,6 +614,7 @@ class TestJWTAuthAPI:
             status=Record.Status.REVIEW,
         )
         from talk2record.records.models import RecordArtifact
+
         RecordArtifact.objects.create(
             record=record,
             key="transcript",
@@ -549,14 +625,21 @@ class TestJWTAuthAPI:
             record=record,
             key="extraction",
             artifact_type=RecordArtifact.ArtifactType.JSON,
-            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
+            content={
+                "customer_name": "Kifaru",
+                "product": "Rice",
+                "amount": "100",
+                "currency": "USD",
+            },
         )
         login_response = api_client.post(
             reverse("api-auth-login"),
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.get(reverse("api-dashboard-overview"))
 
@@ -568,7 +651,11 @@ class TestJWTAuthAPI:
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         organization = Organization.objects.create(name="Acme", slug="acme-analytics")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
         record = Record.objects.create(
@@ -579,11 +666,17 @@ class TestJWTAuthAPI:
             status=Record.Status.STORED,
         )
         from talk2record.records.models import RecordArtifact
+
         RecordArtifact.objects.create(
             record=record,
             key="extraction",
             artifact_type=RecordArtifact.ArtifactType.JSON,
-            content={"customer_name": "Kifaru", "product": "Rice", "amount": "100", "currency": "USD"},
+            content={
+                "customer_name": "Kifaru",
+                "product": "Rice",
+                "amount": "100",
+                "currency": "USD",
+            },
         )
         DailyMetric.objects.create(
             organization=organization,
@@ -599,7 +692,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.get(reverse("api-analytics-snapshot"))
 
@@ -607,14 +702,26 @@ class TestJWTAuthAPI:
         assert response.data["salesPerDay"]
         assert response.data["salesPerProduct"][0]["label"] == "Rice"
 
-    def test_billing_snapshot_returns_subscription_and_invoices(self, api_client: APIClient):
+    def test_billing_snapshot_returns_subscription_and_invoices(
+        self,
+        api_client: APIClient,
+    ):
         password = "T3stPassword!123"
         user = UserFactory.create(password=password)
         organization = Organization.objects.create(name="Acme", slug="acme-billing")
-        Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
+        Membership.objects.create(
+            user=user,
+            organization=organization,
+            role=Membership.Role.OWNER,
+        )
         user.current_organization = organization
         user.save(update_fields=["current_organization"])
-        plan = Plan.objects.create(name="Growth", code="growth", base_price=99, currency="USD")
+        plan = Plan.objects.create(
+            name="Growth",
+            code="growth",
+            base_price=99,
+            currency="USD",
+        )
         subscription = Subscription.objects.create(
             organization=organization,
             plan=plan,
@@ -637,7 +744,9 @@ class TestJWTAuthAPI:
             {"email": user.email, "password": password},
             format="json",
         )
-        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}",
+        )
 
         response = api_client.get("/api/billing/")
 

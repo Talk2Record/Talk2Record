@@ -49,10 +49,14 @@ def test_notification_read_at_update(workspace_user):
 @pytest.mark.django_db
 def test_notification_ordering_newest_first(workspace_user):
     n1 = Notification.objects.create(
-        user=workspace_user, type=Notification.Type.GENERAL, title="First"
+        user=workspace_user,
+        type=Notification.Type.GENERAL,
+        title="First",
     )
     n2 = Notification.objects.create(
-        user=workspace_user, type=Notification.Type.GENERAL, title="Second"
+        user=workspace_user,
+        type=Notification.Type.GENERAL,
+        title="Second",
     )
     qs = list(Notification.objects.filter(user=workspace_user))
     assert qs[0].pk == n2.pk

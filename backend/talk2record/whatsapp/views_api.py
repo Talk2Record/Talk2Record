@@ -6,25 +6,24 @@ outbound send endpoint. All endpoints require JWT auth + org membership.
 
 from __future__ import annotations
 
-from rest_framework import serializers, status
+from rest_framework import serializers
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from talk2record.audit.services import AuditService
-from talk2record.organizations.permissions import IsOrgAdmin, IsOrgMember
+from talk2record.organizations.permissions import IsOrgAdmin
+from talk2record.organizations.permissions import IsOrgMember
 from talk2record.organizations.services import OrganizationContextService
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppConversation,
-    WhatsAppMessage,
-    WhatsAppTemplate,
-)
-from talk2record.whatsapp.services.outbound import (
-    OutboundSendError,
-    WhatsAppOutboundService,
-)
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
+from talk2record.whatsapp.models import WhatsAppMessage
+from talk2record.whatsapp.models import WhatsAppTemplate
+from talk2record.whatsapp.services.outbound import OutboundSendError
+from talk2record.whatsapp.services.outbound import WhatsAppOutboundService
 
 
 class WhatsAppAccountSerializer(serializers.ModelSerializer[WhatsAppAccount]):
@@ -114,7 +113,9 @@ class WhatsAppAccountViewSet(_OrgScopedMixin, ReadOnlyModelViewSet):
         organization = self._organization()
         if organization is None:
             return WhatsAppAccount.objects.none()
-        return WhatsAppAccount.objects.filter(organization=organization).order_by("-created_at")
+        return WhatsAppAccount.objects.filter(organization=organization).order_by(
+            "-created_at",
+        )
 
 
 class WhatsAppConversationViewSet(_OrgScopedMixin, ReadOnlyModelViewSet):
@@ -163,15 +164,25 @@ class WhatsAppTemplateViewSet(_OrgScopedMixin, ReadOnlyModelViewSet):
         organization = self._organization()
         if organization is None:
             return WhatsAppTemplate.objects.none()
-        return WhatsAppTemplate.objects.filter(organization=organization).order_by("name")
+        return WhatsAppTemplate.objects.filter(organization=organization).order_by(
+            "name",
+        )
 
 
 class SendWhatsAppMessageSerializer(serializers.Serializer):
     to = serializers.CharField(max_length=32)
     type = serializers.ChoiceField(choices=[("text", "Text"), ("template", "Template")])
     body = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    template_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    language_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    template_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    language_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
     components = serializers.ListField(
         child=serializers.DictField(),
         required=False,

@@ -83,7 +83,9 @@ class TestOrganizationAPIKeyEndpoints:
         )
 
         source_key = OrganizationAPIKey.objects.get(pk=source_key_id)
-        replacement_key = OrganizationAPIKey.objects.get(pk=rotate_response.data["key"]["id"])
+        replacement_key = OrganizationAPIKey.objects.get(
+            pk=rotate_response.data["key"]["id"],
+        )
         assert rotate_response.status_code == status.HTTP_201_CREATED
         assert rotate_response.data["apiKey"].startswith("t2r_")
         assert replacement_key.is_active is True
@@ -98,7 +100,9 @@ class TestOrganizationAPIKeyEndpoints:
             format="json",
         )
         key_id = create_response.data["key"]["id"]
-        api_client.post(reverse("api:organization-api-key-revoke", kwargs={"pk": key_id}))
+        api_client.post(
+            reverse("api:organization-api-key-revoke", kwargs={"pk": key_id}),
+        )
 
         active_only = api_client.get(reverse("api:organization-api-key-list"))
         with_inactive = api_client.get(
@@ -120,7 +124,9 @@ class TestOrganizationAPIKeyEndpoints:
             format="json",
         )
         key_id = create_response.data["key"]["id"]
-        api_client.post(reverse("api:organization-api-key-revoke", kwargs={"pk": key_id}))
+        api_client.post(
+            reverse("api:organization-api-key-revoke", kwargs={"pk": key_id}),
+        )
 
         audit_response = api_client.get(
             reverse("api:organization-api-key-audit-events", kwargs={"pk": key_id}),
@@ -134,7 +140,11 @@ class TestOrganizationAPIKeyEndpoints:
             "organization.api_key.created",
         ]
 
-    def test_create_and_rotate_emit_audit_logs(self, api_client: APIClient, workspace_user):
+    def test_create_and_rotate_emit_audit_logs(
+        self,
+        api_client: APIClient,
+        workspace_user,
+    ):
         api_client.force_authenticate(user=workspace_user)
         create_response = api_client.post(
             reverse("api:organization-api-key-list"),

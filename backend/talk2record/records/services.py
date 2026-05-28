@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING
 from talk2record.events import DomainEvent
 from talk2record.events import publish_after_commit
 from talk2record.events.names import RECORD_STORED
-from talk2record.records.models import Record, RecordArtifact
+from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 
 if TYPE_CHECKING:
-    from talk2record.ai.providers.base import ExtractionResult, TranscriptionResult
+    from talk2record.ai.providers.base import ExtractionResult
+    from talk2record.ai.providers.base import TranscriptionResult
     from talk2record.taxonomy.services.orchestrator import PipelineOutcome
 
 
@@ -34,7 +36,10 @@ class RecordProcessingService:
     """
 
     @staticmethod
-    def save_transcript_artifact(record: Record, result: TranscriptionResult) -> RecordArtifact:
+    def save_transcript_artifact(
+        record: Record,
+        result: TranscriptionResult,
+    ) -> RecordArtifact:
         artifact, _ = RecordArtifact.objects.update_or_create(
             record=record,
             key="transcript",
@@ -48,7 +53,10 @@ class RecordProcessingService:
         return artifact
 
     @staticmethod
-    def save_extraction_artifact(record: Record, result: ExtractionResult) -> RecordArtifact:
+    def save_extraction_artifact(
+        record: Record,
+        result: ExtractionResult,
+    ) -> RecordArtifact:
         artifact, _ = RecordArtifact.objects.update_or_create(
             record=record,
             key="extraction",
@@ -67,7 +75,10 @@ class RecordProcessingService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def save_classification_artifact(record: Record, outcome: PipelineOutcome) -> RecordArtifact:
+    def save_classification_artifact(
+        record: Record,
+        outcome: PipelineOutcome,
+    ) -> RecordArtifact:
         artifact, _ = RecordArtifact.objects.update_or_create(
             record=record,
             key="classification",
@@ -86,7 +97,10 @@ class RecordProcessingService:
         return artifact
 
     @staticmethod
-    def save_normalization_artifact(record: Record, outcome: PipelineOutcome) -> RecordArtifact:
+    def save_normalization_artifact(
+        record: Record,
+        outcome: PipelineOutcome,
+    ) -> RecordArtifact:
         artifact, _ = RecordArtifact.objects.update_or_create(
             record=record,
             key="normalization",
@@ -120,7 +134,9 @@ class RecordProcessingService:
             schema_version = ""
 
         content = {
-            "categories": [extraction.to_artifact() for extraction in outcome.extractions],
+            "categories": [
+                extraction.to_artifact() for extraction in outcome.extractions
+            ],
             "primary": outcome.extracted_data,
         }
         artifact, _ = RecordArtifact.objects.update_or_create(
@@ -138,7 +154,10 @@ class RecordProcessingService:
         return artifact
 
     @staticmethod
-    def save_validation_artifact(record: Record, outcome: PipelineOutcome) -> RecordArtifact:
+    def save_validation_artifact(
+        record: Record,
+        outcome: PipelineOutcome,
+    ) -> RecordArtifact:
         artifact, _ = RecordArtifact.objects.update_or_create(
             record=record,
             key="validation",
@@ -223,7 +242,9 @@ class RecordProcessingService:
         category_label = ""
         if categories:
             first = categories[0]
-            category_label = f"{first.get('industry', '')}.{first.get('slug', '')}".strip(".")
+            category_label = (
+                f"{first.get('industry', '')}.{first.get('slug', '')}".strip(".")
+            )
 
         title = (
             f"Voice note classified as {category_label}"
@@ -237,5 +258,8 @@ class RecordProcessingService:
                 if value in (None, "", [], {}):
                     continue
                 summary_bits.append(f"{key}: {value}")
-        message = ", ".join(summary_bits) or f"Record {record.source_reference or record.pk} is ready."
+        message = (
+            ", ".join(summary_bits)
+            or f"Record {record.source_reference or record.pk} is ready."
+        )
         return title, message

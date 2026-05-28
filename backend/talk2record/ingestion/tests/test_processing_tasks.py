@@ -53,7 +53,9 @@ def test_process_whatsapp_record_marks_payload_processed(settings, record):
     assert record.processing_states.filter(status=Record.Status.TRANSCRIBED).exists()
     assert record.processing_states.filter(status=Record.Status.EXTRACTED).exists()
     assert record.processing_states.filter(status=Record.Status.STORED).exists()
-    assert record.ai_usage.filter(service_type=AIUsage.ServiceType.TRANSCRIPTION).exists()
+    assert record.ai_usage.filter(
+        service_type=AIUsage.ServiceType.TRANSCRIPTION,
+    ).exists()
     assert record.ai_usage.filter(service_type=AIUsage.ServiceType.EXTRACTION).exists()
     assert raw_payload.processed is True
     assert raw_payload.processed_at is not None
@@ -61,7 +63,8 @@ def test_process_whatsapp_record_marks_payload_processed(settings, record):
 
 @pytest.mark.django_db(transaction=True)
 def test_process_whatsapp_record_emits_ai_transcription_event_not_direct_call(
-    settings, record
+    settings,
+    record,
 ):
     """transcribe step emits AI_TRANSCRIPTION_COMPLETED event; UsageTrackingService logs via event handler."""
     settings.CELERY_TASK_ALWAYS_EAGER = True
@@ -78,7 +81,8 @@ def test_process_whatsapp_record_emits_ai_transcription_event_not_direct_call(
     captured_events: list[str] = []
 
     original_publish = __import__(
-        "talk2record.events.bus", fromlist=["publish_after_commit"]
+        "talk2record.events.bus",
+        fromlist=["publish_after_commit"],
     ).publish_after_commit
 
     def capturing_publish(event):

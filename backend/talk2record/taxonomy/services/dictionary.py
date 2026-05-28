@@ -18,7 +18,9 @@ import re
 from dataclasses import dataclass
 from dataclasses import field
 
-from talk2record.taxonomy.models import Category, DomainDictionary, Industry
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import DomainDictionary
+from talk2record.taxonomy.models import Industry
 
 
 @dataclass(frozen=True)

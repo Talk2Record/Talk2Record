@@ -14,7 +14,11 @@ class NotificationViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = Notification.objects.filter(user=self.request.user)
-        if self.request.query_params.get("unread_only", "").lower() in ("true", "1", "yes"):
+        if self.request.query_params.get("unread_only", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        ):
             qs = qs.filter(read_at__isnull=True)
         return qs.select_related("organization").order_by("-created_at")
 

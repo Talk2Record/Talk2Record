@@ -36,12 +36,12 @@ def test_whatsapp_webhook_emits_record_created_and_ingestion_received_events(
                                         "id": "media-id-events-test-001",
                                         "mime_type": "audio/ogg; codecs=opus",
                                     },
-                                }
+                                },
                             ],
                         },
-                    }
+                    },
                 ],
-            }
+            },
         ],
     }
 

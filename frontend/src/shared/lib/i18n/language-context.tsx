@@ -13,15 +13,14 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+function readStoredLocale(): Locale {
+  if (typeof window === "undefined") return DEFAULT_LOCALE;
+  const stored = window.localStorage.getItem("locale") as Locale | null;
+  return stored ?? DEFAULT_LOCALE;
+}
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("locale") as Locale | null;
-    if (stored) {
-      setLocaleState(stored);
-    }
-  }, []);
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [locale, setLocaleState] = useState<Locale>(readStoredLocale);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);

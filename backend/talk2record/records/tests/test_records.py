@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from http import HTTPStatus
 from decimal import Decimal
+from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest
@@ -14,13 +14,17 @@ from talk2record.audit.models import AuditLog
 from talk2record.events.models import DomainEvent as DomainEventRecord
 from talk2record.events.names import RECORD_STORED
 from talk2record.notifications.services import NotificationService
-from talk2record.records.models import Record, RecordArtifact
+from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 from talk2record.records.services import RecordProcessingService
 
 
 @pytest.mark.django_db
 def test_record_str(record):
-    assert str(record) == f"{record.organization.name}: {record.source_reference or record.pk}"
+    assert (
+        str(record)
+        == f"{record.organization.name}: {record.source_reference or record.pk}"
+    )
 
 
 @pytest.mark.django_db
@@ -110,7 +114,6 @@ def test_record_processing_service_save_transcript_artifact(record):
 
 @pytest.mark.django_db
 def test_record_processing_service_save_extraction_artifact(record):
-    from decimal import Decimal
     from talk2record.ai.providers.base import ExtractionResult
 
     result = ExtractionResult(
@@ -162,7 +165,9 @@ def test_reprocess_dead_letter_record(workspace_user, record):
     record.save()
 
     with patch("talk2record.records.views.process_whatsapp_record.delay") as mock_delay:
-        response = client.post(reverse("api:record-reprocess", kwargs={"pk": record.pk}))
+        response = client.post(
+            reverse("api:record-reprocess", kwargs={"pk": record.pk}),
+        )
 
     assert response.status_code == HTTPStatus.ACCEPTED
     mock_delay.assert_called_once()
@@ -183,7 +188,9 @@ def test_reprocess_review_record(workspace_user, record):
     record.save()
 
     with patch("talk2record.records.views.process_whatsapp_record.delay") as mock_delay:
-        response = client.post(reverse("api:record-reprocess", kwargs={"pk": record.pk}))
+        response = client.post(
+            reverse("api:record-reprocess", kwargs={"pk": record.pk}),
+        )
 
     assert response.status_code == HTTPStatus.ACCEPTED
     mock_delay.assert_called_once()

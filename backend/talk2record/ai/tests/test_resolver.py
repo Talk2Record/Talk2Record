@@ -6,13 +6,11 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from talk2record.ai.models import (
-    AICategory,
-    AIModel,
-    AIProvider,
-    AITask,
-    AITaskBinding,
-)
+from talk2record.ai.models import AICategory
+from talk2record.ai.models import AIModel
+from talk2record.ai.models import AIProvider
+from talk2record.ai.models import AITask
+from talk2record.ai.models import AITaskBinding
 from talk2record.ai.providers.registry import AIProviderRegistry
 from talk2record.ai.resolver import resolve
 from talk2record.core.vault import SecretVault
@@ -247,7 +245,11 @@ class TestAIAPIs:
             reverse("api:ai-model-list") + "?provider=groq",
         )
         assert response.status_code == status.HTTP_200_OK
-        data = response.data if isinstance(response.data, list) else response.data["results"]
+        data = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data["results"]
+        )
         assert len(data) == 1
         assert data[0]["provider"] == "groq"
 

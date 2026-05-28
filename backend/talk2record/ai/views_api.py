@@ -14,18 +14,19 @@ from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from talk2record.ai.models import (
-    AICategory,
-    AIModel,
-    AIProvider,
-    AITask,
-    AITaskBinding,
-)
+from talk2record.ai.models import AICategory
+from talk2record.ai.models import AIModel
+from talk2record.ai.models import AIProvider
+from talk2record.ai.models import AITask
+from talk2record.ai.models import AITaskBinding
 from talk2record.ai.providers.registry import AIProviderRegistry
 from talk2record.core.vault import SecretVault
-from talk2record.organizations.permissions import IsOrgMember, IsPlatformStaff
+from talk2record.organizations.permissions import IsOrgMember
+from talk2record.organizations.permissions import IsPlatformStaff
 
 
 class AIProviderRegistrySerializer(serializers.Serializer):

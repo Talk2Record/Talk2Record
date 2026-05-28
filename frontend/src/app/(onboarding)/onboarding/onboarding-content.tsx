@@ -89,14 +89,12 @@ export function OnboardingPageContent() {
     snapshot.requiredStepsComplete,
   ]);
 
-  useEffect(() => {
-    setActiveTab((current) => {
-      const currentIndex = TAB_ORDER.indexOf(current);
-      const furthestIndex = TAB_ORDER.indexOf(furthestTab);
-      if (furthestIndex > currentIndex) return furthestTab;
-      return current;
-    });
-  }, [furthestTab]);
+  const resolvedActiveTab = useMemo((): OnboardingTabId => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    const furthestIndex = TAB_ORDER.indexOf(furthestTab);
+    if (furthestIndex > currentIndex) return furthestTab;
+    return activeTab;
+  }, [activeTab, furthestTab]);
 
   const acceptLegalMutation = useMutation({
     mutationFn: () =>
@@ -125,7 +123,7 @@ export function OnboardingPageContent() {
       invalidateBillingQueries(queryClient);
       void queryClient.invalidateQueries({ queryKey: ONBOARDING_STEPS_QUERY_KEY });
       trackEvent("billing_checkout_returned", { result: "success", context: "onboarding" });
-      setActiveTab("plan");
+      queueMicrotask(() => setActiveTab("plan"));
     } else {
       toast({
         title: "Checkout cancelled",
@@ -139,16 +137,16 @@ export function OnboardingPageContent() {
   }, [searchParams, queryClient, router]);
 
   const goToNextTab = useCallback(() => {
-    const index = TAB_ORDER.indexOf(activeTab);
+    const index = TAB_ORDER.indexOf(resolvedActiveTab);
     const next = TAB_ORDER[index + 1];
     if (next) setActiveTab(next);
-  }, [activeTab]);
+  }, [resolvedActiveTab]);
 
   const skipOptionalTab = useCallback(() => {
-    if (!OPTIONAL_TABS.has(activeTab)) return;
-    setSkippedTabs((prev) => new Set(prev).add(activeTab));
+    if (!OPTIONAL_TABS.has(resolvedActiveTab)) return;
+    setSkippedTabs((prev) => new Set(prev).add(resolvedActiveTab));
     goToNextTab();
-  }, [activeTab, goToNextTab]);
+  }, [resolvedActiveTab, goToNextTab]);
 
   function canNavigateToTab(tab: OnboardingTabId): boolean {
     if (tab === "complete") return user?.onboardingCompleted ?? false;
@@ -210,12 +208,12 @@ export function OnboardingPageContent() {
         <div className="bg-primary/10 text-primary inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium">
           Guided setup
         </div>
-        <CardTitle>{titleByTab[activeTab]}</CardTitle>
-        <CardDescription>{descriptionByTab[activeTab]}</CardDescription>
+        <CardTitle>{titleByTab[resolvedActiveTab]}</CardTitle>
+        <CardDescription>{descriptionByTab[resolvedActiveTab]}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <OnboardingTabBar
-          activeTab={activeTab}
+          activeTab={resolvedActiveTab}
           furthestTab={furthestTab}
           steps={snapshot.steps}
           skippedTabs={skippedTabs}
@@ -225,13 +223,13 @@ export function OnboardingPageContent() {
           }}
         />
 
-        {showLegalForced && activeTab === "legal" ? (
+        {showLegalForced && resolvedActiveTab === "legal" ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
             Accept the documents below to access your dashboard.
           </div>
         ) : null}
 
-        {activeTab === "legal" ? (
+        {resolvedActiveTab === "legal" ? (
           <LegalAcceptanceStage
             missingSignup={legal.missingSignup}
             isLoading={legal.isLoading}
@@ -240,18 +238,18 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {activeTab === "company" ? (
+        {resolvedActiveTab === "company" ? (
           <CompanySetupStage onSaved={() => setActiveTab("plan")} />
         ) : null}
 
-        {activeTab === "plan" ? (
+        {resolvedActiveTab === "plan" ? (
           <ChoosePlanStage
             onPlanActive={() => setActiveTab("whatsapp")}
             planComplete={planComplete}
           />
         ) : null}
 
-        {activeTab === "whatsapp" ? (
+        {resolvedActiveTab === "whatsapp" ? (
           <WhatsAppSetupStage
             completed={whatsappComplete}
             onSkip={skipOptionalTab}
@@ -259,7 +257,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {activeTab === "voice" ? (
+        {resolvedActiveTab === "voice" ? (
           <VoiceNoteStage
             completed={voiceComplete}
             onSkip={skipOptionalTab}
@@ -267,7 +265,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {activeTab === "confirm" ? (
+        {resolvedActiveTab === "confirm" ? (
           <ConfirmStage
             error={error}
             isAuthLoading={isAuthLoading}
@@ -281,7 +279,7 @@ export function OnboardingPageContent() {
           />
         ) : null}
 
-        {activeTab === "complete" ? (
+        {resolvedActiveTab === "complete" ? (
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm">
               Onboarding is complete. Open the dashboard to start reviewing extracted records.

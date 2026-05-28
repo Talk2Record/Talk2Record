@@ -35,13 +35,21 @@ def notification(workspace_user, organization):
 def test_notification_list_returns_user_notifications(auth_client, notification):
     response = auth_client.get("/api/notifications/")
     assert response.status_code == HTTPStatus.OK
-    data = response.data if isinstance(response.data, list) else response.data.get("results", response.data)
+    data = (
+        response.data
+        if isinstance(response.data, list)
+        else response.data.get("results", response.data)
+    )
     titles = [n["title"] for n in data]
     assert "Test notification" in titles
 
 
 @pytest.mark.django_db
-def test_notification_list_unread_only_filter(workspace_user, organization, auth_client):
+def test_notification_list_unread_only_filter(
+    workspace_user,
+    organization,
+    auth_client,
+):
     with patch("talk2record.notifications.services._send_notification_to_user"):
         Notification.objects.create(
             user=workspace_user,
@@ -61,7 +69,11 @@ def test_notification_list_unread_only_filter(workspace_user, organization, auth
 
     response = auth_client.get("/api/notifications/?unread_only=true")
     assert response.status_code == HTTPStatus.OK
-    data = response.data if isinstance(response.data, list) else response.data.get("results", response.data)
+    data = (
+        response.data
+        if isinstance(response.data, list)
+        else response.data.get("results", response.data)
+    )
     titles = [n["title"] for n in data]
     assert "Unread" in titles
     assert "Already read" not in titles
@@ -90,7 +102,10 @@ def test_notification_mark_all_read(workspace_user, organization, auth_client):
     response = auth_client.post("/api/notifications/mark_all_read/")
     assert response.status_code == HTTPStatus.OK
     assert response.data["marked_count"] == 3
-    assert Notification.objects.filter(user=workspace_user, read_at__isnull=True).count() == 0
+    assert (
+        Notification.objects.filter(user=workspace_user, read_at__isnull=True).count()
+        == 0
+    )
 
 
 @pytest.mark.django_db

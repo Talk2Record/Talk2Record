@@ -28,7 +28,7 @@ class OrganizationAPIKeyAuthentication(BaseAuthentication):
         OrganizationAPIKeyService.record_key_usage(
             api_key=api_key,
             ip_address=client_ip,
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         AuditService.log_api_key_used_if_sampled(
             api_key_id=api_key.pk,
@@ -44,7 +44,7 @@ class OrganizationAPIKeyAuthentication(BaseAuthentication):
         return (user, api_key)
 
     def _client_ip(self, request) -> str:
-        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        forwarded_for = request.headers.get("x-forwarded-for", "")
         if forwarded_for:
             return forwarded_for.split(",")[0].strip()
         return request.META.get("REMOTE_ADDR", "")

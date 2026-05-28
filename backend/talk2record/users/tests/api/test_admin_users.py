@@ -34,7 +34,11 @@ class TestAdminUserEndpoints:
         api_client.force_authenticate(user=staff_user)
         response = api_client.get(reverse("api:admin-user-list"))
         assert response.status_code == status.HTTP_200_OK
-        results = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        results = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(results) >= 3
 
     def test_staff_can_suspend_and_reactivate_user(self, api_client, staff_user):
@@ -86,6 +90,10 @@ class TestAdminUserEndpoints:
             {"search": "find-me"},
         )
         assert response.status_code == status.HTTP_200_OK
-        results = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        results = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         emails = [row["email"] for row in results]
         assert any("find-me@example.com" in e for e in emails)

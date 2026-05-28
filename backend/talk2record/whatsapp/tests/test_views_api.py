@@ -7,16 +7,15 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from talk2record.organizations.models import Membership, Organization
+from talk2record.organizations.models import Membership
+from talk2record.organizations.models import Organization
 from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppConversation,
-    WhatsAppInboundRoute,
-    WhatsAppMessage,
-    WhatsAppSettings,
-)
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppMessage
+from talk2record.whatsapp.models import WhatsAppSettings
 from talk2record.whatsapp.services.inbound import WhatsAppInboundService
 
 
@@ -45,13 +44,13 @@ def seeded_messages(organization: Organization):
                                     "type": "text",
                                     "text": {"body": "Hi"},
                                     "timestamp": "1700000000",
-                                }
+                                },
                             ],
-                        }
-                    }
-                ]
-            }
-        ]
+                        },
+                    },
+                ],
+            },
+        ],
     }
     WhatsAppInboundService.process_webhook(payload)
     return {
@@ -72,7 +71,11 @@ class TestWhatsAppReadOnlyViewSets:
         api_client.force_authenticate(user=workspace_user)
         response = api_client.get(reverse("api:whatsapp-conversation-list"))
         assert response.status_code == status.HTTP_200_OK
-        data = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        data = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(data) == 1
 
     def test_member_can_list_messages(
@@ -84,7 +87,11 @@ class TestWhatsAppReadOnlyViewSets:
         api_client.force_authenticate(user=workspace_user)
         response = api_client.get(reverse("api:whatsapp-message-list"))
         assert response.status_code == status.HTTP_200_OK
-        data = response.data if isinstance(response.data, list) else response.data.get("results", [])
+        data = (
+            response.data
+            if isinstance(response.data, list)
+            else response.data.get("results", [])
+        )
         assert len(data) == 1
         assert data[0]["wa_message_id"] == "wamid.TEST1"
 

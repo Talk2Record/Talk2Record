@@ -190,7 +190,7 @@ class PromptTemplate(TimestampedModel):
     )
     purpose = models.CharField(
         max_length=32,
-        choices=PromptPurpose.choices,
+        choices=PromptPurpose,
     )
     title = models.CharField(max_length=160)
     version = models.PositiveIntegerField(default=1)
@@ -202,7 +202,9 @@ class PromptTemplate(TimestampedModel):
     )
     user_prompt = models.TextField(
         blank=True,
-        help_text=_("Optional user prompt template. Same placeholders as system_prompt."),
+        help_text=_(
+            "Optional user prompt template. Same placeholders as system_prompt.",
+        ),
     )
     example_input = models.TextField(blank=True)
     example_output = models.TextField(blank=True)
@@ -231,7 +233,11 @@ class PromptTemplate(TimestampedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.category and self.industry and self.category.industry_id != self.industry_id:
+        if (
+            self.category
+            and self.industry
+            and self.category.industry_id != self.industry_id
+        ):
             raise ValidationError(
                 {
                     "category": _(
@@ -305,7 +311,11 @@ class DomainDictionary(TimestampedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.category and self.industry and self.category.industry_id != self.industry_id:
+        if (
+            self.category
+            and self.industry
+            and self.category.industry_id != self.industry_id
+        ):
             raise ValidationError(
                 {
                     "category": _(
@@ -353,7 +363,7 @@ class ProcessingRule(TimestampedModel):
     )
     rule_type = models.CharField(
         max_length=32,
-        choices=RuleType.choices,
+        choices=RuleType,
         default=RuleType.KEYWORD_MATCH,
     )
     rule_config = models.JSONField(default=dict, blank=True)

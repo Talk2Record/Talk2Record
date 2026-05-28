@@ -1,15 +1,14 @@
-
 from typing import ClassVar
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import SET_NULL
+from django.db.models import BooleanField
 from django.db.models import CharField
+from django.db.models import DateTimeField
 from django.db.models import EmailField
 from django.db.models import ForeignKey
-from django.db.models import BooleanField
-from django.db.models import DateTimeField
-from django.db.models import SET_NULL
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -84,7 +83,10 @@ class UserSession(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["user", "revoked_at"], name="user_session_user_rev_idx"),
+            models.Index(
+                fields=["user", "revoked_at"],
+                name="user_session_user_rev_idx",
+            ),
         ]
 
     def __str__(self) -> str:

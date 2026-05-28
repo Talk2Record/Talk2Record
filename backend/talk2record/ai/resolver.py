@@ -16,13 +16,12 @@ from dataclasses import dataclass
 
 from django.core import signing
 
-from talk2record.ai.models import (
-    TASK_TO_CATEGORY,
-    AIProvider,
-    AISettings,
-    AITaskBinding,
-)
-from talk2record.ai.providers.registry import AIProviderRegistry, ProviderSpec
+from talk2record.ai.models import TASK_TO_CATEGORY
+from talk2record.ai.models import AIProvider
+from talk2record.ai.models import AISettings
+from talk2record.ai.models import AITaskBinding
+from talk2record.ai.providers.registry import AIProviderRegistry
+from talk2record.ai.providers.registry import ProviderSpec
 from talk2record.core.vault import SecretVault
 
 
@@ -86,11 +85,7 @@ def resolve(*, task: str) -> AIResolution | None:
     if category is None:
         return None
 
-    provider = (
-        AIProvider.objects
-        .filter(category=category, is_active=True)
-        .first()
-    )
+    provider = AIProvider.objects.filter(category=category, is_active=True).first()
     if provider is None:
         return None
 

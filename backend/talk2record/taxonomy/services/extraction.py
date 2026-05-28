@@ -20,8 +20,10 @@ from typing import TYPE_CHECKING
 from talk2record.ai.models import AITask
 from talk2record.ai.providers.mock import MockExtractionProvider
 from talk2record.ai.resolver import resolve as resolve_ai
-from talk2record.taxonomy.models import Category, ExtractionSchema
-from talk2record.taxonomy.services.prompt_resolver import PromptResolver, ResolvedPrompt
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import ExtractionSchema
+from talk2record.taxonomy.services.prompt_resolver import PromptResolver
+from talk2record.taxonomy.services.prompt_resolver import ResolvedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ class DynamicExtractionService:
                 system_prompt=prompt.system_prompt if prompt else "",
                 user_prompt=prompt.user_prompt if prompt else "",
             )
-        except Exception:  # noqa: BLE001 - any provider failure → mock fallback.
+        except Exception:
             logger.exception(
                 "Extraction provider %s failed; falling back to mock",
                 getattr(provider, "provider_name", "unknown"),
@@ -107,7 +109,7 @@ class DynamicExtractionService:
             return MockExtractionProvider()
         try:
             return resolution.build_chat_provider()
-        except Exception:  # noqa: BLE001 — fall back to mock if construction fails.
+        except Exception:
             logger.exception(
                 "Could not build chat provider %r; using mock extraction.",
                 resolution.provider_slug,
@@ -148,8 +150,7 @@ def _format_dictionary(applied: list[dict]) -> str:
     if not applied:
         return "(no normalization applied)"
     return "\n".join(
-        f"- {entry['term']} -> {entry['normalized_term']}"
-        for entry in applied
+        f"- {entry['term']} -> {entry['normalized_term']}" for entry in applied
     )
 
 

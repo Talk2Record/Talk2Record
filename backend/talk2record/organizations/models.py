@@ -17,7 +17,11 @@ class Organization(models.Model):
     timezone = models.CharField(max_length=64, default="UTC")
     default_currency = models.CharField(max_length=8, default="USD")
     profile_setup_completed = models.BooleanField(default=False)
-    status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+    )
     billing_state_version = models.PositiveIntegerField(
         default=0,
         help_text=_(
@@ -25,7 +29,7 @@ class Organization(models.Model):
             "billing state. Bumped by checkout, plan change, and billing reset. "
             "The Paddle webhook pipeline snapshots this value before applying a "
             "mutation and aborts if it has changed during dispatch (reset-race "
-            "guard)."
+            "guard).",
         ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -60,7 +64,11 @@ class Membership(models.Model):
         related_name="memberships",
     )
     role = models.CharField(max_length=32, choices=Role.choices, default=Role.OPERATOR)
-    status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -131,7 +139,10 @@ class MembershipInvitation(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["organization", "status"], name="org_invite_org_status_idx"),
+            models.Index(
+                fields=["organization", "status"],
+                name="org_invite_org_status_idx",
+            ),
             models.Index(fields=["email"], name="org_invite_email_idx"),
         ]
 

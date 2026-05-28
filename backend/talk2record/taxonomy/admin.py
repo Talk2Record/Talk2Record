@@ -11,14 +11,12 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
-from talk2record.taxonomy.models import (
-    Category,
-    DomainDictionary,
-    ExtractionSchema,
-    Industry,
-    ProcessingRule,
-    PromptTemplate,
-)
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import DomainDictionary
+from talk2record.taxonomy.models import ExtractionSchema
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import PromptTemplate
 
 
 @admin.register(Industry)
@@ -185,7 +183,15 @@ class DomainDictionaryAdmin(ModelAdmin):
     fieldsets = (
         (
             None,
-            {"fields": ("industry", "category", "term", "normalized_term", "description")},
+            {
+                "fields": (
+                    "industry",
+                    "category",
+                    "term",
+                    "normalized_term",
+                    "description",
+                ),
+            },
         ),
         (_("Status"), {"fields": ("enabled",)}),
         (

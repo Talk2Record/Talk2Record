@@ -18,8 +18,10 @@ from talk2record.core.vault import SecretVault
 
 
 def _registry_choices() -> list[tuple[str, str]]:
-    return [(spec.slug, f"{spec.display_name} ({spec.slug})")
-            for spec in AIProviderRegistry.all()]
+    return [
+        (spec.slug, f"{spec.display_name} ({spec.slug})")
+        for spec in AIProviderRegistry.all()
+    ]
 
 
 class AISettingsAdminForm(forms.ModelForm):

@@ -21,7 +21,7 @@ from talk2record.usage.services import UsageTrackingService
     retry_jitter=True,
     max_retries=5,
 )
-def handle_domain_event_for_usage(self, event_payload: dict) -> None:  # noqa: ARG001
+def handle_domain_event_for_usage(self, event_payload: dict) -> None:
     if already_handled(event_payload, "usage"):
         return
 

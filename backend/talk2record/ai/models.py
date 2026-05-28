@@ -89,7 +89,7 @@ class AIProvider(models.Model):
     )
     category = models.CharField(
         max_length=20,
-        choices=AICategory.choices,
+        choices=AICategory,
         help_text="Capability bucket. The resolver picks the active provider per category.",
     )
     display_name = models.CharField(max_length=120, blank=True)
@@ -133,7 +133,7 @@ class AIProvider(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        from talk2record.ai.providers.registry import AIProviderRegistry  # noqa: PLC0415
+        from talk2record.ai.providers.registry import AIProviderRegistry
 
         spec = AIProviderRegistry.get(self.slug)
         if spec is None:
@@ -254,12 +254,12 @@ class AITaskBinding(models.Model):
 
     task = models.CharField(
         max_length=40,
-        choices=AITask.choices,
+        choices=AITask,
         unique=True,
     )
     category = models.CharField(
         max_length=20,
-        choices=AICategory.choices,
+        choices=AICategory,
     )
     model = models.CharField(
         max_length=120,
@@ -283,8 +283,7 @@ class AITaskBinding(models.Model):
             raise ValidationError(
                 {
                     "category": (
-                        f"Task {self.task!r} must use category "
-                        f"{expected_category!r}."
+                        f"Task {self.task!r} must use category {expected_category!r}."
                     ),
                 },
             )
@@ -292,11 +291,10 @@ class AITaskBinding(models.Model):
             self.category = expected_category
 
         if self.model:
-            provider = (
-                AIProvider.objects
-                .filter(category=self.category, is_active=True)
-                .first()
-            )
+            provider = AIProvider.objects.filter(
+                category=self.category,
+                is_active=True,
+            ).first()
             if provider is not None:
                 models_list = provider.models_available or []
                 if models_list and self.model not in models_list:

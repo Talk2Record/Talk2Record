@@ -1,50 +1,58 @@
 {% extends "admin/index.html" %}
+
 {% load i18n %}
 
 {# Shared confirmation page for every billing-reset admin action
    (SubscriptionAdmin / OrganizationAdmin / UserAdmin). Collects the
-   required `reason` and the optional `also_reset_onboarding` toggle. #}
-
+required `reason` and the optional `also_reset_onboarding` toggle. #}
 {% block content %}
-<div class="space-y-4">
+  <div class="space-y-4">
     <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h2 class="text-base font-semibold mb-2 text-font-important-light dark:text-font-important-dark">
-            {% translate "Reset billing — confirm" %}
-        </h2>
-        <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mb-3">
-            {% blocktranslate %}You are about to reset billing for the following organisations. This cancels active Paddle subscriptions, voids pending transactions, clears current-cycle usage, and bumps the billing_state_version. Paid invoices, audit logs, and uploaded files are preserved.{% endblocktranslate %}
-        </p>
-        <ul class="text-xs list-disc pl-5 mb-3 text-font-important-light dark:text-font-important-dark">
-            {% for org in organizations %}
-                <li>{{ org.name }} <span class="font-mono text-font-subtle-light dark:text-font-subtle-dark">({{ org.slug }})</span> — v{{ org.billing_state_version }}</li>
-            {% endfor %}
-        </ul>
-        <form method="post">
-            {% csrf_token %}
-            {% comment %}Re-submit the original action by name and re-include
-            the selected IDs so Django's admin action dispatch picks it up.{% endcomment %}
-            <input type="hidden" name="action" value="{{ request.POST.action }}" />
-            {% for pk in request.POST.getlist('_selected_action') %}
-                <input type="hidden" name="_selected_action" value="{{ pk }}" />
-            {% endfor %}
-            <input type="hidden" name="confirm" value="1" />
-            <label class="block mb-3">
-                <span class="text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Reason (required)" %}</span>
-                <textarea name="reason" rows="3" required class="mt-1 w-full rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900 dark:text-base-100" placeholder="{% translate 'e.g. Customer dispute case T-1234, duplicate-charge refund issued in Paddle' %}"></textarea>
-            </label>
-            <label class="inline-flex items-center gap-2 mb-4 text-xs text-font-subtle-light dark:text-font-subtle-dark">
-                <input type="checkbox" name="also_reset_onboarding" />
-                <span>{% translate "Also reset organisation onboarding (profile_setup_completed)" %}</span>
-            </label>
-            <div class="flex justify-end gap-2">
-                <a href="{{ back_url }}" class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    {% translate "Cancel" %}
-                </a>
-                <button type="submit" class="inline-flex items-center gap-1 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
-                    {% translate "Confirm reset" %}
-                </button>
-            </div>
-        </form>
+      <h2 class="text-base font-semibold mb-2 text-font-important-light dark:text-font-important-dark">
+        {% translate "Reset billing — confirm" %}
+      </h2>
+      <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mb-3">
+        {% blocktranslate %}You are about to reset billing for the following organisations. This cancels active Paddle subscriptions, voids pending transactions, clears current-cycle usage, and bumps the billing_state_version. Paid invoices, audit logs, and uploaded files are preserved.{% endblocktranslate %}
+      </p>
+      <ul class="text-xs list-disc pl-5 mb-3 text-font-important-light dark:text-font-important-dark">
+        {% for org in organizations %}
+          <li>
+            {{ org.name }} <span class="font-mono text-font-subtle-light dark:text-font-subtle-dark">({{ org.slug }})</span> — v{{ org.billing_state_version }}
+          </li>
+        {% endfor %}
+      </ul>
+      <form method="post">
+        {% csrf_token %}
+        {% comment %}Re-submit the original action by name and re-include
+        the selected IDs so Django's admin action dispatch picks it up.{% endcomment %}
+        <input type="hidden" name="action" value="{{ request.POST.action }}" />
+        {% for pk in request.POST.getlist('_selected_action') %}
+          <input type="hidden" name="_selected_action" value="{{ pk }}" />
+        {% endfor %}
+        <input type="hidden" name="confirm" value="1" />
+        <label class="block mb-3">
+          <span class="text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Reason (required)" %}</span>
+          <textarea name="reason"
+                    rows="3"
+                    required
+                    class="mt-1 w-full rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900 dark:text-base-100"
+                    placeholder="{% translate 'e.g. Customer dispute case T-1234, duplicate-charge refund issued in Paddle' %}"></textarea>
+        </label>
+        <label class="inline-flex items-center gap-2 mb-4 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+          <input type="checkbox" name="also_reset_onboarding" />
+          <span>{% translate "Also reset organisation onboarding (profile_setup_completed)" %}</span>
+        </label>
+        <div class="flex justify-end gap-2">
+          <a href="{{ back_url }}"
+             class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+            {% translate "Cancel" %}
+          </a>
+          <button type="submit"
+                  class="inline-flex items-center gap-1 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
+            {% translate "Confirm reset" %}
+          </button>
+        </div>
+      </form>
     </div>
-</div>
-{% endblock %}
+  </div>
+{% endblock content %}

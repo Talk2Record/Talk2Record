@@ -214,7 +214,8 @@ class BillingActionViewSet(GenericViewSet):
         ).first()
         if plan is None:
             return Response(
-                {"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         service = PaddleBillingService()
@@ -228,7 +229,8 @@ class BillingActionViewSet(GenericViewSet):
             session = service.create_checkout(
                 organization=membership.organization,
                 plan=plan,
-                success_url=(serializer.validated_data.get("successUrl") or "").strip() or None,
+                success_url=(serializer.validated_data.get("successUrl") or "").strip()
+                or None,
                 interval=interval,
             )
         except PaddleAPIError as exc:
@@ -243,7 +245,7 @@ class BillingActionViewSet(GenericViewSet):
             document_keys=[LegalDocumentVersion.DocumentKey.BILLING_POLICY],
             source=UserLegalAcceptance.Source.FEATURE_GATE,
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         LegalAcceptanceService.record_attestation(
             user=request.user,
@@ -251,7 +253,7 @@ class BillingActionViewSet(GenericViewSet):
             context="checkout",
             metadata={"plan": plan.code, "interval": interval},
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         AuditService.log(
             action="billing.checkout.started",
@@ -270,10 +272,11 @@ class BillingActionViewSet(GenericViewSet):
             status=status.HTTP_200_OK,
         )
 
-
     def _organization_for_user(self, user):
         membership = user.memberships.select_related("organization").first()
-        return user.current_organization or (membership.organization if membership else None)
+        return user.current_organization or (
+            membership.organization if membership else None
+        )
 
     @staticmethod
     def _resolve_plan_code(requested: str) -> Plan | None:
@@ -306,7 +309,7 @@ class BillingActionViewSet(GenericViewSet):
             document_keys=[LegalDocumentVersion.DocumentKey.BILLING_POLICY],
             source=UserLegalAcceptance.Source.FEATURE_GATE,
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         LegalAcceptanceService.record_attestation(
             user=request.user,
@@ -314,10 +317,15 @@ class BillingActionViewSet(GenericViewSet):
             context=context,
             metadata={"plan": plan.code},
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
 
-    @action(detail=False, methods=["get"], url_path="plans", permission_classes=[AllowAny])
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="plans",
+        permission_classes=[AllowAny],
+    )
     def plans(self, request):
         queryset = (
             Plan.objects.filter(is_active=True)
@@ -353,7 +361,10 @@ class BillingActionViewSet(GenericViewSet):
             )
         plan = self._resolve_plan_code(serializer.validated_data["plan"])
         if plan is None:
-            return Response({"detail": "Plan not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Plan not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         service = PaddleBillingService()
         if not service.client.is_configured():
@@ -382,7 +393,10 @@ class BillingActionViewSet(GenericViewSet):
                 )
             except PaddleAPIError as exc:
                 logger.warning("Paddle plan change failed: %s", exc)
-                return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             self._record_billing_legal(request, plan=plan, context="change_plan")
             AuditService.log(
                 action="billing.plan.changed",
@@ -402,7 +416,8 @@ class BillingActionViewSet(GenericViewSet):
             session = service.create_checkout(
                 organization=organization,
                 plan=plan,
-                success_url=(serializer.validated_data.get("successUrl") or "").strip() or None,
+                success_url=(serializer.validated_data.get("successUrl") or "").strip()
+                or None,
                 interval=interval,
             )
         except PaddleAPIError as exc:
@@ -451,7 +466,6 @@ class BillingActionViewSet(GenericViewSet):
                 "environment": settings.environment,
             },
         )
-
 
 
 class BillingWebhookView(APIView):
@@ -528,7 +542,8 @@ class BillingWebhookView(APIView):
             )
             if is_duplicate:
                 return Response(
-                    {"status": "duplicate"}, status=status.HTTP_202_ACCEPTED,
+                    {"status": "duplicate"},
+                    status=status.HTTP_202_ACCEPTED,
                 )
             if row is not None:
                 process_paddle_webhook.delay(row.pk)

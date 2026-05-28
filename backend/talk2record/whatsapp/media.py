@@ -98,9 +98,7 @@ class WhatsAppMediaService:
             stream=True,
         )
         if not resp.ok:
-            msg = (
-                f"Failed to download media: {resp.status_code} {resp.text[:200]}"
-            )
+            msg = f"Failed to download media: {resp.status_code} {resp.text[:200]}"
             raise WhatsAppMediaError(msg)
 
         return resp.content

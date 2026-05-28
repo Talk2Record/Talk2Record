@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from talk2record.taxonomy.models import ProcessingRule, RuleType
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import RuleType
 from talk2record.taxonomy.services.classification import ClassificationService
 
 
@@ -11,7 +12,8 @@ def test_keyword_rule_classifies_material_delivery(
     material_delivery_rule,
 ):
     result = ClassificationService.classify(
-        "Delivered 20 bags of cement to site A", allow_llm=False,
+        "Delivered 20 bags of cement to site A",
+        allow_llm=False,
     )
     assert any(c.slug == "material_delivery" for c in result.categories)
     assert result.top_confidence > 0.5
@@ -23,7 +25,8 @@ def test_keyword_rule_classifies_labor_payment(
     labor_payment_rule,
 ):
     result = ClassificationService.classify(
-        "Paid the fundi 2000 cash for slab casting", allow_llm=False,
+        "Paid the fundi 2000 cash for slab casting",
+        allow_llm=False,
     )
     assert any(c.slug == "labor_payment" for c in result.categories)
     assert result.top_confidence > 0.5

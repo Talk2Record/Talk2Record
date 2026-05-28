@@ -65,7 +65,7 @@ class UserSessionRevokeView(APIView):
         session.save(update_fields=["revoked_at"])
 
         try:
-            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken  # noqa: PLC0415
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
             from rest_framework_simplejwt.tokens import RefreshToken  # noqa: PLC0415
         except ImportError:
             return Response(status=status.HTTP_204_NO_CONTENT)

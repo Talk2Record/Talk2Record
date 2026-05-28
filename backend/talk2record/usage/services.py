@@ -88,7 +88,8 @@ class UsageTrackingService:
         """
 
         entitlement_limit = EntitlementService.get_limit(
-            organization, AI_USAGE_FEATURE_KEY,
+            organization,
+            AI_USAGE_FEATURE_KEY,
         )
         if entitlement_limit > 0:
             return entitlement_limit
@@ -163,7 +164,8 @@ def _current_cycle(now: datetime) -> tuple[datetime, datetime]:
     period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if period_start.month == 12:
         period_end = period_start.replace(
-            year=period_start.year + 1, month=1,
+            year=period_start.year + 1,
+            month=1,
         )
     else:
         period_end = period_start.replace(month=period_start.month + 1)
@@ -171,7 +173,8 @@ def _current_cycle(now: datetime) -> tuple[datetime, datetime]:
 
 
 def _publish_limit_exceeded(organization: Organization) -> None:
-    from talk2record.events import DomainEvent, publish_after_commit
+    from talk2record.events import DomainEvent
+    from talk2record.events import publish_after_commit
     from talk2record.events.names import BILLING_LIMIT_EXCEEDED
 
     publish_after_commit(

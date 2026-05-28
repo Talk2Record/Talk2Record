@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -45,7 +44,10 @@ class SettingsProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        serializer = SettingsProfileSerializer(data=request.data, context={"request": request})
+        serializer = SettingsProfileSerializer(
+            data=request.data,
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
         profile = serializer.save()
         return Response(profile, status=status.HTTP_200_OK)

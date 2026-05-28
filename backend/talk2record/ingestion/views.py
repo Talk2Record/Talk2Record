@@ -5,10 +5,10 @@ from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import inline_serializer
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import serializers
 from rest_framework.views import APIView
 
 from talk2record.events import DomainEvent
@@ -17,8 +17,8 @@ from talk2record.events.names import RECORD_CREATED
 from talk2record.ingestion.authentication import OrganizationAPIKeyAuthentication
 from talk2record.ingestion.observability import log_ingestion_event
 from talk2record.ingestion.observability import new_event_id
-from talk2record.ingestion.permissions import HasOrganizationAPIKey
 from talk2record.ingestion.observability import request_id_from_request
+from talk2record.ingestion.permissions import HasOrganizationAPIKey
 from talk2record.ingestion.serializers import PublicIngestionRecordSerializer
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import PublicIngestionRateThrottle

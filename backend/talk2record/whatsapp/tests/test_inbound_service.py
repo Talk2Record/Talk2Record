@@ -3,12 +3,10 @@ from __future__ import annotations
 import pytest
 
 from talk2record.organizations.models import Organization
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppConversation,
-    WhatsAppInboundRoute,
-    WhatsAppMessage,
-)
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppMessage
 from talk2record.whatsapp.services.inbound import WhatsAppInboundService
 
 
@@ -30,7 +28,7 @@ def _audio_payload(
                                 "display_phone_number": display_number,
                             },
                             "contacts": [
-                                {"wa_id": sender, "profile": {"name": "Alice"}}
+                                {"wa_id": sender, "profile": {"name": "Alice"}},
                             ],
                             "messages": [
                                 {
@@ -43,13 +41,13 @@ def _audio_payload(
                                         "mime_type": "audio/ogg; codecs=opus",
                                         "sha256": "deadbeef",
                                     },
-                                }
+                                },
                             ],
-                        }
-                    }
-                ]
-            }
-        ]
+                        },
+                    },
+                ],
+            },
+        ],
     }
 
 
@@ -74,13 +72,13 @@ def _text_payload(
                                     "timestamp": "1700000100",
                                     "type": "text",
                                     "text": {"body": body},
-                                }
+                                },
                             ],
-                        }
-                    }
-                ]
-            }
-        ]
+                        },
+                    },
+                ],
+            },
+        ],
     }
 
 
@@ -102,13 +100,13 @@ def _status_payload(
                                     "id": wa_message_id,
                                     "status": new_status,
                                     "timestamp": "1700000500",
-                                }
+                                },
                             ],
-                        }
-                    }
-                ]
-            }
-        ]
+                        },
+                    },
+                ],
+            },
+        ],
     }
 
 
@@ -212,15 +210,15 @@ class TestWhatsAppInboundService:
                                                 "code": 131047,
                                                 "title": "Re-engagement message",
                                                 "message": "Outside 24h window",
-                                            }
+                                            },
                                         ],
-                                    }
+                                    },
                                 ],
-                            }
-                        }
-                    ]
-                }
-            ]
+                            },
+                        },
+                    ],
+                },
+            ],
         }
         WhatsAppInboundService.process_webhook(payload)
         message = WhatsAppMessage.objects.get(wa_message_id="wamid.AUDIO")

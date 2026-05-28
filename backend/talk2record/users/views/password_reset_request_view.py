@@ -39,6 +39,8 @@ class PasswordResetRequestView(APIView):
             )
 
         return Response(
-            {"status": "If an account exists for that email, password reset instructions have been sent."},
+            {
+                "status": "If an account exists for that email, password reset instructions have been sent.",
+            },
             status=status.HTTP_200_OK,
         )

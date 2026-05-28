@@ -86,13 +86,17 @@ class WhatsAppWebhookService:
                 value = change.get("value", {})
                 if not isinstance(value, Mapping):
                     continue
-                phone_number_id = WhatsAppWebhookService._extract_phone_number_id_from_value(value)
+                phone_number_id = (
+                    WhatsAppWebhookService._extract_phone_number_id_from_value(value)
+                )
                 for message in WhatsAppWebhookService._messages(value):
                     message_id = str(message.get("id", "")).strip()
                     if not message_id:
                         continue
                     sender = str(message.get("from", "")).strip()
-                    media_id, audio_url = WhatsAppWebhookService._extract_media_fields(message)
+                    media_id, audio_url = WhatsAppWebhookService._extract_media_fields(
+                        message,
+                    )
                     messages.append(
                         InboundWhatsAppMessage(
                             message_id=message_id,
@@ -125,7 +129,9 @@ class WhatsAppWebhookService:
                 value = change.get("value", {})
                 if not isinstance(value, Mapping):
                     continue
-                phone_number_id = WhatsAppWebhookService._extract_phone_number_id_from_value(value)
+                phone_number_id = (
+                    WhatsAppWebhookService._extract_phone_number_id_from_value(value)
+                )
                 if phone_number_id:
                     return phone_number_id
         return ""
@@ -148,7 +154,9 @@ class WhatsAppWebhookService:
             media_id = str(media.get("id", "")).strip()
 
             candidate_url = str(media.get("url", "")).strip()
-            audio_url = candidate_url if WhatsAppWebhookService._is_url(candidate_url) else ""
+            audio_url = (
+                candidate_url if WhatsAppWebhookService._is_url(candidate_url) else ""
+            )
 
             if media_id or audio_url:
                 return media_id, audio_url

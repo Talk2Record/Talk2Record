@@ -259,12 +259,18 @@ class MembershipInvitationService:
         actor: User | None = None,
     ) -> None:
         if membership.role == Membership.Role.OWNER:
-            other_owners = Membership.objects.filter(
-                organization=membership.organization,
-                role=Membership.Role.OWNER,
-            ).exclude(pk=membership.pk).exists()
+            other_owners = (
+                Membership.objects.filter(
+                    organization=membership.organization,
+                    role=Membership.Role.OWNER,
+                )
+                .exclude(pk=membership.pk)
+                .exists()
+            )
             if not other_owners:
-                raise InvitationError("Cannot remove the last owner of the organization.")
+                raise InvitationError(
+                    "Cannot remove the last owner of the organization.",
+                )
         organization_id = membership.organization_id
         user_id = membership.user_id
         membership.delete()

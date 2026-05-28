@@ -19,17 +19,17 @@ Next.js dashboard and marketing site for Talk2Record — turn WhatsApp voice not
 
 ## Stack
 
-| Layer | Choice |
-| --- | --- |
-| Framework | Next.js 16 (App Router), React 19, TypeScript |
-| Styling | Tailwind CSS 4, shadcn/ui primitives |
-| Server state | TanStack React Query |
+| Layer        | Choice                                          |
+| ------------ | ----------------------------------------------- |
+| Framework    | Next.js 16 (App Router), React 19, TypeScript   |
+| Styling      | Tailwind CSS 4, shadcn/ui primitives            |
+| Server state | TanStack React Query                            |
 | Client state | Zustand (auth, org, preferences, impersonation) |
-| HTTP | Axios (interceptors, single-flight refresh) |
-| Realtime | WebSocket (`wsBus`) |
-| Charts | Recharts |
-| Analytics | PostHog (scaffolded) |
-| Tests | Vitest, Testing Library, Playwright (e2e) |
+| HTTP         | Axios (interceptors, single-flight refresh)     |
+| Realtime     | WebSocket (`wsBus`)                             |
+| Charts       | Recharts                                        |
+| Analytics    | PostHog (scaffolded)                            |
+| Tests        | Vitest, Testing Library, Playwright (e2e)       |
 
 ## Getting started
 
@@ -46,13 +46,13 @@ Open [http://localhost:3000](http://localhost:3000). The API client defaults to 
 
 Copy `frontend/.env.example` to `.env.local`. Important variables:
 
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | Django API origin (client appends `/api`) |
-| `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | NextAuth (only if Google OAuth is enabled) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
-| `NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED` | `true` to show “Sign in with Google” and mount `SessionProvider` |
-| `AUTH_ADMIN_EMAILS` | Comma-separated emails granted admin role via Google (optional) |
+| Variable                                   | Purpose                                                          |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`                 | Django API origin (client appends `/api`)                        |
+| `NEXTAUTH_URL`, `NEXTAUTH_SECRET`          | NextAuth (only if Google OAuth is enabled)                       |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth credentials                                         |
+| `NEXT_PUBLIC_GOOGLE_SIGN_IN_ENABLED`       | `true` to show “Sign in with Google” and mount `SessionProvider` |
+| `AUTH_ADMIN_EMAILS`                        | Comma-separated emails granted admin role via Google (optional)  |
 
 Full auth behaviour is documented in [`../docs/AUTH.md`](../docs/AUTH.md).
 
@@ -66,17 +66,17 @@ Legacy env vars `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` and `NEXT_PUBLIC_GOOGLE_WORKSP
 
 ## Routes
 
-| Area | Paths |
-| --- | --- |
-| Marketing | `/`, `/features`, `/pricing`, `/docs`, `/legal`, `/legal/[slug]` |
-| Auth | `/login`, `/register`, `/forgot-password`, `/onboarding` |
-| Invite | `/invite/[token]` |
-| Dashboard | `/dashboard` |
-| Records | `/dashboard/records`, `/dashboard/records/[id]` |
-| Analytics & billing | `/dashboard/analytics`, `/dashboard/billing`, `/dashboard/usage` |
-| Integrations & team | `/dashboard/integrations`, `/dashboard/team` (admin+) |
-| Settings | `/dashboard/settings`, `/dashboard/settings/api-keys`, `/dashboard/settings/ai` (admin+), `/dashboard/settings/sessions` |
-| Platform admin | `/dashboard/admin/users` (staff) |
+| Area                | Paths                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Marketing           | `/`, `/features`, `/pricing`, `/docs`, `/legal`, `/legal/[slug]`                                                         |
+| Auth                | `/login`, `/register`, `/forgot-password`, `/onboarding`                                                                 |
+| Invite              | `/invite/[token]`                                                                                                        |
+| Dashboard           | `/dashboard`                                                                                                             |
+| Records             | `/dashboard/records`, `/dashboard/records/[id]`                                                                          |
+| Analytics & billing | `/dashboard/analytics`, `/dashboard/billing`, `/dashboard/usage`                                                         |
+| Integrations & team | `/dashboard/integrations`, `/dashboard/team` (admin+)                                                                    |
+| Settings            | `/dashboard/settings`, `/dashboard/settings/api-keys`, `/dashboard/settings/ai` (admin+), `/dashboard/settings/sessions` |
+| Platform admin      | `/dashboard/admin/users` (staff)                                                                                         |
 
 ## Project structure
 

@@ -12,7 +12,15 @@ from talk2record.billing.models import Transaction
 class TransactionSerializer(serializers.ModelSerializer[Transaction]):
     class Meta:
         model = Transaction
-        fields = ["id", "invoice_number", "amount", "currency", "status", "issued_at", "paid_at"]
+        fields = [
+            "id",
+            "invoice_number",
+            "amount",
+            "currency",
+            "status",
+            "issued_at",
+            "paid_at",
+        ]
 
 
 class SubscriptionSerializer(serializers.ModelSerializer[Subscription]):
@@ -105,7 +113,9 @@ class PlanCatalogSerializer(serializers.ModelSerializer[Plan]):
         ]
 
     def get_monthly_amount(self, obj: Plan) -> Decimal:
-        monthly = obj.prices.filter(active=True, interval="month").order_by("id").first()
+        monthly = (
+            obj.prices.filter(active=True, interval="month").order_by("id").first()
+        )
         if monthly is not None:
             return monthly.amount
         return obj.base_price

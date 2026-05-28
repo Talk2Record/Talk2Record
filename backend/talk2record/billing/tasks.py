@@ -25,7 +25,7 @@ PADDLE_SYNC_SUMMARY_CACHE_KEY = "billing:paddle_sync:last_summary"
     retry_jitter=True,
     max_retries=5,
 )
-def handle_domain_event_for_billing(self, event_payload: dict) -> None:  # noqa: ARG001
+def handle_domain_event_for_billing(self, event_payload: dict) -> None:
     if already_handled(event_payload, "billing"):
         return
 
@@ -46,7 +46,10 @@ def handle_domain_event_for_billing(self, event_payload: dict) -> None:  # noqa:
 
     if event_name == BILLING_PAYMENT_FAILED:
         title = "Payment failed"
-        message = str(metadata.get("message") or "Your last payment attempt failed. Please update your payment method.")
+        message = str(
+            metadata.get("message")
+            or "Your last payment attempt failed. Please update your payment method.",
+        )
         for membership in memberships:
             NotificationService.create(
                 user=membership.user,
@@ -59,7 +62,10 @@ def handle_domain_event_for_billing(self, event_payload: dict) -> None:  # noqa:
 
     elif event_name == BILLING_SUBSCRIPTION_CREATED:
         title = "Subscription activated"
-        message = str(metadata.get("message") or "Your subscription has been successfully activated.")
+        message = str(
+            metadata.get("message")
+            or "Your subscription has been successfully activated.",
+        )
         for membership in memberships:
             NotificationService.create(
                 user=membership.user,
@@ -78,7 +84,7 @@ def handle_domain_event_for_billing(self, event_payload: dict) -> None:  # noqa:
     retry_jitter=True,
     max_retries=5,
 )
-def process_paddle_webhook(self, event_pk: int) -> str:  # noqa: ARG001
+def process_paddle_webhook(self, event_pk: int) -> str:
     """Apply a previously-persisted ``PaddleWebhookEvent`` row asynchronously.
 
     Only invoked when ``settings.PADDLE_WEBHOOK_ASYNC`` is truthy
@@ -116,7 +122,7 @@ def process_paddle_webhook(self, event_pk: int) -> str:  # noqa: ARG001
     max_retries=3,
     rate_limit="10/m",
 )
-def sync_paddle_state(self) -> dict[str, int]:  # noqa: ARG001
+def sync_paddle_state(self) -> dict[str, int]:
     """Sync local billing state with Paddle (push catalog, then pull subs).
 
     Triggered by the ``/admin/billing/sync-all/`` button and (optionally) by
@@ -168,24 +174,32 @@ def sync_paddle_state(self) -> dict[str, int]:  # noqa: ARG001
         cache.set(PADDLE_SYNC_SUMMARY_CACHE_KEY, result, timeout=7 * 24 * 60 * 60)
         return result
 
-    plans_queryset = Plan.objects.filter(is_active=True).prefetch_related("entitlements").only(
-        "id",
-        "code",
-        "name",
-        "paddle_product_id",
-        "updated_at",
+    plans_queryset = (
+        Plan.objects.filter(is_active=True)
+        .prefetch_related("entitlements")
+        .only(
+            "id",
+            "code",
+            "name",
+            "paddle_product_id",
+            "updated_at",
+        )
     )
-    prices_queryset = PlanPrice.objects.filter(active=True).select_related("plan").only(
-        "id",
-        "plan_id",
-        "interval",
-        "amount",
-        "currency",
-        "billing_cycle",
-        "trial_period",
-        "paddle_price_id",
-        "active",
-        "updated_at",
+    prices_queryset = (
+        PlanPrice.objects.filter(active=True)
+        .select_related("plan")
+        .only(
+            "id",
+            "plan_id",
+            "interval",
+            "amount",
+            "currency",
+            "billing_cycle",
+            "trial_period",
+            "paddle_price_id",
+            "active",
+            "updated_at",
+        )
     )
     subs_queryset = Subscription.objects.exclude(provider_subscription_id="").only(
         "id",
@@ -209,10 +223,17 @@ def sync_paddle_state(self) -> dict[str, int]:  # noqa: ARG001
             )
         except PaddleAPIError as exc:
             failed += 1
-            logger.warning("sync_paddle_state: plan %s push failed (%s)", plan.code, exc)
-        except Exception:  # noqa: BLE001 — keep the loop alive
+            logger.warning(
+                "sync_paddle_state: plan %s push failed (%s)",
+                plan.code,
+                exc,
+            )
+        except Exception:
             failed += 1
-            logger.exception("sync_paddle_state: unexpected plan push error for %s", plan.code)
+            logger.exception(
+                "sync_paddle_state: unexpected plan push error for %s",
+                plan.code,
+            )
 
     for price in prices_queryset.iterator(chunk_size=100):
         try:
@@ -226,7 +247,7 @@ def sync_paddle_state(self) -> dict[str, int]:  # noqa: ARG001
                 price.interval,
                 exc,
             )
-        except Exception:  # noqa: BLE001 — keep the loop alive
+        except Exception:
             failed += 1
             logger.exception(
                 "sync_paddle_state: unexpected price push error for %s/%s",
@@ -245,7 +266,7 @@ def sync_paddle_state(self) -> dict[str, int]:  # noqa: ARG001
                 sub.provider_subscription_id,
                 exc,
             )
-        except Exception:  # noqa: BLE001 — keep the loop alive
+        except Exception:
             failed += 1
             logger.exception(
                 "sync_paddle_state: unexpected error for %s",

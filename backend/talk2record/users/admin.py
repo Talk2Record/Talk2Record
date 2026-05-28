@@ -101,7 +101,8 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
             if org is None:
                 membership = (
                     Membership.objects.filter(
-                        user=user, status=Membership.Status.ACTIVE,
+                        user=user,
+                        status=Membership.Status.ACTIVE,
                     )
                     .select_related("organization")
                     .first()
@@ -109,7 +110,8 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
                 org = membership.organization if membership else None
             if org is None:
                 messages.warning(
-                    request, f"{user.email}: no organisation to reset.",
+                    request,
+                    f"{user.email}: no organisation to reset.",
                 )
                 continue
             if org.pk in seen:
@@ -118,14 +120,15 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
             organizations.append(org)
 
         if not organizations:
-            messages.error(request, _("None of the selected users have an organisation to reset."))
+            messages.error(
+                request,
+                _("None of the selected users have an organisation to reset."),
+            )
             return None
 
         if request.POST.get("confirm") == "1":
             reason = (request.POST.get("reason") or "").strip()
-            also_reset_onboarding = (
-                request.POST.get("also_reset_onboarding") == "on"
-            )
+            also_reset_onboarding = request.POST.get("also_reset_onboarding") == "on"
             if not reason:
                 messages.error(request, _("A reason is required to reset billing."))
                 return _render_reset_confirmation(
@@ -147,6 +150,7 @@ class UserAdmin(ModelAdmin, auth_admin.UserAdmin):
             back_url=reverse("admin:users_user_changelist"),
             title=_("Reset billing — confirm"),
         )
+
     add_fieldsets = (
         (
             None,

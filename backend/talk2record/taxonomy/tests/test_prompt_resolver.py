@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from talk2record.taxonomy.models import PromptPurpose, PromptTemplate
+from talk2record.taxonomy.models import PromptPurpose
+from talk2record.taxonomy.models import PromptTemplate
 from talk2record.taxonomy.services.prompt_resolver import PromptResolver
 
 
@@ -28,7 +29,11 @@ def test_resolves_category_specific_prompt_over_industry(
     )
 
     assert resolved is not None
-    assert resolved.template_id == material_delivery_prompt.pk if hasattr(resolved, "template_id") else True
+    assert (
+        resolved.template_id == material_delivery_prompt.pk
+        if hasattr(resolved, "template_id")
+        else True
+    )
     assert resolved.template.pk == material_delivery_prompt.pk
 
 

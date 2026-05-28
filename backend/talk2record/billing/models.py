@@ -40,7 +40,9 @@ class PaddleSettings(models.Model):
     client_side_token = models.CharField(
         max_length=128,
         blank=True,
-        help_text=_("Paddle.js client-side token (test_… or live_…). Safe to expose to the browser."),
+        help_text=_(
+            "Paddle.js client-side token (test_… or live_…). Safe to expose to the browser.",
+        ),
     )
     default_success_url = models.URLField(blank=True)
     default_cancel_url = models.URLField(blank=True)
@@ -57,7 +59,7 @@ class PaddleSettings(models.Model):
         return f"Paddle ({self.environment})"
 
     @classmethod
-    def get_solo(cls) -> "PaddleSettings":
+    def get_solo(cls) -> PaddleSettings:
         obj, _created = cls.objects.get_or_create(
             pk=1,
             defaults={
@@ -137,7 +139,9 @@ class PlanPrice(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.plan.code}/{self.interval}={self.paddle_price_id or '<unsynced>'}"
+        return (
+            f"{self.plan.code}/{self.interval}={self.paddle_price_id or '<unsynced>'}"
+        )
 
 
 class PlanEntitlement(models.Model):
@@ -205,25 +209,37 @@ class Subscription(models.Model):
         on_delete=models.CASCADE,
         related_name="subscriptions",
     )
-    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="subscriptions")
+    plan = models.ForeignKey(
+        Plan,
+        on_delete=models.PROTECT,
+        related_name="subscriptions",
+    )
     price = models.ForeignKey(
         PlanPrice,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="subscriptions",
-        help_text=_("The exact PlanPrice (interval + amount) this subscription is billed against."),
+        help_text=_(
+            "The exact PlanPrice (interval + amount) this subscription is billed against.",
+        ),
     )
     billing_interval = models.CharField(
         max_length=16,
         choices=PlanPrice.Interval.choices,
         default=PlanPrice.Interval.MONTH,
         db_index=True,
-        help_text=_("Denormalised from price.interval so dashboards can filter without joining."),
+        help_text=_(
+            "Denormalised from price.interval so dashboards can filter without joining.",
+        ),
     )
     provider_subscription_id = models.CharField(max_length=255, blank=True)
     paddle_customer_id = models.CharField(max_length=64, blank=True)
-    status = models.CharField(max_length=32, choices=Status.choices, default=Status.TRIALING)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.TRIALING,
+    )
     currency = models.CharField(max_length=8, default="USD")
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     seats = models.PositiveIntegerField(default=1)
@@ -271,7 +287,7 @@ class PaddleWebhookEvent(models.Model):
         unique=True,
         help_text=_(
             "Paddle's notification_id / event_id from the payload — the "
-            "natural idempotency key for redelivered webhooks."
+            "natural idempotency key for redelivered webhooks.",
         ),
     )
     event_type = models.CharField(max_length=64, db_index=True)
@@ -303,7 +319,7 @@ class PaddleWebhookEvent(models.Model):
         help_text=_(
             "Snapshot of Organization.billing_state_version when dispatch "
             "started. If the org's version differs at commit time, the "
-            "event is recorded as SKIPPED (reset-race guard)."
+            "event is recorded as SKIPPED (reset-race guard).",
         ),
     )
     error = models.TextField(blank=True)
@@ -338,7 +354,11 @@ class Transaction(models.Model):
     provider_transaction_id = models.CharField(max_length=255, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=8, default="USD")
-    status = models.CharField(max_length=32, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
     invoice_number = models.CharField(max_length=64, blank=True)
     issued_at = models.DateTimeField()
     paid_at = models.DateTimeField(null=True, blank=True)

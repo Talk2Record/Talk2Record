@@ -8,9 +8,9 @@ returns a list that the admin dashboard renders as a progress checklist.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Callable
 
 from django.db.models import Count
 from django.urls import NoReverseMatch
@@ -66,7 +66,7 @@ def _check_legal_documents() -> bool:
         LegalDocumentVersion.objects.filter(
             is_active=True,
             document_key__in=list(required_keys),
-        ).values_list("document_key", flat=True)
+        ).values_list("document_key", flat=True),
     )
     return required_keys.issubset(present)
 
@@ -96,9 +96,13 @@ def _check_paddle_configured() -> bool:
 def _check_plan_with_price() -> bool:
     from talk2record.billing.models import Plan
 
-    return Plan.objects.annotate(
-        price_count=Count("prices"),
-    ).filter(price_count__gt=0).exists()
+    return (
+        Plan.objects.annotate(
+            price_count=Count("prices"),
+        )
+        .filter(price_count__gt=0)
+        .exists()
+    )
 
 
 def _check_plan_entitlements() -> bool:
@@ -126,8 +130,9 @@ def _check_ai_task_bindings() -> bool:
     required = {AITask.TRANSCRIPTION, AITask.EXTRACTION}
     present = set(
         AITaskBinding.objects.filter(task__in=list(required)).values_list(
-            "task", flat=True,
-        )
+            "task",
+            flat=True,
+        ),
     )
     return required.issubset(present)
 
@@ -364,7 +369,7 @@ class OnboardingService:
                     complete=complete,
                     blocked_by=blocked_by,
                     optional=spec.optional,
-                )
+                ),
             )
         return steps
 

@@ -28,7 +28,8 @@ def test_longer_terms_match_before_shorter(
     # ``m3`` must be matched before ``m`` — otherwise "10 m3" becomes
     # "10 meter3" instead of "10 cubic meters".
     result = DictionaryNormalizer.normalize(
-        "Excavation 10 m3 of soil", industry=industry,
+        "Excavation 10 m3 of soil",
+        industry=industry,
     )
     assert "cubic meters" in result.text
     assert "meter3" not in result.text

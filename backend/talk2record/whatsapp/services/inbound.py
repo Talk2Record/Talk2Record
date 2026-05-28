@@ -11,27 +11,25 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.utils import timezone
 
-from talk2record.events import DomainEvent, publish_after_commit
-from talk2record.events.names import (
-    VOICE_NOTE_RECEIVED,
-    WHATSAPP_MESSAGE_DELIVERED,
-    WHATSAPP_MESSAGE_FAILED,
-    WHATSAPP_MESSAGE_READ,
-    WHATSAPP_MESSAGE_RECEIVED,
-    WHATSAPP_STATUS_UPDATED,
-)
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppConversation,
-    WhatsAppInboundRoute,
-    WhatsAppMessage,
-)
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import VOICE_NOTE_RECEIVED
+from talk2record.events.names import WHATSAPP_MESSAGE_DELIVERED
+from talk2record.events.names import WHATSAPP_MESSAGE_FAILED
+from talk2record.events.names import WHATSAPP_MESSAGE_READ
+from talk2record.events.names import WHATSAPP_MESSAGE_RECEIVED
+from talk2record.events.names import WHATSAPP_STATUS_UPDATED
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppMessage
 
 if TYPE_CHECKING:
     from talk2record.organizations.models import Organization
@@ -349,9 +347,13 @@ class WhatsAppInboundService:
             return route.organization
         # Fall back to an existing account binding (if the operator already
         # registered one via the admin / outbound API).
-        account = WhatsAppAccount.objects.select_related("organization").filter(
-            phone_number_id=phone_number_id,
-        ).first()
+        account = (
+            WhatsAppAccount.objects.select_related("organization")
+            .filter(
+                phone_number_id=phone_number_id,
+            )
+            .first()
+        )
         return account.organization if account else None
 
     @staticmethod
@@ -482,7 +484,7 @@ class WhatsAppInboundService:
         except (TypeError, ValueError):
             return None
         try:
-            return datetime.fromtimestamp(seconds, tz=dt_timezone.utc)
+            return datetime.fromtimestamp(seconds, tz=UTC)
         except (OverflowError, OSError, ValueError):
             return None
 

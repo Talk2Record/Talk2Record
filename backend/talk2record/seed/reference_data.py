@@ -354,7 +354,10 @@ def _sync_industries(summary) -> dict[str, Industry]:
     return industries
 
 
-def _sync_categories(summary, industries: dict[str, Industry]) -> dict[tuple[str, str], Category]:
+def _sync_categories(
+    summary,
+    industries: dict[str, Industry],
+) -> dict[tuple[str, str], Category]:
     categories: dict[tuple[str, str], Category] = {}
     for definition in CATEGORY_DEFINITIONS:
         industry = industries.get(definition["industry"])

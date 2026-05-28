@@ -89,9 +89,10 @@ class LegalAcceptanceService:
     @staticmethod
     def get_active_versions() -> dict[str, LegalDocumentVersion]:
         LegalAcceptanceService.sync_default_versions()
-        versions = (
-            LegalDocumentVersion.objects.filter(is_active=True)
-            .order_by("document_key", "-effective_at", "-pk")
+        versions = LegalDocumentVersion.objects.filter(is_active=True).order_by(
+            "document_key",
+            "-effective_at",
+            "-pk",
         )
         current_versions: dict[str, LegalDocumentVersion] = {}
         for version in versions:

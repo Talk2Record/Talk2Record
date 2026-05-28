@@ -14,7 +14,7 @@ from talk2record.events.bus import EventBus
     retry_jitter=True,
     max_retries=5,
 )
-def dispatch_domain_event(self, event_payload: dict) -> None:  # noqa: ARG001
+def dispatch_domain_event(self, event_payload: dict) -> None:
     task_names = EventBus.get_handlers(str(event_payload.get("name", "")))
     for task_name in task_names:
         task = current_app.tasks.get(task_name)

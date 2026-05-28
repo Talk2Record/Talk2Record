@@ -10,10 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from talk2record.billing.models import (
-    PlanEntitlement,
-    Subscription,
-)
+from talk2record.billing.models import PlanEntitlement
+from talk2record.billing.models import Subscription
 
 if TYPE_CHECKING:
     from talk2record.organizations.models import Organization
@@ -109,4 +107,3 @@ class EntitlementService:
         # Intentionally a no-op for now. Importing is enough to satisfy the
         # call-site contract; future cache layers should hook here.
         _ = organization
-        return None

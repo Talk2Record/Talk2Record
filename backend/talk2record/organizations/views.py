@@ -1,5 +1,3 @@
-from talk2record.audit.models import AuditLog
-from talk2record.audit.services import AuditService
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -10,16 +8,17 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.viewsets import ViewSet
 
-from talk2record.organizations.invitations import MembershipInvitationService
+from talk2record.audit.models import AuditLog
+from talk2record.audit.services import AuditService
 from talk2record.organizations.invitations import InvitationError
+from talk2record.organizations.invitations import MembershipInvitationService
 from talk2record.organizations.invitations import build_invitation_accept_url
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import MembershipInvitation
 from talk2record.organizations.models import Organization
 from talk2record.organizations.models import OrganizationAPIKey
-from talk2record.organizations.permissions import IsOrgAdmin
-from talk2record.organizations.serializers import APIKeyAuditEventSerializer
 from talk2record.organizations.serializers import AcceptInvitationSerializer
+from talk2record.organizations.serializers import APIKeyAuditEventSerializer
 from talk2record.organizations.serializers import ChangeMembershipRoleSerializer
 from talk2record.organizations.serializers import CreateOrganizationAPIKeySerializer
 from talk2record.organizations.serializers import InviteMembershipSerializer
@@ -36,7 +35,9 @@ class OrganizationViewSet(ReadOnlyModelViewSet):
     serializer_class = OrganizationSerializer
 
     def get_queryset(self):
-        return Organization.objects.filter(memberships__user=self.request.user).distinct()
+        return Organization.objects.filter(
+            memberships__user=self.request.user,
+        ).distinct()
 
 
 class MembershipViewSet(ViewSet):
@@ -84,7 +85,10 @@ class MembershipViewSet(ViewSet):
             pk=pk,
             organization=context.organization,
         )
-        return Response(MembershipSerializer(membership).data, status=status.HTTP_200_OK)
+        return Response(
+            MembershipSerializer(membership).data,
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get", "post"], url_path="invitations")
     def invitations(self, request):
@@ -122,7 +126,10 @@ class MembershipViewSet(ViewSet):
             resource_id=str(created.invitation.pk),
             actor=request.user,
             organization=context.organization,
-            metadata={"email": created.invitation.email, "role": created.invitation.role},
+            metadata={
+                "email": created.invitation.email,
+                "role": created.invitation.role,
+            },
         )
         return Response(
             {
@@ -149,7 +156,10 @@ class MembershipViewSet(ViewSet):
             organization=context.organization,
         )
         try:
-            MembershipInvitationService.revoke(invitation=invitation, actor=request.user)
+            MembershipInvitationService.revoke(
+                invitation=invitation,
+                actor=request.user,
+            )
         except InvitationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         AuditService.log(
@@ -190,7 +200,10 @@ class MembershipViewSet(ViewSet):
             organization=context.organization,
             metadata={"role": membership.role},
         )
-        return Response(MembershipSerializer(membership).data, status=status.HTTP_200_OK)
+        return Response(
+            MembershipSerializer(membership).data,
+            status=status.HTTP_200_OK,
+        )
 
     def destroy(self, request, pk: str | None = None):
         context, denial = self._ensure_admin()
@@ -202,7 +215,10 @@ class MembershipViewSet(ViewSet):
             organization=context.organization,
         )
         try:
-            MembershipInvitationService.remove(membership=membership, actor=request.user)
+            MembershipInvitationService.remove(
+                membership=membership,
+                actor=request.user,
+            )
         except InvitationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         AuditService.log(
@@ -217,8 +233,13 @@ class MembershipViewSet(ViewSet):
 
     @action(detail=False, methods=["get"], url_path="mine")
     def mine(self, request):
-        queryset = Membership.objects.filter(user=request.user).select_related("organization")
-        return Response(MembershipSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
+        queryset = Membership.objects.filter(user=request.user).select_related(
+            "organization",
+        )
+        return Response(
+            MembershipSerializer(queryset, many=True).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class AcceptInvitationView(APIView):
@@ -311,10 +332,11 @@ class OrganizationAPIKeyViewSet(ViewSet):
         context, denial = self._ensure_can_manage_keys()
         if denial is not None:
             return denial
-        include_inactive = (
-            request.query_params.get("includeInactive", "").lower()
-            in {"1", "true", "yes"}
-        )
+        include_inactive = request.query_params.get("includeInactive", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         queryset = OrganizationAPIKey.objects.filter(
             organization=context.organization,
         )

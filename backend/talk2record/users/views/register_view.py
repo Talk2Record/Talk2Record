@@ -11,7 +11,10 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = RegisterUserSerializer(data=request.data, context={"request": request})
+        serializer = RegisterUserSerializer(
+            data=request.data,
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         user_serializer = UserSerializer(user, context={"request": request})

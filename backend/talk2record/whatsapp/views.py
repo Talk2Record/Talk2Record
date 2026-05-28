@@ -18,9 +18,9 @@ from talk2record.ingestion.observability import request_id_from_request
 from talk2record.ingestion.quotas import IngestionQuotaService
 from talk2record.ingestion.tasks import process_whatsapp_record
 from talk2record.ingestion.throttles import WhatsAppWebhookRateThrottle
+from talk2record.records.models import Record
 from talk2record.whatsapp.services.inbound import WhatsAppInboundService
 from talk2record.whatsapp.settings_access import get_active_whatsapp_settings
-from talk2record.records.models import Record
 from talk2record.whatsapp.webhook import InboundWhatsAppMessage
 from talk2record.whatsapp.webhook import WhatsAppWebhookService
 

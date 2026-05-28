@@ -15,10 +15,10 @@ class Command(BaseCommand):
         "subscriptions, transactions) is never created or modified."
     )
 
-    def add_arguments(self, parser) -> None:  # noqa: ARG002 - reserved for future toggles
+    def add_arguments(self, parser) -> None:
         return None
 
-    def handle(self, *args, **options) -> None:  # noqa: ARG002
+    def handle(self, *args, **options) -> None:
         summary = SeedDataOrchestrator(options=SeedOptions()).run()
 
         self.stdout.write(

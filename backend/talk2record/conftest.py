@@ -1,8 +1,8 @@
 import uuid
+from datetime import UTC
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone as dt_timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -13,10 +13,8 @@ from talk2record.analytics.models import DailyMetric
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
 from talk2record.billing.models import Transaction
-from talk2record.events.models import DomainEvent as DomainEventRecord
 from talk2record.core.vault import SecretVault
-from talk2record.whatsapp.models import WhatsAppInboundRoute
-from talk2record.whatsapp.models import WhatsAppSettings
+from talk2record.events.models import DomainEvent as DomainEventRecord
 from talk2record.legal.services import LegalAcceptanceService
 from talk2record.notifications.models import Notification
 from talk2record.organizations.models import Membership
@@ -24,6 +22,8 @@ from talk2record.organizations.models import Organization
 from talk2record.records.models import Record
 from talk2record.users.models import User
 from talk2record.users.tests.factories import UserFactory
+from talk2record.whatsapp.models import WhatsAppInboundRoute
+from talk2record.whatsapp.models import WhatsAppSettings
 
 
 @pytest.fixture(autouse=True)
@@ -38,15 +38,20 @@ def _stub_record_audio_download(monkeypatch: pytest.MonkeyPatch) -> None:
     def _fake_audio(*, audio_url: str) -> bytes:
         return b"fake-audio-bytes"
 
-    monkeypatch.setattr("talk2record.records.audio.load_record_audio_bytes", _fake_audio)
     monkeypatch.setattr(
-        "talk2record.ai.services.transcription.load_record_audio_bytes", _fake_audio
+        "talk2record.records.audio.load_record_audio_bytes",
+        _fake_audio,
+    )
+    monkeypatch.setattr(
+        "talk2record.ai.services.transcription.load_record_audio_bytes",
+        _fake_audio,
     )
 
 
 @pytest.fixture(autouse=True)
 def _stub_extraction_pipeline(
-    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> None:
     """Patch ExtractionPipeline.run for ingestion tests.
 
@@ -57,17 +62,13 @@ def _stub_extraction_pipeline(
     if "ingestion/tests" not in str(request.fspath):
         return
 
-    from talk2record.taxonomy.services.classification import (
-        CategoryScore,
-        ClassificationResult,
-        IndustryScore,
-    )
+    from talk2record.taxonomy.services.classification import CategoryScore
+    from talk2record.taxonomy.services.classification import ClassificationResult
+    from talk2record.taxonomy.services.classification import IndustryScore
     from talk2record.taxonomy.services.dictionary import NormalizedText
     from talk2record.taxonomy.services.extraction import DynamicExtractionResult
-    from talk2record.taxonomy.services.orchestrator import (
-        CategoryExtraction,
-        PipelineOutcome,
-    )
+    from talk2record.taxonomy.services.orchestrator import CategoryExtraction
+    from talk2record.taxonomy.services.orchestrator import PipelineOutcome
     from talk2record.taxonomy.services.validation import ValidationResult
 
     def _mock_run(cls, transcript: str) -> PipelineOutcome:
@@ -78,7 +79,7 @@ def _stub_extraction_pipeline(
                     industry="construction",
                     slug="material_delivery",
                     confidence=0.95,
-                )
+                ),
             ],
             source="mock",
         )
@@ -256,6 +257,6 @@ def domain_event(organization: Organization) -> DomainEventRecord:
         resource_type="record",
         resource_id="1",
         payload={"event_id": event_id, "name": "record.stored"},
-        occurred_at=datetime.now(tz=dt_timezone.utc),
+        occurred_at=datetime.now(tz=UTC),
         processed=False,
     )

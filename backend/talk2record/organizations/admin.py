@@ -53,9 +53,7 @@ class OrganizationAdmin(ModelAdmin):
 
         if request.POST.get("confirm") == "1":
             reason = (request.POST.get("reason") or "").strip()
-            also_reset_onboarding = (
-                request.POST.get("also_reset_onboarding") == "on"
-            )
+            also_reset_onboarding = request.POST.get("also_reset_onboarding") == "on"
             if not reason:
                 messages.error(request, _("A reason is required to reset billing."))
                 return _render_reset_confirmation(
@@ -102,7 +100,13 @@ class MembershipInvitationAdmin(ModelAdmin):
     list_select_related = ("organization", "invited_by", "accepted_by")
     search_fields = ["email", "organization__name", "organization__slug"]
     list_filter = ["status", "role", "created_at"]
-    readonly_fields = ["token_hash", "created_at", "updated_at", "accepted_at", "revoked_at"]
+    readonly_fields = [
+        "token_hash",
+        "created_at",
+        "updated_at",
+        "accepted_at",
+        "revoked_at",
+    ]
 
 
 @admin.register(OrganizationAPIKey)

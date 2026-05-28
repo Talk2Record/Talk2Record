@@ -28,7 +28,13 @@ from talk2record.organizations.models import Organization
 logger = logging.getLogger(__name__)
 
 
-def _run_billing_reset(request, organizations, reason: str, *, also_reset_onboarding: bool = False) -> None:
+def _run_billing_reset(
+    request,
+    organizations,
+    reason: str,
+    *,
+    also_reset_onboarding: bool = False,
+) -> None:
     """Helper used by every ``reset_billing`` admin action.
 
     Accepts a queryset / iterable of ``Organization``s and runs
@@ -46,7 +52,7 @@ def _run_billing_reset(request, organizations, reason: str, *, also_reset_onboar
                 reason=reason,
                 also_reset_onboarding=also_reset_onboarding,
             )
-        except Exception as exc:  # noqa: BLE001 — surfaced as admin warning
+        except Exception as exc:
             logger.exception("Billing reset failed for org=%s", org.pk)
             messages.warning(request, f"{org.name}: {exc}")
             continue
@@ -56,15 +62,17 @@ def _run_billing_reset(request, organizations, reason: str, *, also_reset_onboar
     if succeeded:
         messages.success(
             request,
-            _("Billing reset completed for %(count)d organisation(s).") % {"count": succeeded},
+            _("Billing reset completed for %(count)d organisation(s).")
+            % {"count": succeeded},
         )
     if paddle_warnings:
         messages.warning(
             request,
             _(
                 "%(count)d reset(s) reported Paddle errors — see the audit log "
-                "for details."
-            ) % {"count": paddle_warnings},
+                "for details.",
+            )
+            % {"count": paddle_warnings},
         )
 
 
@@ -332,7 +340,9 @@ class SubscriptionAdmin(ModelAdmin):
             except PaddleAPIError as exc:
                 messages.warning(request, f"{sub}: {exc}")
 
-    @admin.action(description=_("Reset billing for selected subscriptions' organisations"))
+    @admin.action(
+        description=_("Reset billing for selected subscriptions' organisations"),
+    )
     def reset_billing(self, request, queryset):
         """Two-step confirmation: first POST renders a reason form,
         second POST (with ``confirm=1``) executes the reset.
@@ -342,9 +352,7 @@ class SubscriptionAdmin(ModelAdmin):
 
         if request.POST.get("confirm") == "1":
             reason = (request.POST.get("reason") or "").strip()
-            also_reset_onboarding = (
-                request.POST.get("also_reset_onboarding") == "on"
-            )
+            also_reset_onboarding = request.POST.get("also_reset_onboarding") == "on"
             if not reason:
                 messages.error(request, _("A reason is required to reset billing."))
                 return _render_reset_confirmation(
@@ -383,7 +391,11 @@ class TransactionAdmin(ModelAdmin):
         "status",
         "issued_at",
     ]
-    list_select_related = ("subscription", "subscription__organization", "subscription__plan")
+    list_select_related = (
+        "subscription",
+        "subscription__organization",
+        "subscription__plan",
+    )
     search_fields = [
         "invoice_number",
         "provider_transaction_id",

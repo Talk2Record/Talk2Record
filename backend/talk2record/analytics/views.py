@@ -7,13 +7,14 @@ from django.db.models import Count
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.views import APIView
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from talk2record.analytics.models import DailyMetric
 from talk2record.analytics.serializers import DailyMetricSerializer
 from talk2record.organizations.models import Membership
-from talk2record.records.models import Record, RecordArtifact
+from talk2record.records.models import Record
+from talk2record.records.models import RecordArtifact
 
 
 def _presentation_status(status: str) -> str:
@@ -59,20 +60,28 @@ class DashboardOverviewView(APIView):
             status=Membership.Status.ACTIVE,
         ).count()
 
-        recent_records = list(records_queryset.prefetch_related("artifacts").order_by("-created_at")[:5])
+        recent_records = list(
+            records_queryset.prefetch_related("artifacts").order_by("-created_at")[:5],
+        )
         activities = []
         for record in recent_records:
             extraction = record.get_artifact("extraction")
             transcript = record.get_artifact("transcript")
-            customer = (extraction.content.get("customer_name") or "Unknown") if extraction else "Unknown"
+            customer = (
+                (extraction.content.get("customer_name") or "Unknown")
+                if extraction
+                else "Unknown"
+            )
             snippet = (transcript.content.get("text") or "") if transcript else ""
-            activities.append({
-                "id": str(record.pk),
-                "customer": customer,
-                "transcriptSnippet": snippet or "Transcript not available yet.",
-                "status": _presentation_status(record.status),
-                "createdAt": record.created_at,
-            })
+            activities.append(
+                {
+                    "id": str(record.pk),
+                    "customer": customer,
+                    "transcriptSnippet": snippet or "Transcript not available yet.",
+                    "status": _presentation_status(record.status),
+                    "createdAt": record.created_at,
+                },
+            )
 
         # Revenue from extraction artifacts
         total_revenue = _sum_revenue_from_artifacts(organization)
@@ -123,24 +132,35 @@ class AnalyticsSnapshotView(APIView):
                     "revenueTrends": [],
                     "processingStats": [],
                     "heatmapSummary": [],
-                }
+                },
             )
 
         daily_metrics = list(
-            DailyMetric.objects.filter(organization=organization).order_by("-metric_date")[:7]
+            DailyMetric.objects.filter(organization=organization).order_by(
+                "-metric_date",
+            )[:7],
         )
         daily_metrics.reverse()
         sales_per_day = [
-            {"label": metric.metric_date.strftime("%a"), "value": metric.records_created}
+            {
+                "label": metric.metric_date.strftime("%a"),
+                "value": metric.records_created,
+            }
             for metric in daily_metrics
         ]
 
         # Product counts from extraction artifacts
         record_ids = list(
-            Record.objects.filter(organization=organization).values_list("id", flat=True)
+            Record.objects.filter(organization=organization).values_list(
+                "id",
+                flat=True,
+            ),
         )
         product_counts: Counter = Counter()
-        for artifact in RecordArtifact.objects.filter(record_id__in=record_ids, key="extraction"):
+        for artifact in RecordArtifact.objects.filter(
+            record_id__in=record_ids,
+            key="extraction",
+        ):
             product = artifact.content.get("product", "")
             if product:
                 product_counts[product] += 1
@@ -154,7 +174,10 @@ class AnalyticsSnapshotView(APIView):
         revenue_trends = _build_revenue_trends(record_ids)
 
         status_counts = Counter(
-            Record.objects.filter(organization=organization).values_list("status", flat=True)
+            Record.objects.filter(organization=organization).values_list(
+                "status",
+                flat=True,
+            ),
         )
         total_status = sum(status_counts.values()) or 1
         processing_stats = [
@@ -166,16 +189,20 @@ class AnalyticsSnapshotView(APIView):
                         + status_counts.get(Record.Status.STORED, 0)
                     )
                     / total_status
-                    * 100
+                    * 100,
                 ),
             },
             {
                 "label": "Review",
-                "value": round(status_counts.get(Record.Status.REVIEW, 0) / total_status * 100),
+                "value": round(
+                    status_counts.get(Record.Status.REVIEW, 0) / total_status * 100,
+                ),
             },
             {
                 "label": "Failed",
-                "value": round(status_counts.get(Record.Status.FAILED, 0) / total_status * 100),
+                "value": round(
+                    status_counts.get(Record.Status.FAILED, 0) / total_status * 100,
+                ),
             },
         ]
 
@@ -192,16 +219,19 @@ class AnalyticsSnapshotView(APIView):
                 "revenueTrends": revenue_trends,
                 "processingStats": processing_stats,
                 "heatmapSummary": heatmap_summary,
-            }
+            },
         )
 
 
 def _sum_revenue_from_artifacts(organization) -> Decimal:
     record_ids = list(
-        Record.objects.filter(organization=organization).values_list("id", flat=True)
+        Record.objects.filter(organization=organization).values_list("id", flat=True),
     )
     total = Decimal("0.00")
-    for artifact in RecordArtifact.objects.filter(record_id__in=record_ids, key="extraction"):
+    for artifact in RecordArtifact.objects.filter(
+        record_id__in=record_ids,
+        key="extraction",
+    ):
         try:
             total += Decimal(str(artifact.content.get("amount", "0") or "0"))
         except Exception:
@@ -213,10 +243,15 @@ def _build_revenue_trends(record_ids: list) -> list:
     from collections import defaultdict
 
     monthly: dict = defaultdict(Decimal)
-    for artifact in RecordArtifact.objects.filter(record_id__in=record_ids, key="extraction").select_related("record"):
+    for artifact in RecordArtifact.objects.filter(
+        record_id__in=record_ids,
+        key="extraction",
+    ).select_related("record"):
         month_label = artifact.record.created_at.strftime("%b")
         try:
-            monthly[month_label] += Decimal(str(artifact.content.get("amount", "0") or "0"))
+            monthly[month_label] += Decimal(
+                str(artifact.content.get("amount", "0") or "0"),
+            )
         except Exception:
             pass
     return [{"label": label, "value": float(val)} for label, val in monthly.items()]

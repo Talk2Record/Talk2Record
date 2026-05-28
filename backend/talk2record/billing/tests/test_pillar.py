@@ -10,15 +10,12 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from talk2record.billing.entitlements import EntitlementService
-from talk2record.billing.models import (
-    PaddleSettings,
-    Plan,
-    PlanEntitlement,
-    PlanPrice,
-    Subscription,
-    Transaction,
-)
-from talk2record.billing.paddle_client import PaddleClient
+from talk2record.billing.models import PaddleSettings
+from talk2record.billing.models import Plan
+from talk2record.billing.models import PlanEntitlement
+from talk2record.billing.models import PlanPrice
+from talk2record.billing.models import Subscription
+from talk2record.billing.models import Transaction
 from talk2record.billing.paddle_service import PaddleBillingService
 from talk2record.core.vault import SecretVault
 
@@ -304,7 +301,10 @@ class TestPaddleAdminPushes:
         assert mock_request.called
 
     def test_subscription_admin_cancel_action_calls_paddle(
-        self, admin_client, organization, plan,
+        self,
+        admin_client,
+        organization,
+        plan,
     ):
         _configure_paddle()
         sub = Subscription.objects.create(
@@ -315,7 +315,10 @@ class TestPaddleAdminPushes:
         )
         with patch(
             "talk2record.billing.paddle_client.requests.request",
-            return_value=_fake_response(200, {"data": {"id": sub.provider_subscription_id}}),
+            return_value=_fake_response(
+                200,
+                {"data": {"id": sub.provider_subscription_id}},
+            ),
         ) as mock_request:
             response = admin_client.post(
                 reverse("admin:billing_subscription_changelist"),

@@ -66,7 +66,12 @@ class AdminUserSerializer(drf_serializers.ModelSerializer[User]):
 
 
 class SuspendUserSerializer(drf_serializers.Serializer):
-    reason = drf_serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    reason = drf_serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
 
 class AdminUserViewSet(
@@ -216,7 +221,7 @@ class AdminUserViewSet(
 def _revoke_all_sessions(user: User) -> None:
     """Blacklist every outstanding refresh token for the given user."""
     try:
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken  # noqa: PLC0415
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
     except ImportError:
         return
     tokens = OutstandingToken.objects.filter(user=user)

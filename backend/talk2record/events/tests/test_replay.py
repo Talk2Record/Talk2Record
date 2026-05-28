@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone
-from unittest.mock import patch
 
 import pytest
 
@@ -19,13 +18,13 @@ def test_unprocessed_events_can_be_queried():
     DomainEventRecord.objects.create(
         id=event_id_1,
         name=RECORD_STORED,
-        occurred_at=datetime.now(tz=timezone.utc),
+        occurred_at=datetime.now(tz=UTC),
         processed=False,
     )
     DomainEventRecord.objects.create(
         id=event_id_2,
         name=RECORD_STORED,
-        occurred_at=datetime.now(tz=timezone.utc),
+        occurred_at=datetime.now(tz=UTC),
         processed=True,
     )
 
@@ -54,9 +53,9 @@ def test_replay_unprocessed_events_via_dispatch(settings):
             "resource_type": "record",
             "resource_id": "1",
             "metadata": {},
-            "occurred_at": datetime.now(tz=timezone.utc).isoformat(),
+            "occurred_at": datetime.now(tz=UTC).isoformat(),
         },
-        occurred_at=datetime.now(tz=timezone.utc),
+        occurred_at=datetime.now(tz=UTC),
         processed=False,
     )
 
@@ -92,9 +91,9 @@ def test_replay_is_idempotent(settings):
             "resource_type": "record",
             "resource_id": "1",
             "metadata": {},
-            "occurred_at": datetime.now(tz=timezone.utc).isoformat(),
+            "occurred_at": datetime.now(tz=UTC).isoformat(),
         },
-        occurred_at=datetime.now(tz=timezone.utc),
+        occurred_at=datetime.now(tz=UTC),
         processed=False,
     )
 
@@ -105,7 +104,10 @@ def test_replay_is_idempotent(settings):
     dispatch_domain_event(payload)
     dispatch_domain_event(payload)
 
-    assert AuditLog.objects.filter(
-        action=RECORD_STORED,
-        resource_id="1",
-    ).count() == 1
+    assert (
+        AuditLog.objects.filter(
+            action=RECORD_STORED,
+            resource_id="1",
+        ).count()
+        == 1
+    )

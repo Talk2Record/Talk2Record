@@ -21,7 +21,6 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-
 # ---------------------------------------------------------------------------
 # Phase 1 — change-plan interval contract
 # ---------------------------------------------------------------------------
@@ -29,7 +28,9 @@ from rest_framework.test import APIClient
 
 @pytest.mark.django_db
 def test_change_plan_accepts_interval_and_propagates_to_service(
-    workspace_user, subscription, plan,
+    workspace_user,
+    subscription,
+    plan,
 ):
     """``change-plan`` must forward ``interval`` to ``PaddleBillingService.change_plan``.
 
@@ -104,7 +105,8 @@ def test_change_plan_accepts_interval_and_propagates_to_service(
 
 @pytest.mark.django_db
 def test_change_plan_same_plan_different_interval_is_allowed(
-    workspace_user, subscription,
+    workspace_user,
+    subscription,
 ):
     """Switching cadence on the same plan must NOT be a 400.
 
@@ -158,7 +160,8 @@ def test_change_plan_same_plan_different_interval_is_allowed(
 
 @pytest.mark.django_db
 def test_change_plan_same_plan_same_interval_still_returns_400(
-    workspace_user, subscription,
+    workspace_user,
+    subscription,
 ):
     """No-op (same plan AND same interval) must still be rejected.
 
@@ -194,7 +197,8 @@ def test_change_plan_same_plan_same_interval_still_returns_400(
 
 @pytest.mark.django_db
 def test_monthly_usage_limit_prefers_plan_entitlement_over_features_json(
-    organization, subscription,
+    organization,
+    subscription,
 ):
     """``PlanEntitlement.ai.usage`` must win over ``Plan.features`` JSON.
 
@@ -220,7 +224,9 @@ def test_monthly_usage_limit_prefers_plan_entitlement_over_features_json(
 
 @pytest.mark.django_db
 def test_monthly_usage_limit_falls_back_to_features_json(
-    organization, subscription, settings,
+    organization,
+    subscription,
+    settings,
 ):
     """When no ``PlanEntitlement`` row exists, the legacy resolver kicks in.
 
@@ -241,7 +247,8 @@ def test_monthly_usage_limit_falls_back_to_features_json(
 
 @pytest.mark.django_db
 def test_monthly_usage_limit_falls_back_to_settings_default(
-    organization, settings,
+    organization,
+    settings,
 ):
     """No subscription, no entitlement → use the free-tier settings default."""
     from talk2record.usage.services import UsageTrackingService
@@ -252,7 +259,9 @@ def test_monthly_usage_limit_falls_back_to_settings_default(
 
 @pytest.mark.django_db
 def test_usage_summary_returns_populated_dataclass(
-    organization, subscription, record,
+    organization,
+    subscription,
+    record,
 ):
     """``usage_summary`` should consolidate counter + limit + cycle bounds."""
     from talk2record.billing.models import PlanEntitlement

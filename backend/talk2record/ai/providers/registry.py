@@ -8,8 +8,10 @@ creating a small adapter and registering it here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -69,14 +71,10 @@ def _build_default_registry() -> None:
     """
 
     from talk2record.ai.providers.anthropic import AnthropicExtractionProvider
-    from talk2record.ai.providers.mock import (
-        MockExtractionProvider,
-        MockTranscriptionProvider,
-    )
-    from talk2record.ai.providers.openai import (
-        OpenAIExtractionProvider,
-        OpenAITranscriptionProvider,
-    )
+    from talk2record.ai.providers.mock import MockExtractionProvider
+    from talk2record.ai.providers.mock import MockTranscriptionProvider
+    from talk2record.ai.providers.openai import OpenAIExtractionProvider
+    from talk2record.ai.providers.openai import OpenAITranscriptionProvider
     from talk2record.ai.providers.openai_compat import (
         OpenAICompatibleExtractionProvider,
     )
@@ -86,7 +84,9 @@ def _build_default_registry() -> None:
             slug="mock",
             display_name="Mock (testing)",
             capabilities=("chat", "transcription"),
-            chat_factory=lambda *, api_key="", model="", base_url="": MockExtractionProvider(),
+            chat_factory=lambda *, api_key="", model="", base_url="": (
+                MockExtractionProvider()
+            ),
             transcription_factory=(
                 lambda *, api_key="", model="", base_url="": MockTranscriptionProvider()
             ),

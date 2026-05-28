@@ -13,8 +13,8 @@ SDK.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any
-from typing import Iterable
 
 import requests
 from django.core import signing
@@ -140,7 +140,11 @@ class PaddleClient:
     def create_product(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self.request("POST", "/products", json=payload)
 
-    def update_product(self, product_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def update_product(
+        self,
+        product_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
         return self.request("PATCH", f"/products/{product_id}", json=payload)
 
     def get_product(self, product_id: str) -> dict[str, Any]:
@@ -167,7 +171,9 @@ class PaddleClient:
         return self.request("GET", f"/subscriptions/{subscription_id}")
 
     def update_subscription(
-        self, subscription_id: str, payload: dict[str, Any],
+        self,
+        subscription_id: str,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         return self.request("PATCH", f"/subscriptions/{subscription_id}", json=payload)
 
@@ -215,7 +221,8 @@ class PaddleClient:
         )
 
     def get_update_payment_method_transaction(
-        self, subscription_id: str,
+        self,
+        subscription_id: str,
     ) -> dict[str, Any]:
         return self.request(
             "GET",
@@ -241,7 +248,9 @@ class PaddleClient:
         return self.request("POST", "/transactions", json=payload)
 
     def update_transaction(
-        self, transaction_id: str, payload: dict[str, Any],
+        self,
+        transaction_id: str,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         """PATCH a Paddle transaction (used to ``void`` pending transactions).
 
@@ -277,7 +286,9 @@ class PaddleClient:
         return self.request("POST", "/notification-settings", json=payload)
 
     def update_notification_setting(
-        self, setting_id: str, payload: dict[str, Any],
+        self,
+        setting_id: str,
+        payload: dict[str, Any],
     ) -> dict[str, Any]:
         return self.request(
             "PATCH",
@@ -316,7 +327,8 @@ class PaddleClient:
         }
         if settings.paddle_notification_setting_id:
             return self.update_notification_setting(
-                settings.paddle_notification_setting_id, payload,
+                settings.paddle_notification_setting_id,
+                payload,
             )
         result = self.create_notification_setting(payload)
         new_id = ""

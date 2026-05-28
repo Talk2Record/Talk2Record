@@ -20,7 +20,7 @@ from talk2record.organizations.models import Organization
     retry_jitter=True,
     max_retries=5,
 )
-def handle_domain_event_for_notifications(self, event_payload: dict) -> None:  # noqa: ARG001
+def handle_domain_event_for_notifications(self, event_payload: dict) -> None:
     if already_handled(event_payload, "notifications"):
         return
 
@@ -112,10 +112,14 @@ def _handle_membership_accepted(event_payload: dict) -> None:
         organization=membership.organization,
         metadata={"membership_id": membership.pk},
     )
-    admin_memberships = membership.organization.memberships.filter(
-        role__in=[Membership.Role.OWNER, Membership.Role.ADMIN],
-        status=Membership.Status.ACTIVE,
-    ).exclude(pk=membership.pk).select_related("user")
+    admin_memberships = (
+        membership.organization.memberships.filter(
+            role__in=[Membership.Role.OWNER, Membership.Role.ADMIN],
+            status=Membership.Status.ACTIVE,
+        )
+        .exclude(pk=membership.pk)
+        .select_related("user")
+    )
     for admin in admin_memberships:
         NotificationService.create(
             user=admin.user,

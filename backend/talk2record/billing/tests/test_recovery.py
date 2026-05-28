@@ -31,7 +31,6 @@ from talk2record.billing.models import Transaction
 from talk2record.billing.recovery_service import BillingRecoveryService
 from talk2record.usage.models import AIUsage
 
-
 # ---------------------------------------------------------------------------
 # Fixtures local to Phase 5
 # ---------------------------------------------------------------------------
@@ -91,7 +90,11 @@ def patched_paddle_client():
 
 @pytest.mark.django_db
 def test_reset_bumps_billing_state_version_first(
-    organization, subscription, usage_row, staff_user, patched_paddle_client,
+    organization,
+    subscription,
+    usage_row,
+    staff_user,
+    patched_paddle_client,
 ):
     """The lock (version bump) must happen before any other mutation.
 
@@ -103,7 +106,9 @@ def test_reset_bumps_billing_state_version_first(
 
     service = BillingRecoveryService(paddle=patched_paddle_client)
     report = service.reset(
-        organization, actor=staff_user, reason="Disputed charge T-1234",
+        organization,
+        actor=staff_user,
+        reason="Disputed charge T-1234",
     )
 
     organization.refresh_from_db()
@@ -117,7 +122,11 @@ def test_reset_bumps_billing_state_version_first(
 
 @pytest.mark.django_db
 def test_reset_clears_current_cycle_usage_but_preserves_history(
-    organization, subscription, record, staff_user, patched_paddle_client,
+    organization,
+    subscription,
+    record,
+    staff_user,
+    patched_paddle_client,
 ):
     """Step 4 should delete AIUsage rows in the current cycle ONLY.
 
@@ -159,14 +168,22 @@ def test_reset_clears_current_cycle_usage_but_preserves_history(
 
 @pytest.mark.django_db
 def test_reset_preserves_paid_transactions(
-    organization, subscription, staff_user, patched_paddle_client,
+    organization,
+    subscription,
+    staff_user,
+    patched_paddle_client,
 ):
     """Paid Transactions are immutable financial records — never deleted."""
     # The `subscription` fixture already created one PAID Transaction (inv_1).
-    paid_tx = Transaction.objects.get(subscription=subscription, status=Transaction.Status.PAID)
+    paid_tx = Transaction.objects.get(
+        subscription=subscription,
+        status=Transaction.Status.PAID,
+    )
 
     BillingRecoveryService(paddle=patched_paddle_client).reset(
-        organization, actor=staff_user, reason="Sanity check",
+        organization,
+        actor=staff_user,
+        reason="Sanity check",
     )
 
     assert Transaction.objects.filter(pk=paid_tx.pk).exists()
@@ -177,7 +194,10 @@ def test_reset_preserves_paid_transactions(
 
 @pytest.mark.django_db
 def test_reset_writes_audit_row_with_old_and_new_state(
-    organization, subscription, staff_user, patched_paddle_client,
+    organization,
+    subscription,
+    staff_user,
+    patched_paddle_client,
 ):
     """The audit row must capture actor, reason, before/after snapshots."""
     BillingRecoveryService(paddle=patched_paddle_client).reset(
@@ -203,18 +223,24 @@ def test_reset_writes_audit_row_with_old_and_new_state(
 
 @pytest.mark.django_db
 def test_reset_requires_reason(
-    organization, staff_user, patched_paddle_client,
+    organization,
+    staff_user,
+    patched_paddle_client,
 ):
     """Empty / whitespace reasons must be rejected — audit trail can't be empty."""
     with pytest.raises(ValueError):
         BillingRecoveryService(paddle=patched_paddle_client).reset(
-            organization, actor=staff_user, reason="   ",
+            organization,
+            actor=staff_user,
+            reason="   ",
         )
 
 
 @pytest.mark.django_db
 def test_reset_optional_onboarding_reset_flag(
-    organization, staff_user, patched_paddle_client,
+    organization,
+    staff_user,
+    patched_paddle_client,
 ):
     """``also_reset_onboarding=True`` clears profile_setup_completed only."""
     organization.profile_setup_completed = True
@@ -222,7 +248,9 @@ def test_reset_optional_onboarding_reset_flag(
 
     # Default: don't touch onboarding.
     BillingRecoveryService(paddle=patched_paddle_client).reset(
-        organization, actor=staff_user, reason="Test",
+        organization,
+        actor=staff_user,
+        reason="Test",
     )
     organization.refresh_from_db()
     assert organization.profile_setup_completed is True
@@ -240,7 +268,9 @@ def test_reset_optional_onboarding_reset_flag(
 
 @pytest.mark.django_db
 def test_reset_calls_paddle_cancel_when_client_configured(
-    organization, subscription, staff_user,
+    organization,
+    subscription,
+    staff_user,
 ):
     """When Paddle is configured, the service must call client.cancel and
     update_transaction for pending Transactions — but never delete anything.
@@ -263,7 +293,9 @@ def test_reset_calls_paddle_cancel_when_client_configured(
     fake_service.sync_subscription.return_value = None
 
     BillingRecoveryService(paddle=fake_service).reset(
-        organization, actor=staff_user, reason="Cancel test",
+        organization,
+        actor=staff_user,
+        reason="Cancel test",
     )
 
     # Operational cancel of the active subscription.
@@ -285,7 +317,8 @@ def test_reset_calls_paddle_cancel_when_client_configured(
 
 @pytest.mark.django_db
 def test_billing_reset_endpoint_requires_platform_staff(
-    organization, non_staff_user,
+    organization,
+    non_staff_user,
 ):
     client = APIClient()
     client.force_authenticate(user=non_staff_user)
@@ -297,7 +330,8 @@ def test_billing_reset_endpoint_requires_platform_staff(
 
 @pytest.mark.django_db
 def test_billing_reset_endpoint_rejects_blank_reason(
-    organization, staff_user,
+    organization,
+    staff_user,
 ):
     client = APIClient()
     client.force_authenticate(user=staff_user)
@@ -309,7 +343,9 @@ def test_billing_reset_endpoint_rejects_blank_reason(
 
 @pytest.mark.django_db
 def test_billing_reset_endpoint_runs_service_for_staff(
-    organization, subscription, staff_user,
+    organization,
+    subscription,
+    staff_user,
 ):
     client = APIClient()
     client.force_authenticate(user=staff_user)
@@ -333,7 +369,9 @@ def test_billing_reset_endpoint_runs_service_for_staff(
             new_billing_state_version=1,
         )
         response = client.post(
-            url, {"reason": "Test dispute"}, format="json",
+            url,
+            {"reason": "Test dispute"},
+            format="json",
         )
 
     assert response.status_code == HTTPStatus.OK
@@ -349,7 +387,9 @@ def test_billing_reset_endpoint_runs_service_for_staff(
 
 @pytest.mark.django_db
 def test_admin_organization_review_renders_subscriptions_and_paddle_id(
-    admin_client, organization, subscription,
+    admin_client,
+    organization,
+    subscription,
 ):
     """The per-org review page lists subs + paddle customer id + reset trigger."""
     subscription.paddle_customer_id = "ctm_acme"
@@ -369,7 +409,8 @@ def test_admin_organization_review_renders_subscriptions_and_paddle_id(
 
 @pytest.mark.django_db
 def test_admin_reset_organization_view_requires_reason(
-    admin_client, organization,
+    admin_client,
+    organization,
 ):
     """POSTing with blank reason should redirect back with an error message."""
     response = admin_client.post(
@@ -378,13 +419,16 @@ def test_admin_reset_organization_view_requires_reason(
     )
     assert response.status_code == HTTPStatus.FOUND
     assert response.url == reverse(
-        "admin_billing_organization_review", args=[organization.pk],
+        "admin_billing_organization_review",
+        args=[organization.pk],
     )
 
 
 @pytest.mark.django_db
 def test_admin_reset_organization_view_runs_service(
-    admin_client, organization, subscription,
+    admin_client,
+    organization,
+    subscription,
 ):
     """A POST with reason runs BillingRecoveryService and redirects."""
     with patch(
@@ -411,7 +455,8 @@ def test_admin_reset_organization_view_runs_service(
 
 @pytest.mark.django_db
 def test_admin_reset_organization_view_get_redirects(
-    admin_client, organization,
+    admin_client,
+    organization,
 ):
     """GET is rejected (redirect to review page)."""
     response = admin_client.get(
@@ -438,5 +483,7 @@ def test_paddle_client_update_transaction_uses_patch(monkeypatch):
 
     assert result == {"data": {"id": "txn_1"}}
     fake_request.assert_called_once_with(
-        "PATCH", "/transactions/txn_1", json={"status": "canceled"},
+        "PATCH",
+        "/transactions/txn_1",
+        json={"status": "canceled"},
     )

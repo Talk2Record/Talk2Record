@@ -34,7 +34,11 @@ class BillingResetRequestSerializer(serializers.Serializer):
     ``reason`` is required so every reset has an audit trail explanation.
     """
 
-    reason = serializers.CharField(max_length=2000, allow_blank=False, trim_whitespace=True)
+    reason = serializers.CharField(
+        max_length=2000,
+        allow_blank=False,
+        trim_whitespace=True,
+    )
     also_reset_onboarding = serializers.BooleanField(required=False, default=False)
 
 
@@ -83,7 +87,8 @@ class AdminOrganizationViewSet(RetrieveModelMixin, GenericViewSet):
                 actor=request.user,
                 reason=serializer.validated_data["reason"],
                 also_reset_onboarding=serializer.validated_data.get(
-                    "also_reset_onboarding", False,
+                    "also_reset_onboarding",
+                    False,
                 ),
             )
         except ValueError as exc:

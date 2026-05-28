@@ -18,12 +18,16 @@ class CompleteOnboardingView(APIView):
         organization = request.user.current_organization
         if not is_company_setup_complete(organization):
             return Response(
-                {"detail": "Company profile must be saved before completing onboarding."},
+                {
+                    "detail": "Company profile must be saved before completing onboarding.",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not has_active_subscription(organization):
             return Response(
-                {"detail": "A subscription plan must be selected before completing onboarding."},
+                {
+                    "detail": "A subscription plan must be selected before completing onboarding.",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -37,7 +41,7 @@ class CompleteOnboardingView(APIView):
                 kind=kind,
                 context="onboarding",
                 ip_address=request.META.get("REMOTE_ADDR"),
-                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                user_agent=request.headers.get("user-agent", ""),
             )
         request.user.onboarding_completed = True
         request.user.save(update_fields=["onboarding_completed"])

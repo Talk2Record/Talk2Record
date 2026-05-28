@@ -1,7 +1,7 @@
-# PostgreSQL
-# ------------------------------------------------------------------------------
+# PostgreSQL — local / CI template for docker-compose.local.yml
+
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=talk2record
-POSTGRES_USER=sfVFPQjKmUEuTGrKaOPBrcCUvYynlXUt
-POSTGRES_PASSWORD=Z4tv46bIM5q9zXaopTDKrSIjHuQ4AZ6KmwFAlQLJlXTDDhAGP5Igr3eIYxRr4JqY
+POSTGRES_USER=talk2record
+POSTGRES_PASSWORD=local-dev-only

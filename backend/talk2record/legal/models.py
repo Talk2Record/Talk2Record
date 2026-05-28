@@ -9,7 +9,10 @@ class LegalDocumentVersion(models.Model):
     class DocumentKey(models.TextChoices):
         PRIVACY_POLICY = "privacy-policy", _("Privacy Policy")
         TERMS_OF_SERVICE = "terms-of-service", _("Terms of Service")
-        DATA_PROCESSING_AGREEMENT = "data-processing-agreement", _("Data Processing Agreement")
+        DATA_PROCESSING_AGREEMENT = (
+            "data-processing-agreement",
+            _("Data Processing Agreement"),
+        )
         AI_USAGE_AND_DISCLAIMER = "ai-usage-disclaimer", _("AI Usage and Disclaimer")
         COOKIE_POLICY = "cookie-policy", _("Cookie Policy")
         ACCEPTABLE_USE_POLICY = "acceptable-use-policy", _("Acceptable Use Policy")

@@ -325,9 +325,6 @@ class BillingRecoveryService:
         """
         # Local import keeps the usage app out of import time for callers
         # that don't need the recovery service (e.g. webhook hot path).
-        from talk2record.usage.models import AIUsage
-        from talk2record.usage.services import _current_cycle
-
         # 4a. Mark every local subscription as CANCELED, drop the price FK,
         #     reset the denormalised billing_interval to the default, and
         #     null out the period bounds. Provider IDs are kept so the audit
@@ -335,6 +332,8 @@ class BillingRecoveryService:
         # billing_interval can't be left blank (NOT NULL on the column);
         # we restore the model default so dashboards don't render an empty cell.
         from talk2record.billing.models import PlanPrice
+        from talk2record.usage.models import AIUsage
+        from talk2record.usage.services import _current_cycle
 
         Subscription.objects.filter(organization=organization).update(
             status=Subscription.Status.CANCELED,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -13,17 +14,29 @@ class TestWhatsAppMediaService:
     def test_resolve_media_url_returns_signed_url(self):
         mock_response = MagicMock()
         mock_response.ok = True
-        mock_response.json.return_value = {"url": "https://signed.example.com/audio.ogg", "mime_type": "audio/ogg"}
+        mock_response.json.return_value = {
+            "url": "https://signed.example.com/audio.ogg",
+            "mime_type": "audio/ogg",
+        }
 
-        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response) as mock_get:
-            with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
-                url = WhatsAppMediaService.resolve_media_url("media-id-123")
+        with (
+            patch(
+                "talk2record.whatsapp.media.requests.get",
+                return_value=mock_response,
+            ) as mock_get,
+            patch.object(
+                WhatsAppMediaService,
+                "_access_token",
+                return_value="test-token",
+            ),
+        ):
+            url = WhatsAppMediaService.resolve_media_url("media-id-123")
 
         assert url == "https://signed.example.com/audio.ogg"
         mock_get.assert_called_once()
         call_kwargs = mock_get.call_args
         assert "Authorization" in call_kwargs.kwargs["headers"]
-        assert "Bearer test-token" == call_kwargs.kwargs["headers"]["Authorization"]
+        assert call_kwargs.kwargs["headers"]["Authorization"] == "Bearer test-token"
 
     def test_resolve_media_url_raises_on_non_200(self):
         mock_response = MagicMock()
@@ -31,20 +44,38 @@ class TestWhatsAppMediaService:
         mock_response.status_code = 404
         mock_response.text = "Not found"
 
-        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
-            with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
-                with pytest.raises(WhatsAppMediaError, match="404"):
-                    WhatsAppMediaService.resolve_media_url("bad-media-id")
+        with (
+            patch(
+                "talk2record.whatsapp.media.requests.get",
+                return_value=mock_response,
+            ),
+            patch.object(
+                WhatsAppMediaService,
+                "_access_token",
+                return_value="test-token",
+            ),
+            pytest.raises(WhatsAppMediaError, match="404"),
+        ):
+            WhatsAppMediaService.resolve_media_url("bad-media-id")
 
     def test_resolve_media_url_raises_when_no_url_in_response(self):
         mock_response = MagicMock()
         mock_response.ok = True
         mock_response.json.return_value = {}
 
-        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
-            with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
-                with pytest.raises(WhatsAppMediaError, match="no URL"):
-                    WhatsAppMediaService.resolve_media_url("media-id-no-url")
+        with (
+            patch(
+                "talk2record.whatsapp.media.requests.get",
+                return_value=mock_response,
+            ),
+            patch.object(
+                WhatsAppMediaService,
+                "_access_token",
+                return_value="test-token",
+            ),
+            pytest.raises(WhatsAppMediaError, match="no URL"),
+        ):
+            WhatsAppMediaService.resolve_media_url("media-id-no-url")
 
     def test_resolve_media_url_raises_when_no_token_configured(self):
         with patch.object(WhatsAppMediaService, "_access_token", return_value=""):
@@ -56,9 +87,20 @@ class TestWhatsAppMediaService:
         mock_response.ok = True
         mock_response.content = b"audio binary data"
 
-        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
-            with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
-                data = WhatsAppMediaService.download_media("https://signed.example.com/audio.ogg")
+        with (
+            patch(
+                "talk2record.whatsapp.media.requests.get",
+                return_value=mock_response,
+            ),
+            patch.object(
+                WhatsAppMediaService,
+                "_access_token",
+                return_value="test-token",
+            ),
+        ):
+            data = WhatsAppMediaService.download_media(
+                "https://signed.example.com/audio.ogg",
+            )
 
         assert data == b"audio binary data"
 
@@ -68,10 +110,21 @@ class TestWhatsAppMediaService:
         mock_response.status_code = 403
         mock_response.text = "Forbidden"
 
-        with patch("talk2record.whatsapp.media.requests.get", return_value=mock_response):
-            with patch.object(WhatsAppMediaService, "_access_token", return_value="test-token"):
-                with pytest.raises(WhatsAppMediaError, match="403"):
-                    WhatsAppMediaService.download_media("https://signed.example.com/expired.ogg")
+        with (
+            patch(
+                "talk2record.whatsapp.media.requests.get",
+                return_value=mock_response,
+            ),
+            patch.object(
+                WhatsAppMediaService,
+                "_access_token",
+                return_value="test-token",
+            ),
+            pytest.raises(WhatsAppMediaError, match="403"),
+        ):
+            WhatsAppMediaService.download_media(
+                "https://signed.example.com/expired.ogg",
+            )
 
 
 class TestWhatsAppMediaExtraction:
@@ -81,22 +134,28 @@ class TestWhatsAppMediaExtraction:
         from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
-            "entry": [{
-                "changes": [{
-                    "value": {
-                        "metadata": {"phone_number_id": "1234"},
-                        "messages": [{
-                            "id": "wamid.ABC",
-                            "from": "254700000001",
-                            "audio": {
-                                "id": "media-id-xyz",
-                                "mime_type": "audio/ogg; codecs=opus",
-                                "sha256": "hash",
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "1234"},
+                                "messages": [
+                                    {
+                                        "id": "wamid.ABC",
+                                        "from": "254700000001",
+                                        "audio": {
+                                            "id": "media-id-xyz",
+                                            "mime_type": "audio/ogg; codecs=opus",
+                                            "sha256": "hash",
+                                        },
+                                    },
+                                ],
                             },
-                        }],
-                    },
-                }],
-            }],
+                        },
+                    ],
+                },
+            ],
         }
         messages = WhatsAppWebhookService.extract_messages(payload)
         assert len(messages) == 1
@@ -107,20 +166,26 @@ class TestWhatsAppMediaExtraction:
         from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
-            "entry": [{
-                "changes": [{
-                    "value": {
-                        "metadata": {"phone_number_id": "1234"},
-                        "messages": [{
-                            "id": "wamid.DEF",
-                            "from": "254700000002",
-                            "audio": {
-                                "url": "https://example.com/audio.ogg",
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "1234"},
+                                "messages": [
+                                    {
+                                        "id": "wamid.DEF",
+                                        "from": "254700000002",
+                                        "audio": {
+                                            "url": "https://example.com/audio.ogg",
+                                        },
+                                    },
+                                ],
                             },
-                        }],
-                    },
-                }],
-            }],
+                        },
+                    ],
+                },
+            ],
         }
         messages = WhatsAppWebhookService.extract_messages(payload)
         assert len(messages) == 1
@@ -131,18 +196,24 @@ class TestWhatsAppMediaExtraction:
         from talk2record.whatsapp.webhook import WhatsAppWebhookService
 
         payload = {
-            "entry": [{
-                "changes": [{
-                    "value": {
-                        "metadata": {"phone_number_id": "phone-789"},
-                        "messages": [{
-                            "id": "wamid.GHI",
-                            "from": "254700000003",
-                            "audio": {"id": "media-id-ghi"},
-                        }],
-                    },
-                }],
-            }],
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {"phone_number_id": "phone-789"},
+                                "messages": [
+                                    {
+                                        "id": "wamid.GHI",
+                                        "from": "254700000003",
+                                        "audio": {"id": "media-id-ghi"},
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            ],
         }
         messages = WhatsAppWebhookService.extract_messages(payload)
         assert messages[0].phone_number_id == "phone-789"

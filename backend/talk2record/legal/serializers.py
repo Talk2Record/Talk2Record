@@ -21,7 +21,10 @@ class LegalDocumentVersionSerializer(serializers.ModelSerializer[LegalDocumentVe
 
 
 class LegalAcceptanceRequestSerializer(serializers.Serializer):
-    document_keys = serializers.ListField(child=serializers.CharField(), allow_empty=False)
+    document_keys = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=False,
+    )
     source = serializers.ChoiceField(choices=UserLegalAcceptance.Source.choices)
 
 
@@ -29,4 +32,3 @@ class LegalAttestationRequestSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=UserLegalAttestation.Kind.choices)
     context = serializers.CharField(max_length=64)
     metadata = serializers.JSONField(required=False)
-

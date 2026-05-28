@@ -63,7 +63,12 @@ class WhatsAppCloudClient:
         except ValueError:
             data = {}
         if not resp.ok:
-            logger.warning("WhatsApp Graph API error %s %s: %s", method, url, resp.text[:500])
+            logger.warning(
+                "WhatsApp Graph API error %s %s: %s",
+                method,
+                url,
+                resp.text[:500],
+            )
             msg = f"Graph API {resp.status_code}: {data or resp.text[:200]}"
             raise WhatsAppCloudClientError(msg)
         if not isinstance(data, dict):
@@ -75,60 +80,86 @@ class WhatsAppCloudClient:
     def subscribe_waba(self, waba_id: str | None = None) -> dict[str, Any]:
         wid = (waba_id or self._settings.waba_id).strip()
         if not wid:
-            raise WhatsAppCloudClientError("waba_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "waba_id is not configured on the integration.",
+            )
         return self._request("POST", wid, "subscribed_apps")
 
     def list_waba_phone_numbers(self, waba_id: str | None = None) -> dict[str, Any]:
         wid = (waba_id or self._settings.waba_id).strip()
         if not wid:
-            raise WhatsAppCloudClientError("waba_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "waba_id is not configured on the integration.",
+            )
         return self._request("GET", wid, "phone_numbers")
 
     def get_waba(self, waba_id: str | None = None) -> dict[str, Any]:
         wid = (waba_id or self._settings.waba_id).strip()
         if not wid:
-            raise WhatsAppCloudClientError("waba_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "waba_id is not configured on the integration.",
+            )
         return self._request("GET", wid)
 
     def owned_wabas(self, business_id: str | None = None) -> dict[str, Any]:
         bid = (business_id or self._settings.business_id).strip()
         if not bid:
-            raise WhatsAppCloudClientError("business_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "business_id is not configured on the integration.",
+            )
         return self._request("GET", bid, "owned_whatsapp_business_accounts")
 
     def shared_wabas(self, business_id: str | None = None) -> dict[str, Any]:
         bid = (business_id or self._settings.business_id).strip()
         if not bid:
-            raise WhatsAppCloudClientError("business_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "business_id is not configured on the integration.",
+            )
         return self._request("GET", bid, "client_whatsapp_business_accounts")
 
     # --- Phone registration (Postman: Registration, Phone Numbers) ---
 
-    def register_phone(self, pin: str, phone_number_id: str | None = None) -> dict[str, Any]:
+    def register_phone(
+        self,
+        pin: str,
+        phone_number_id: str | None = None,
+    ) -> dict[str, Any]:
         pid = (phone_number_id or self._settings.phone_number_id).strip()
         if not pid:
-            raise WhatsAppCloudClientError("phone_number_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "phone_number_id is not configured on the integration.",
+            )
         body = {"messaging_product": "whatsapp", "pin": pin}
         return self._request("POST", pid, "register", json_body=body)
 
     def deregister_phone(self, phone_number_id: str | None = None) -> dict[str, Any]:
         pid = (phone_number_id or self._settings.phone_number_id).strip()
         if not pid:
-            raise WhatsAppCloudClientError("phone_number_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "phone_number_id is not configured on the integration.",
+            )
         return self._request("POST", pid, "deregister")
 
     def get_phone_number(self, phone_number_id: str | None = None) -> dict[str, Any]:
         pid = (phone_number_id or self._settings.phone_number_id).strip()
         if not pid:
-            raise WhatsAppCloudClientError("phone_number_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "phone_number_id is not configured on the integration.",
+            )
         return self._request("GET", pid)
 
     # --- Messaging (Postman: Send messages) ---
 
-    def send_message(self, payload: dict[str, Any], phone_number_id: str | None = None) -> dict[str, Any]:
+    def send_message(
+        self,
+        payload: dict[str, Any],
+        phone_number_id: str | None = None,
+    ) -> dict[str, Any]:
         pid = (phone_number_id or self._settings.phone_number_id).strip()
         if not pid:
-            raise WhatsAppCloudClientError("phone_number_id is not configured on the integration.")
+            raise WhatsAppCloudClientError(
+                "phone_number_id is not configured on the integration.",
+            )
         return self._request("POST", pid, "messages", json_body=payload)
 
     def send_template_message(

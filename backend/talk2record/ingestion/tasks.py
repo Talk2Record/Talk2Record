@@ -9,14 +9,11 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 
 from talk2record.ai.services.transcription import TranscriptionService
-from talk2record.taxonomy.services.orchestrator import ExtractionPipeline
 from talk2record.events import DomainEvent
 from talk2record.events import publish_after_commit
 from talk2record.events.names import AI_EXTRACTION_COMPLETED
-from talk2record.events.names import AI_EXTRACTION_FAILED
 from talk2record.events.names import AI_EXTRACTION_STARTED
 from talk2record.events.names import AI_TRANSCRIPTION_COMPLETED
-from talk2record.events.names import AI_TRANSCRIPTION_FAILED
 from talk2record.events.names import AI_TRANSCRIPTION_STARTED
 from talk2record.events.names import RECORD_PROCESSING_COMPLETED
 from talk2record.events.names import RECORD_PROCESSING_FAILED
@@ -28,6 +25,7 @@ from talk2record.notifications.services import NotificationService
 from talk2record.records.models import Record
 from talk2record.records.models import RecordProcessingState
 from talk2record.records.services import RecordProcessingService
+from talk2record.taxonomy.services.orchestrator import ExtractionPipeline
 from talk2record.usage.models import AIUsage
 from talk2record.usage.services import AIUsageQuotaExceededError
 from talk2record.usage.services import UsageTrackingService
@@ -47,7 +45,12 @@ class ProcessingStepRunner:
     in RecordProcessingService.
     """
 
-    def __init__(self, record: Record, request_id: str = "", event_id: str = "") -> None:
+    def __init__(
+        self,
+        record: Record,
+        request_id: str = "",
+        event_id: str = "",
+    ) -> None:
         self.record = record
         self.request_id = request_id or str(uuid4())
         self.event_id = event_id or str(uuid4())
@@ -98,7 +101,7 @@ class ProcessingStepRunner:
         - The record already has an audio_url (downloaded previously or supplied directly).
         - WhatsApp access token is not configured (graceful skip; mock transcription proceeds).
         """
-        from talk2record.whatsapp.config import load_whatsapp_cloud_settings  # noqa: PLC0415
+        from talk2record.whatsapp.config import load_whatsapp_cloud_settings
 
         record = self.record
         if record.source != Record.Source.WHATSAPP:
@@ -162,7 +165,11 @@ class ProcessingStepRunner:
         )
         self._append_state(
             Record.Status.TRANSCRIBED,
-            {"provider": result.provider, "model": result.model, "duration_seconds": duration},
+            {
+                "provider": result.provider,
+                "model": result.model,
+                "duration_seconds": duration,
+            },
         )
 
     def _step_extract(self) -> None:
@@ -208,9 +215,7 @@ class ProcessingStepRunner:
         RecordProcessingService.apply_pipeline_outcome(record, outcome)
 
         next_status = (
-            Record.Status.REVIEW
-            if outcome.needs_review
-            else Record.Status.EXTRACTED
+            Record.Status.REVIEW if outcome.needs_review else Record.Status.EXTRACTED
         )
         record.status = next_status
         record.save(update_fields=["status", "updated_at"])
@@ -295,7 +300,11 @@ class ProcessingStepRunner:
                     self.record.processing_error = ""
                     self.record.processing_error_step = ""
                     self.record.save(
-                        update_fields=["processing_error", "processing_error_step", "updated_at"],
+                        update_fields=[
+                            "processing_error",
+                            "processing_error_step",
+                            "updated_at",
+                        ],
                     )
                 return
 
@@ -324,7 +333,10 @@ class ProcessingStepRunner:
             record.status = Record.Status.DEAD_LETTER
             record.dead_lettered_at = timezone.now()
             record.save(update_fields=["status", "dead_lettered_at", "updated_at"])
-            self._append_state(Record.Status.DEAD_LETTER, {"step": step, "error": error})
+            self._append_state(
+                Record.Status.DEAD_LETTER,
+                {"step": step, "error": error},
+            )
             self._notify_failed(error)
 
     def _notify_failed(self, error: str) -> None:

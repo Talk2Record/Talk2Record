@@ -8,24 +8,23 @@ details of the Graph API.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
 
-from talk2record.events import DomainEvent, publish_after_commit
-from talk2record.events.names import (
-    WHATSAPP_MESSAGE_FAILED,
-    WHATSAPP_MESSAGE_SENT,
-)
-from talk2record.whatsapp.client import WhatsAppCloudClient, WhatsAppCloudClientError
+from talk2record.events import DomainEvent
+from talk2record.events import publish_after_commit
+from talk2record.events.names import WHATSAPP_MESSAGE_FAILED
+from talk2record.events.names import WHATSAPP_MESSAGE_SENT
+from talk2record.whatsapp.client import WhatsAppCloudClient
+from talk2record.whatsapp.client import WhatsAppCloudClientError
 from talk2record.whatsapp.config import load_whatsapp_cloud_settings
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppConversation,
-    WhatsAppMessage,
-    WhatsAppTemplate,
-)
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppConversation
+from talk2record.whatsapp.models import WhatsAppMessage
+from talk2record.whatsapp.models import WhatsAppTemplate
 
 if TYPE_CHECKING:
     from talk2record.organizations.models import Organization
@@ -133,7 +132,10 @@ class WhatsAppOutboundService:
 
         client = WhatsAppCloudClient(wa_settings)
         try:
-            response = client.send_message(payload, phone_number_id=account.phone_number_id)
+            response = client.send_message(
+                payload,
+                phone_number_id=account.phone_number_id,
+            )
         except WhatsAppCloudClientError as exc:
             # Record the failure so admins can investigate.
             failure = WhatsAppMessage.objects.create(

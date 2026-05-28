@@ -1,3 +1,6 @@
+# Local / CI template — safe defaults for docker-compose.local.yml.
+# Copy and customize for secrets (Paddle, etc.); do not use production credentials here.
+
 # General
 # ------------------------------------------------------------------------------
 USE_DOCKER=yes
@@ -8,9 +11,6 @@ DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 # Redis
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0
-
-# WhatsApp Cloud API credentials live in the ``whatsapp`` Integration
-# (``Integration.config`` + encrypted ``ApiCredential``), not in env vars.
 
 # AI usage limits
 # ------------------------------------------------------------------------------
@@ -25,9 +25,7 @@ DRF_THROTTLE_PUBLIC_INGESTION=240/min
 AUDIT_API_KEY_USED_SAMPLE_INTERVAL_MINUTES=5
 AUDIT_API_KEY_USED_RETENTION_DAYS=90
 
-# Celery
+# Flower (local dev only)
 # ------------------------------------------------------------------------------
-
-# Flower
-CELERY_FLOWER_USER=yIOIaGhhaUtqFhCSMrWSfXIbWbteHuNZ
-CELERY_FLOWER_PASSWORD=xmvuOD6SQp44aJX4dUvrtKqWyko7XOstNQ0yncdF2mSQ3XHDMsGZAu5bhhYNBf2A
+CELERY_FLOWER_USER=local-dev
+CELERY_FLOWER_PASSWORD=local-dev-only

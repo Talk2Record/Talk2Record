@@ -11,10 +11,8 @@ import json
 import re
 from decimal import Decimal
 
-from talk2record.ai.providers.base import (
-    DEFAULT_EXTRACTION_SYSTEM_PROMPT,
-    ExtractionResult,
-)
+from talk2record.ai.providers.base import DEFAULT_EXTRACTION_SYSTEM_PROMPT
+from talk2record.ai.providers.base import ExtractionResult
 
 
 def _strip_markdown_fences(text: str) -> str:

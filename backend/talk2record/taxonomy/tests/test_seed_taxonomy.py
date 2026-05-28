@@ -6,14 +6,12 @@ from __future__ import annotations
 import pytest
 from django.core.management import call_command
 
-from talk2record.taxonomy.models import (
-    Category,
-    DomainDictionary,
-    ExtractionSchema,
-    Industry,
-    ProcessingRule,
-    PromptTemplate,
-)
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import DomainDictionary
+from talk2record.taxonomy.models import ExtractionSchema
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import PromptTemplate
 
 
 @pytest.mark.django_db
@@ -41,11 +39,10 @@ def test_seed_creates_default_schemas_for_every_construction_category():
     construction = Industry.objects.get(slug="construction")
     for category in Category.objects.filter(industry=construction):
         default_schema = ExtractionSchema.objects.filter(
-            category=category, is_default=True,
+            category=category,
+            is_default=True,
         ).first()
-        assert default_schema is not None, (
-            f"No default schema for {category.full_slug}"
-        )
+        assert default_schema is not None, f"No default schema for {category.full_slug}"
         assert isinstance(default_schema.json_schema, dict)
 
 
@@ -89,7 +86,9 @@ def test_seed_creates_dictionary_entries():
 def test_seed_creates_processing_rules():
     call_command("seed_data")
     construction = Industry.objects.get(slug="construction")
-    assert ProcessingRule.objects.filter(industry=construction, enabled=True).count() >= 5
+    assert (
+        ProcessingRule.objects.filter(industry=construction, enabled=True).count() >= 5
+    )
 
 
 @pytest.mark.django_db
@@ -108,7 +107,14 @@ def test_seed_creates_empty_shell_industries():
     """Industries other than construction ship as enabled shells."""
 
     call_command("seed_data")
-    for slug in ("logistics", "sales", "healthcare", "agriculture", "field_operations", "support"):
+    for slug in (
+        "logistics",
+        "sales",
+        "healthcare",
+        "agriculture",
+        "field_operations",
+        "support",
+    ):
         industry = Industry.objects.get(slug=slug)
         # No categories yet — those are added via the admin per customer.
         assert Category.objects.filter(industry=industry).count() == 0

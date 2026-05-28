@@ -17,7 +17,10 @@ class LegalDocumentVersionViewSet(ReadOnlyModelViewSet):
     serializer_class = LegalDocumentVersionSerializer
 
     def get_queryset(self):
-        return LegalDocumentVersion.objects.filter(is_active=True).order_by("document_key", "-effective_at")
+        return LegalDocumentVersion.objects.filter(is_active=True).order_by(
+            "document_key",
+            "-effective_at",
+        )
 
 
 class LegalProfileViewSet(GenericViewSet):
@@ -37,7 +40,7 @@ class LegalProfileViewSet(GenericViewSet):
             document_keys=serializer.validated_data["document_keys"],
             source=serializer.validated_data["source"],
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         return Response(
             LegalAcceptanceService.get_user_compliance(request.user),
@@ -54,6 +57,6 @@ class LegalProfileViewSet(GenericViewSet):
             context=serializer.validated_data["context"],
             metadata=serializer.validated_data.get("metadata", {}),
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         return Response(status=status.HTTP_201_CREATED)

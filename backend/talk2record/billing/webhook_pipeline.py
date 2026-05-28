@@ -108,9 +108,7 @@ def verify_paddle_signature(
         return SignatureCheck(ok=True, reason="no_secret_configured")
 
     parts = dict(
-        item.split("=", 1)
-        for item in signature_header.split(";")
-        if "=" in item
+        item.split("=", 1) for item in signature_header.split(";") if "=" in item
     )
     ts = parts.get("ts", "")
     h1 = parts.get("h1", "")
@@ -150,7 +148,9 @@ def extract_event_metadata(payload: dict) -> EventMetadata:
     but accept either, so retries from old infra are still deduped.
     """
     event_type = str(payload.get("event_type", "")).strip()
-    event_id = str(payload.get("event_id") or payload.get("notification_id") or "").strip()
+    event_id = str(
+        payload.get("event_id") or payload.get("notification_id") or "",
+    ).strip()
 
     event_data = payload.get("data") or {}
     if not isinstance(event_data, dict):
@@ -259,14 +259,19 @@ def _upsert_paddle_subscription(
     # Only the explicit reactivation events are allowed past this gate.
     reactivation_events = {"subscription.activated", "subscription.resumed"}
     if event_type not in reactivation_events:
-        local = Subscription.objects.filter(
-            provider_subscription_id=sub_id,
-            status__in=_CANCEL_TERMINAL_STATUSES,
-        ).only("id").first()
+        local = (
+            Subscription.objects.filter(
+                provider_subscription_id=sub_id,
+                status__in=_CANCEL_TERMINAL_STATUSES,
+            )
+            .only("id")
+            .first()
+        )
         if local is not None:
             logger.info(
                 "Webhook %s ignored: subscription %s is locally canceled",
-                event_type, sub_id,
+                event_type,
+                sub_id,
             )
             return None
 
@@ -360,9 +365,12 @@ def _record_paddle_transaction(event_data: dict, *, paid: bool) -> None:
         amount = 0.0
     currency = str(event_data.get("currency_code") or "USD").upper()
     invoice_id = str(event_data.get("id") or "")
-    issued_at = _parse_paddle_datetime(
-        event_data.get("billed_at") or event_data.get("created_at"),
-    ) or timezone.now()
+    issued_at = (
+        _parse_paddle_datetime(
+            event_data.get("billed_at") or event_data.get("created_at"),
+        )
+        or timezone.now()
+    )
 
     Transaction.objects.update_or_create(
         provider_transaction_id=invoice_id,
@@ -370,9 +378,7 @@ def _record_paddle_transaction(event_data: dict, *, paid: bool) -> None:
             "subscription": subscription,
             "amount": amount,
             "currency": currency,
-            "status": (
-                Transaction.Status.PAID if paid else Transaction.Status.FAILED
-            ),
+            "status": (Transaction.Status.PAID if paid else Transaction.Status.FAILED),
             "invoice_number": str(
                 event_data.get("invoice_number") or invoice_id,
             ),
@@ -428,9 +434,12 @@ def dispatch_event(
         }[event_type]
         update_fields: dict[str, object] = {"status": new_status}
         if event_type == "subscription.canceled":
-            canceled_at = _parse_paddle_datetime(
-                event_data.get("canceled_at"),
-            ) or timezone.now()
+            canceled_at = (
+                _parse_paddle_datetime(
+                    event_data.get("canceled_at"),
+                )
+                or timezone.now()
+            )
             update_fields["canceled_at"] = canceled_at
         Subscription.objects.filter(provider_subscription_id=sub_id).update(
             **update_fields,
@@ -539,7 +548,10 @@ def process_payload(
         # Paddle should always send event_id; treat missing as a malformed
         # payload, but never 4xx (the upstream view returns 202 to stop
         # Paddle retrying — we just record + ignore).
-        logger.warning("Paddle webhook missing event_id; ignoring event_type=%s", metadata.event_type)
+        logger.warning(
+            "Paddle webhook missing event_id; ignoring event_type=%s",
+            metadata.event_type,
+        )
         return PipelineResult(event=None, status="ignored", detail="missing_event_id")
 
     if not metadata.event_type:
@@ -600,10 +612,7 @@ def _apply_event(
                     .values_list("billing_state_version", flat=True)
                     .first()
                 )
-                if (
-                    current_version is not None
-                    and current_version != snapshot_version
-                ):
+                if current_version is not None and current_version != snapshot_version:
                     # Mark for rollback; defer the row.save until we're
                     # out of this atomic block (set_rollback freezes I/O).
                     transaction.set_rollback(True)
@@ -640,7 +649,8 @@ def _apply_event(
         row.processed_at = timezone.now()
         row.save(update_fields=["status", "error", "processed_at"])
         logger.exception(
-            "Paddle webhook dispatch failed: %s", metadata.event_type,
+            "Paddle webhook dispatch failed: %s",
+            metadata.event_type,
         )
         AuditService.log(
             action="billing.webhook.failed",

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone
 from typing import Any
 from uuid import uuid4
 
@@ -16,7 +16,7 @@ class DomainEvent:
     resource_type: str | None
     resource_id: str | None
     metadata: dict[str, Any] = field(default_factory=dict)
-    occurred_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    occurred_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
     event_id: str = field(default_factory=lambda: str(uuid4()))
 
     def to_payload(self) -> dict[str, Any]:

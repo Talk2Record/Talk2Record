@@ -77,7 +77,9 @@ def test_public_ingestion_records():
 def test_organization_routes():
     assert reverse("api:organization-list") == "/api/organizations/"
     assert resolve("/api/organizations/").view_name == "api:organization-list"
-    assert reverse("api:organization-detail", kwargs={"pk": 1}) == "/api/organizations/1/"
+    assert (
+        reverse("api:organization-detail", kwargs={"pk": 1}) == "/api/organizations/1/"
+    )
     assert resolve("/api/organizations/1/").view_name == "api:organization-detail"
 
 
@@ -90,7 +92,10 @@ def test_membership_routes():
 
 def test_organization_api_key_routes():
     assert reverse("api:organization-api-key-list") == "/api/organization-api-keys/"
-    assert resolve("/api/organization-api-keys/").view_name == "api:organization-api-key-list"
+    assert (
+        resolve("/api/organization-api-keys/").view_name
+        == "api:organization-api-key-list"
+    )
     assert (
         reverse("api:organization-api-key-revoke", kwargs={"pk": 1})
         == "/api/organization-api-keys/1/revoke/"
@@ -127,7 +132,9 @@ def test_record_routes():
 def test_subscription_routes():
     assert reverse("api:subscription-list") == "/api/subscriptions/"
     assert resolve("/api/subscriptions/").view_name == "api:subscription-list"
-    assert reverse("api:subscription-detail", kwargs={"pk": 1}) == "/api/subscriptions/1/"
+    assert (
+        reverse("api:subscription-detail", kwargs={"pk": 1}) == "/api/subscriptions/1/"
+    )
     assert resolve("/api/subscriptions/1/").view_name == "api:subscription-detail"
 
 
@@ -139,7 +146,10 @@ def test_billing_checkout_route():
 def test_legal_routes():
     assert reverse("api:legal-document-list") == "/api/legal/documents/"
     assert resolve("/api/legal/documents/").view_name == "api:legal-document-list"
-    assert reverse("api:legal-document-detail", kwargs={"pk": 1}) == "/api/legal/documents/1/"
+    assert (
+        reverse("api:legal-document-detail", kwargs={"pk": 1})
+        == "/api/legal/documents/1/"
+    )
     assert resolve("/api/legal/documents/1/").view_name == "api:legal-document-detail"
     assert reverse("api:legal-profile-status") == "/api/legal/profile/status/"
     assert resolve("/api/legal/profile/status/").view_name == "api:legal-profile-status"
@@ -152,5 +162,11 @@ def test_legal_routes():
 def test_analytics_routes():
     assert reverse("api:daily-metric-list") == "/api/analytics/daily-metrics/"
     assert resolve("/api/analytics/daily-metrics/").view_name == "api:daily-metric-list"
-    assert reverse("api:daily-metric-detail", kwargs={"pk": 1}) == "/api/analytics/daily-metrics/1/"
-    assert resolve("/api/analytics/daily-metrics/1/").view_name == "api:daily-metric-detail"
+    assert (
+        reverse("api:daily-metric-detail", kwargs={"pk": 1})
+        == "/api/analytics/daily-metrics/1/"
+    )
+    assert (
+        resolve("/api/analytics/daily-metrics/1/").view_name
+        == "api:daily-metric-detail"
+    )

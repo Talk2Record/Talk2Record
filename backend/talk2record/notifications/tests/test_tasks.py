@@ -11,7 +11,8 @@ from talk2record.notifications.tasks import handle_domain_event_for_notification
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_notifications_creates_notifications(
-    workspace_user, organization
+    workspace_user,
+    organization,
 ):
     event_payload = {
         "event_id": "notif-test-uuid-001",
@@ -42,7 +43,8 @@ def test_handle_domain_event_for_notifications_creates_notifications(
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_notifications_is_idempotent(
-    workspace_user, organization
+    workspace_user,
+    organization,
 ):
     event_payload = {
         "event_id": "notif-test-uuid-002",
@@ -62,15 +64,19 @@ def test_handle_domain_event_for_notifications_is_idempotent(
         handle_domain_event_for_notifications(event_payload)
         handle_domain_event_for_notifications(event_payload)
 
-    assert Notification.objects.filter(
-        user=workspace_user,
-        metadata__event_id="notif-test-uuid-002",
-    ).count() == 1
+    assert (
+        Notification.objects.filter(
+            user=workspace_user,
+            metadata__event_id="notif-test-uuid-002",
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_notifications_skips_non_record_stored(
-    workspace_user, organization
+    workspace_user,
+    organization,
 ):
     event_payload = {
         "event_id": "notif-test-uuid-003",
@@ -126,5 +132,11 @@ def test_handle_domain_event_for_notifications_fan_out_to_all_active_members(
     with patch("talk2record.notifications.services._send_notification_to_user"):
         handle_domain_event_for_notifications(event_payload)
 
-    assert Notification.objects.filter(user=user1, type=Notification.Type.RECORD_STORED).exists()
-    assert Notification.objects.filter(user=user2, type=Notification.Type.RECORD_STORED).exists()
+    assert Notification.objects.filter(
+        user=user1,
+        type=Notification.Type.RECORD_STORED,
+    ).exists()
+    assert Notification.objects.filter(
+        user=user2,
+        type=Notification.Type.RECORD_STORED,
+    ).exists()

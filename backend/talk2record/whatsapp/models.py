@@ -87,7 +87,9 @@ class WhatsAppAccount(models.Model):
         ordering = ["phone_number_id"]
 
     def __str__(self) -> str:
-        return f"{self.display_number or self.phone_number_id} ({self.organization.slug})"
+        return (
+            f"{self.display_number or self.phone_number_id} ({self.organization.slug})"
+        )
 
 
 class WhatsAppConversation(models.Model):

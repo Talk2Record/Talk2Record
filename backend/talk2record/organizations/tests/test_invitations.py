@@ -58,7 +58,10 @@ class TestInvitationService:
     def test_cannot_remove_last_owner(self, organization, workspace_user):
         membership = workspace_user.memberships.get()
         with pytest.raises(InvitationError):
-            MembershipInvitationService.remove(membership=membership, actor=workspace_user)
+            MembershipInvitationService.remove(
+                membership=membership,
+                actor=workspace_user,
+            )
 
     def test_change_role(self, organization, workspace_user):
         invitee = UserFactory.create(email="change-role@example.com")
@@ -131,9 +134,17 @@ class TestInvitationAPI:
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK
-        assert Membership.objects.filter(user=invitee, organization=organization).exists()
+        assert Membership.objects.filter(
+            user=invitee,
+            organization=organization,
+        ).exists()
 
-    def test_invitation_lookup_unauthenticated(self, api_client, workspace_user, organization):
+    def test_invitation_lookup_unauthenticated(
+        self,
+        api_client,
+        workspace_user,
+        organization,
+    ):
         created = MembershipInvitationService.create(
             organization=organization,
             email="look@example.com",

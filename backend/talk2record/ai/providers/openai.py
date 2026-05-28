@@ -6,11 +6,9 @@ from decimal import Decimal
 
 import requests
 
-from talk2record.ai.providers.base import (
-    DEFAULT_EXTRACTION_SYSTEM_PROMPT,
-    ExtractionResult,
-    TranscriptionResult,
-)
+from talk2record.ai.providers.base import DEFAULT_EXTRACTION_SYSTEM_PROMPT
+from talk2record.ai.providers.base import ExtractionResult
+from talk2record.ai.providers.base import TranscriptionResult
 
 
 class OpenAITranscriptionProvider:

@@ -53,7 +53,9 @@ class WhatsAppSettingsAdminForm(forms.ModelForm):
         label=_("Meta app secret (webhook X-Hub-Signature-256)"),
         required=False,
         widget=UnfoldAdminPasswordToggleWidget(render_value=False),
-        help_text=_("Leave blank to keep the current app secret. Stored encrypted as JSON."),
+        help_text=_(
+            "Leave blank to keep the current app secret. Stored encrypted as JSON.",
+        ),
     )
 
     class Meta:
@@ -86,7 +88,9 @@ class WhatsAppSettingsAdminForm(forms.ModelForm):
         cfg["graph_api_version"] = (
             self.cleaned_data.get("graph_api_version") or ""
         ).strip()
-        cfg["phone_number_id"] = (self.cleaned_data.get("phone_number_id") or "").strip()
+        cfg["phone_number_id"] = (
+            self.cleaned_data.get("phone_number_id") or ""
+        ).strip()
         cfg["waba_id"] = (self.cleaned_data.get("waba_id") or "").strip()
         cfg["business_id"] = (self.cleaned_data.get("business_id") or "").strip()
         cfg["verify_token"] = (self.cleaned_data.get("verify_token") or "").strip()

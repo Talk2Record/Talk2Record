@@ -10,7 +10,12 @@ from talk2record.organizations.models import Membership
 
 
 @receiver(post_save, sender=Membership)
-def notify_membership_created(sender, instance: Membership, created: bool, **kwargs) -> None:
+def notify_membership_created(
+    sender,
+    instance: Membership,
+    created: bool,
+    **kwargs,
+) -> None:
     """Notify user when they are added to an organization (invite scenario)."""
     if not created:
         return

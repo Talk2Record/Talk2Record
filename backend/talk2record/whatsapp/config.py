@@ -70,7 +70,9 @@ def load_whatsapp_cloud_settings() -> WhatsAppCloudSettings | None:
         access_token, app_secret = parse_whatsapp_credential_blob(decrypted)
 
     cfg = settings_row.config if isinstance(settings_row.config, dict) else {}
-    version = str(cfg.get("graph_api_version", "") or "").strip() or DEFAULT_GRAPH_API_VERSION
+    version = (
+        str(cfg.get("graph_api_version", "") or "").strip() or DEFAULT_GRAPH_API_VERSION
+    )
 
     return WhatsAppCloudSettings(
         access_token=access_token,

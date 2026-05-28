@@ -1,12 +1,14 @@
+from datetime import UTC
+
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.tokens import TokenError
 
+from talk2record.legal.services import LegalAcceptanceService
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
 from talk2record.organizations.services import OrganizationContextService
-from talk2record.legal.services import LegalAcceptanceService
 from talk2record.users.models import User
 from talk2record.users.services import RegistrationService
 
@@ -16,7 +18,10 @@ class UserSerializer(serializers.ModelSerializer[User]):
     role = serializers.SerializerMethodField()
     currentOrganizationId = serializers.SerializerMethodField()
     currentOrganizationSlug = serializers.SerializerMethodField()
-    onboardingCompleted = serializers.BooleanField(source="onboarding_completed", read_only=True)
+    onboardingCompleted = serializers.BooleanField(
+        source="onboarding_completed",
+        read_only=True,
+    )
     isStaff = serializers.BooleanField(source="is_staff", read_only=True)
     isSuperuser = serializers.BooleanField(source="is_superuser", read_only=True)
     legal = serializers.SerializerMethodField()
@@ -85,7 +90,9 @@ class RegisterUserSerializer(serializers.Serializer):
         try:
             RegistrationService.ensure_required_signup_documents(document_keys)
         except ValueError as exc:
-            raise serializers.ValidationError({"acceptedDocumentKeys": [str(exc)]}) from exc
+            raise serializers.ValidationError(
+                {"acceptedDocumentKeys": [str(exc)]},
+            ) from exc
         return attrs
 
     def create(self, validated_data):
@@ -97,7 +104,7 @@ class RegisterUserSerializer(serializers.Serializer):
             company=validated_data["company"],
             accepted_document_keys=validated_data["acceptedDocumentKeys"],
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
 
 
@@ -142,7 +149,8 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
     def _record_session(self, refresh_token_str: str, request) -> None:
-        from datetime import datetime, timezone  # noqa: PLC0415
+        from datetime import datetime  # noqa: PLC0415
+
         from rest_framework_simplejwt.tokens import RefreshToken  # noqa: PLC0415
 
         from talk2record.users.models import UserSession  # noqa: PLC0415
@@ -155,11 +163,9 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
         exp = refresh.get("exp")
         if not jti:
             return
-        expires_at = (
-            datetime.fromtimestamp(exp, tz=timezone.utc) if exp else None
-        )
+        expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else None
         ip_address = _request_ip(request)
-        user_agent = (request.META.get("HTTP_USER_AGENT") or "")[:512]
+        user_agent = (request.headers.get("user-agent") or "")[:512]
         UserSession.objects.update_or_create(
             refresh_jti=str(jti),
             defaults={
@@ -172,7 +178,7 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 def _request_ip(request) -> str | None:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
         return forwarded.split(",")[0].strip() or None
     return request.META.get("REMOTE_ADDR") or None
@@ -196,7 +202,10 @@ class LogoutSerializer(serializers.Serializer):
 
             from talk2record.users.models import UserSession  # noqa: PLC0415
 
-            UserSession.objects.filter(refresh_jti=str(jti), revoked_at__isnull=True).update(
+            UserSession.objects.filter(
+                refresh_jti=str(jti),
+                revoked_at__isnull=True,
+            ).update(
                 revoked_at=timezone.now(),
             )
 
@@ -218,7 +227,11 @@ class SettingsProfileSerializer(serializers.Serializer):
     contactEmail = serializers.EmailField()
     name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     timezone = serializers.CharField(max_length=64)
-    defaultLanguage = serializers.CharField(max_length=32, required=False, default="English")
+    defaultLanguage = serializers.CharField(
+        max_length=32,
+        required=False,
+        default="English",
+    )
     defaultCurrency = serializers.CharField(max_length=8)
     locale = serializers.CharField(max_length=16, required=False, allow_blank=True)
     avatarUrl = serializers.CharField(max_length=512, required=False, allow_blank=True)
@@ -264,10 +277,10 @@ class SettingsProfileSerializer(serializers.Serializer):
         if user.email != new_email:
             user.email = new_email
             user_update_fields.append("email")
-        if "name" in validated_data and validated_data["name"]:
+        if validated_data.get("name"):
             user.name = validated_data["name"]
             user_update_fields.append("name")
-        if "locale" in validated_data and validated_data["locale"]:
+        if validated_data.get("locale"):
             user.locale = validated_data["locale"]
             user_update_fields.append("locale")
         if "avatarUrl" in validated_data:

@@ -8,21 +8,19 @@ import { openPaddleCheckout } from "@/shared/hooks/use-paddle-checkout";
 
 function CheckoutLauncher() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  const transactionId = searchParams.get("_ptxn");
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const error = transactionId === null ? "Missing checkout transaction." : launchError;
 
   useEffect(() => {
-    const transactionId = searchParams.get("_ptxn");
-    if (!transactionId) {
-      setError("Missing checkout transaction.");
-      return;
-    }
+    if (!transactionId) return;
 
     void openPaddleCheckout({ transactionId }).then((opened) => {
       if (!opened) {
-        setError("Could not open Paddle checkout.");
+        setLaunchError("Could not open Paddle checkout.");
       }
     });
-  }, [searchParams]);
+  }, [transactionId]);
 
   if (error) {
     return (

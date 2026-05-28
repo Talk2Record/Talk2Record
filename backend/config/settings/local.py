@@ -16,7 +16,7 @@ SECRET_KEY = env(
 ALLOWED_HOSTS = [
     "localhost",
     "0.0.0.0",
-    "127.0.0.1",  # noqa: S104
+    "127.0.0.1",
     # ngrok tunnels for local Paddle / WhatsApp webhook testing
     ".ngrok-free.app",
     ".ngrok.io",

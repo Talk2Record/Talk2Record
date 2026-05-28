@@ -39,6 +39,7 @@ class UserSignupForm(SignupForm):
     Default fields will be added automatically.
     Check UserSocialSignupForm for accounts created from social.
     """
+
     name = forms.CharField(max_length=255, required=False)
     accept_terms_of_service = forms.BooleanField(required=True)
     accept_privacy_policy = forms.BooleanField(required=True)
@@ -55,7 +56,7 @@ class UserSignupForm(SignupForm):
             ],
             source=UserLegalAcceptance.Source.SIGNUP,
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         return user
 
@@ -66,6 +67,7 @@ class UserSocialSignupForm(SocialSignupForm):
     Default fields will be added automatically.
     See UserSignupForm otherwise.
     """
+
     accept_terms_of_service = forms.BooleanField(required=True)
     accept_privacy_policy = forms.BooleanField(required=True)
 
@@ -79,6 +81,6 @@ class UserSocialSignupForm(SocialSignupForm):
             ],
             source=UserLegalAcceptance.Source.SIGNUP,
             ip_address=request.META.get("REMOTE_ADDR"),
-            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            user_agent=request.headers.get("user-agent", ""),
         )
         return user

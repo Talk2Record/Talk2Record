@@ -7,15 +7,11 @@ import pytest
 from talk2record.organizations.models import Organization
 from talk2record.users.models import User
 from talk2record.whatsapp.client import WhatsAppCloudClientError
-from talk2record.whatsapp.models import (
-    WhatsAppAccount,
-    WhatsAppMessage,
-    WhatsAppSettings,
-)
-from talk2record.whatsapp.services.outbound import (
-    OutboundSendError,
-    WhatsAppOutboundService,
-)
+from talk2record.whatsapp.models import WhatsAppAccount
+from talk2record.whatsapp.models import WhatsAppMessage
+from talk2record.whatsapp.models import WhatsAppSettings
+from talk2record.whatsapp.services.outbound import OutboundSendError
+from talk2record.whatsapp.services.outbound import WhatsAppOutboundService
 
 
 @pytest.mark.django_db
@@ -88,17 +84,19 @@ class TestWhatsAppOutboundService:
         account: WhatsAppAccount,
         integration: WhatsAppSettings,
     ):
-        with patch(
-            "talk2record.whatsapp.services.outbound.WhatsAppCloudClient.send_message",
-            side_effect=WhatsAppCloudClientError("boom"),
+        with (
+            patch(
+                "talk2record.whatsapp.services.outbound.WhatsAppCloudClient.send_message",
+                side_effect=WhatsAppCloudClientError("boom"),
+            ),
+            pytest.raises(OutboundSendError),
         ):
-            with pytest.raises(OutboundSendError):
-                WhatsAppOutboundService.send_text(
-                    organization=organization,
-                    to="254700000001",
-                    body="hi",
-                    sent_by=workspace_user,
-                )
+            WhatsAppOutboundService.send_text(
+                organization=organization,
+                to="254700000001",
+                body="hi",
+                sent_by=workspace_user,
+            )
 
         failure = WhatsAppMessage.objects.get(
             direction=WhatsAppMessage.Direction.OUTBOUND,

@@ -14,8 +14,8 @@ from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Plan
 from talk2record.billing.models import PlanEntitlement
 from talk2record.billing.models import PlanPrice
-from talk2record.core.vault import SecretVault
 from talk2record.core.onboarding import OnboardingService
+from talk2record.core.vault import SecretVault
 from talk2record.legal.models import LegalDocumentVersion
 from talk2record.organizations.models import Membership
 from talk2record.organizations.models import Organization
@@ -165,7 +165,9 @@ class TestStepCompletion:
     def test_plan_entitlement_marks_optional_step(self):
         WhatsAppSettings.objects.all().delete()
         plan = Plan.objects.create(
-            code="pro", name="Pro", base_price=Decimal("29.00"),
+            code="pro",
+            name="Pro",
+            base_price=Decimal("29.00"),
         )
         PlanEntitlement.objects.create(plan=plan, feature_key="ai.usage", enabled=True)
         steps = _steps_by_key(OnboardingService.report())

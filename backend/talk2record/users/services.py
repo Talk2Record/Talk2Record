@@ -41,7 +41,12 @@ class RegistrationService:
         )
         user.current_organization = organization
         user.latest_required_legal_acceptance_at = timezone.now()
-        user.save(update_fields=["current_organization", "latest_required_legal_acceptance_at"])
+        user.save(
+            update_fields=[
+                "current_organization",
+                "latest_required_legal_acceptance_at",
+            ],
+        )
         LegalAcceptanceService.accept_documents(
             user=user,
             document_keys=accepted_document_keys,

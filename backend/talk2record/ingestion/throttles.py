@@ -29,6 +29,9 @@ class PublicIngestionRateThrottle(SimpleRateThrottle):
         }
 
     def _resolve_rate(self, request) -> str:
-        if isinstance(request.auth, OrganizationAPIKey) and request.auth.rate_limit_per_minute:
+        if (
+            isinstance(request.auth, OrganizationAPIKey)
+            and request.auth.rate_limit_per_minute
+        ):
             return f"{request.auth.rate_limit_per_minute}/min"
         return settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"][self.scope]

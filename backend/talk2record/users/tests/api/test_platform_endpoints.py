@@ -14,9 +14,9 @@ from rest_framework.test import APIClient
 
 from talk2record.analytics.models import DailyMetric
 from talk2record.audit.models import AuditLog
+from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Plan
 from talk2record.billing.models import Subscription
-from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Transaction
 from talk2record.core.vault import SecretVault
 from talk2record.legal.models import LegalDocumentVersion
@@ -38,7 +38,10 @@ def api_client() -> APIClient:
 @pytest.fixture
 def workspace_user(db) -> User:
     user = UserFactory.create()
-    organization = Organization.objects.create(name="Acme Workspace", slug="acme-workspace")
+    organization = Organization.objects.create(
+        name="Acme Workspace",
+        slug="acme-workspace",
+    )
     Membership.objects.create(
         user=user,
         organization=organization,
@@ -60,8 +63,7 @@ def authed_client(api_client: APIClient, workspace_user: User) -> APIClient:
 def legal_versions(db) -> dict[str, LegalDocumentVersion]:
     LegalAcceptanceService.sync_default_versions()
     return {
-        version.document_key: version
-        for version in LegalDocumentVersion.objects.all()
+        version.document_key: version for version in LegalDocumentVersion.objects.all()
     }
 
 
@@ -157,13 +159,22 @@ class TestPlatformEndpoints:
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]["role"] == Membership.Role.OWNER
 
-    def test_records_list_and_create(self, authed_client: APIClient, workspace_user: User, record: Record):
+    def test_records_list_and_create(
+        self,
+        authed_client: APIClient,
+        workspace_user: User,
+        record: Record,
+    ):
         list_response = authed_client.get(reverse("api:record-list"))
 
         assert list_response.status_code == status.HTTP_200_OK
         assert list_response.data[0]["source"] == record.source
 
-    def test_subscriptions_list(self, authed_client: APIClient, subscription: Subscription):
+    def test_subscriptions_list(
+        self,
+        authed_client: APIClient,
+        subscription: Subscription,
+    ):
         response = authed_client.get(reverse("api:subscription-list"))
 
         assert response.status_code == status.HTTP_200_OK
@@ -224,7 +235,9 @@ class TestPlatformEndpoints:
         assert "checkoutUrl" in response.data
         assert UserLegalAcceptance.objects.filter(
             user=workspace_user,
-            document_version=legal_versions[LegalDocumentVersion.DocumentKey.BILLING_POLICY],
+            document_version=legal_versions[
+                LegalDocumentVersion.DocumentKey.BILLING_POLICY
+            ],
         ).exists()
         assert UserLegalAttestation.objects.filter(
             user=workspace_user,
@@ -237,18 +250,33 @@ class TestPlatformEndpoints:
         response = api_client.post(reverse("api-billing-webhook"), format="json")
 
         assert response.status_code == status.HTTP_202_ACCEPTED
-        assert AuditLog.objects.filter(action="billing.webhook.received", resource_id="paddle").exists()
+        assert AuditLog.objects.filter(
+            action="billing.webhook.received",
+            resource_id="paddle",
+        ).exists()
 
-    def test_legal_documents_and_status(self, authed_client: APIClient, legal_versions: dict[str, LegalDocumentVersion]):
+    def test_legal_documents_and_status(
+        self,
+        authed_client: APIClient,
+        legal_versions: dict[str, LegalDocumentVersion],
+    ):
         documents_response = authed_client.get(reverse("api:legal-document-list"))
         status_response = authed_client.get(reverse("api:legal-profile-status"))
 
         assert documents_response.status_code == status.HTTP_200_OK
         assert len(documents_response.data) == len(legal_versions)
         assert status_response.status_code == status.HTTP_200_OK
-        assert LegalDocumentVersion.DocumentKey.TERMS_OF_SERVICE in status_response.data["required_signup_documents"]
+        assert (
+            LegalDocumentVersion.DocumentKey.TERMS_OF_SERVICE
+            in status_response.data["required_signup_documents"]
+        )
 
-    def test_legal_accept_and_attest(self, authed_client: APIClient, workspace_user: User, legal_versions: dict[str, LegalDocumentVersion]):
+    def test_legal_accept_and_attest(
+        self,
+        authed_client: APIClient,
+        workspace_user: User,
+        legal_versions: dict[str, LegalDocumentVersion],
+    ):
         accept_response = authed_client.post(
             reverse("api:legal-profile-accept"),
             {
@@ -271,11 +299,20 @@ class TestPlatformEndpoints:
         assert attest_response.status_code == status.HTTP_201_CREATED
         assert UserLegalAcceptance.objects.filter(
             user=workspace_user,
-            document_version=legal_versions[LegalDocumentVersion.DocumentKey.TERMS_OF_SERVICE],
+            document_version=legal_versions[
+                LegalDocumentVersion.DocumentKey.TERMS_OF_SERVICE
+            ],
         ).exists()
-        assert UserLegalAttestation.objects.filter(user=workspace_user, context="settings").exists()
+        assert UserLegalAttestation.objects.filter(
+            user=workspace_user,
+            context="settings",
+        ).exists()
 
-    def test_analytics_daily_metrics(self, authed_client: APIClient, daily_metric: DailyMetric):
+    def test_analytics_daily_metrics(
+        self,
+        authed_client: APIClient,
+        daily_metric: DailyMetric,
+    ):
         response = authed_client.get(reverse("api:daily-metric-list"))
 
         assert response.status_code == status.HTTP_200_OK

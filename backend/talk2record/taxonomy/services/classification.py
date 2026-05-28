@@ -28,7 +28,10 @@ from django.conf import settings
 from talk2record.ai.models import AITask
 from talk2record.ai.providers.mock import MockExtractionProvider
 from talk2record.ai.resolver import resolve as resolve_ai
-from talk2record.taxonomy.models import Category, Industry, ProcessingRule, RuleType
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.models import ProcessingRule
+from talk2record.taxonomy.models import RuleType
 from talk2record.taxonomy.services.prompt_resolver import PromptResolver
 
 logger = logging.getLogger(__name__)
@@ -90,7 +93,11 @@ class ClassificationService:
         threshold = (
             min_confidence
             if min_confidence is not None
-            else getattr(settings, "TAXONOMY_CLASSIFICATION_MIN_CONFIDENCE", MIN_RULE_CONFIDENCE)
+            else getattr(
+                settings,
+                "TAXONOMY_CLASSIFICATION_MIN_CONFIDENCE",
+                MIN_RULE_CONFIDENCE,
+            )
         )
 
         rule_result = cls._classify_with_rules(transcript)
@@ -197,7 +204,7 @@ class ClassificationService:
                 system_prompt=resolved.system_prompt,
                 user_prompt=resolved.user_prompt,
             )
-        except Exception:  # noqa: BLE001 - LLM failure must not break the pipeline.
+        except Exception:
             logger.exception("Classification LLM call failed")
             return None
 
@@ -214,7 +221,7 @@ class ClassificationService:
             return MockExtractionProvider()
         try:
             return resolution.build_chat_provider()
-        except Exception:  # noqa: BLE001 - same as above.
+        except Exception:
             logger.exception("Could not build chat provider for classification")
             return None
 

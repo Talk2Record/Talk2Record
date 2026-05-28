@@ -76,7 +76,6 @@ export function RecordAudioControls({
 
     if (activePlaybackId !== recordId && !audio.paused) {
       audio.pause();
-      setIsPlaying(false);
     }
   }, [activePlaybackId, recordId]);
 

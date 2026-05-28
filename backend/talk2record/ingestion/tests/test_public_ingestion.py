@@ -137,10 +137,13 @@ class TestPublicRecordIngestion:
         assert first.status_code == status.HTTP_202_ACCEPTED
         assert second.status_code == status.HTTP_200_OK
         assert second.data["status"] == "duplicate"
-        assert Record.objects.filter(
-            source=Record.Source.API,
-            source_reference="dup-1",
-        ).count() == 1
+        assert (
+            Record.objects.filter(
+                source=Record.Source.API,
+                source_reference="dup-1",
+            ).count()
+            == 1
+        )
         assert len(queued) == 1
 
     def test_rejects_key_without_ingestion_scope(

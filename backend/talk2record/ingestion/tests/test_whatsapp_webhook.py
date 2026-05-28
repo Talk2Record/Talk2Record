@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from talk2record.organizations.models import Organization
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from talk2record.ingestion.models import WhatsAppRawPayload
+from talk2record.organizations.models import Organization
 from talk2record.records.models import Record
 from talk2record.whatsapp.models import WhatsAppSettings
 
@@ -60,7 +60,11 @@ class TestWhatsAppWebhook:
         assert response.status_code == status.HTTP_200_OK
         assert response.content.decode() == "challenge-token"
 
-    def test_verification_rejects_invalid_token(self, integration, api_client: APIClient):
+    def test_verification_rejects_invalid_token(
+        self,
+        integration,
+        api_client: APIClient,
+    ):
         integration.enabled = True
         integration.config = {"verify_token": "expected-token"}
         integration.save(update_fields=["enabled", "config", "updated_at"])
@@ -287,7 +291,10 @@ class TestWhatsAppWebhook:
         integration.save(update_fields=["enabled", "updated_at"])
         api_credential.encrypted_credential = ""
         api_credential.save(update_fields=["encrypted_credential", "updated_at"])
-        secondary_org = Organization.objects.create(name="Secondary Org", slug="secondary-org")
+        secondary_org = Organization.objects.create(
+            name="Secondary Org",
+            slug="secondary-org",
+        )
         whatsapp_route.phone_number_id = "route-a"
         whatsapp_route.save(update_fields=["phone_number_id", "updated_at"])
         whatsapp_route.__class__.objects.create(
@@ -302,7 +309,9 @@ class TestWhatsAppWebhook:
                         {
                             "value": {
                                 "metadata": {"phone_number_id": "route-b"},
-                                "messages": webhook_payload["entry"][0]["changes"][0]["value"]["messages"],
+                                "messages": webhook_payload["entry"][0]["changes"][0][
+                                    "value"
+                                ]["messages"],
                             },
                         },
                     ],
@@ -314,7 +323,11 @@ class TestWhatsAppWebhook:
             lambda *args, **kwargs: None,
         )
 
-        response = api_client.post(reverse("api-whatsapp-webhook"), data=payload, format="json")
+        response = api_client.post(
+            reverse("api-whatsapp-webhook"),
+            data=payload,
+            format="json",
+        )
 
         assert response.status_code == status.HTTP_200_OK
         record = Record.objects.get(source_reference="wamid.ABCD123")

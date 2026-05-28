@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC
 
 from talk2record.events.types import DomainEvent
 
@@ -51,7 +50,7 @@ def test_domain_event_default_occurred_at_is_utc():
         resource_id=None,
     )
     assert event.occurred_at.tzinfo is not None
-    assert event.occurred_at.tzinfo == timezone.utc
+    assert event.occurred_at.tzinfo == UTC
 
 
 def test_domain_event_unique_event_ids():

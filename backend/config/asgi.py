@@ -33,5 +33,5 @@ application = ProtocolTypeRouter(
     {
         "http": django_application,
         "websocket": URLRouter(websocket_urlpatterns),
-    }
+    },
 )

@@ -59,7 +59,7 @@ class WhatsAppSettingsAdmin(ModelAdmin):
                     "fields": ("access_token", "app_secret"),
                     "description": _(
                         "Leave password fields empty to keep the current values. "
-                        "Both are stored in the encrypted credential field."
+                        "Both are stored in the encrypted credential field.",
                     ),
                 },
             ),
@@ -89,7 +89,7 @@ class WhatsAppInboundRouteAdmin(ModelAdmin):
             {
                 "fields": ("phone_number_id", "organization"),
                 "description": _(
-                    "Use the Phone Number ID from WhatsApp Manager or the Graph API."
+                    "Use the Phone Number ID from WhatsApp Manager or the Graph API.",
                 ),
             },
         ),

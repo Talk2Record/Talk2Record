@@ -19,23 +19,16 @@ from dataclasses import field
 
 from django.conf import settings
 
-from talk2record.taxonomy.models import Category, Industry
-from talk2record.taxonomy.services.classification import (
-    ClassificationResult,
-    ClassificationService,
-)
-from talk2record.taxonomy.services.dictionary import (
-    DictionaryNormalizer,
-    NormalizedText,
-)
-from talk2record.taxonomy.services.extraction import (
-    DynamicExtractionResult,
-    DynamicExtractionService,
-)
-from talk2record.taxonomy.services.validation import (
-    SchemaValidator,
-    ValidationResult,
-)
+from talk2record.taxonomy.models import Category
+from talk2record.taxonomy.models import Industry
+from talk2record.taxonomy.services.classification import ClassificationResult
+from talk2record.taxonomy.services.classification import ClassificationService
+from talk2record.taxonomy.services.dictionary import DictionaryNormalizer
+from talk2record.taxonomy.services.dictionary import NormalizedText
+from talk2record.taxonomy.services.extraction import DynamicExtractionResult
+from talk2record.taxonomy.services.extraction import DynamicExtractionService
+from talk2record.taxonomy.services.validation import SchemaValidator
+from talk2record.taxonomy.services.validation import ValidationResult
 
 DEFAULT_REVIEW_CONFIDENCE = 0.6
 
@@ -135,7 +128,10 @@ class ExtractionPipeline:
             industry=primary_industry,
         )
 
-        categories = cls._select_categories(classification, max_categories=max_categories)
+        categories = cls._select_categories(
+            classification,
+            max_categories=max_categories,
+        )
         extractions = cls._extract_per_category(
             categories=categories,
             classification=classification,

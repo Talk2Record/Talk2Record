@@ -165,7 +165,9 @@ class TestFilters:
 class TestRevenueRollup:
     def test_revenue_sum_from_paid_transactions(self, organization):
         plan = Plan.objects.create(
-            code="starter", name="Starter", base_price=Decimal("9.00"),
+            code="starter",
+            name="Starter",
+            base_price=Decimal("9.00"),
         )
         subscription = Subscription.objects.create(
             organization=organization,
@@ -198,7 +200,9 @@ class TestRevenueRollup:
         )
 
         ctx = _call("/admin/?range=all")
-        revenue_cards = [c for c in ctx["kpi_cards"] if str(c["title"]) == "Revenue captured"]
+        revenue_cards = [
+            c for c in ctx["kpi_cards"] if str(c["title"]) == "Revenue captured"
+        ]
         assert revenue_cards, "missing revenue card"
         assert "9.00" in revenue_cards[0]["metric"]
 
@@ -208,7 +212,8 @@ class TestOnboardingIntegration:
     def test_onboarding_progress_reflected_in_kpi(self):
         ctx = _call("/admin/")
         onboarding_card = next(
-            card for card in ctx["kpi_cards"]
+            card
+            for card in ctx["kpi_cards"]
             if str(card["title"]) == "Onboarding progress"
         )
         assert "/" in onboarding_card["metric"]

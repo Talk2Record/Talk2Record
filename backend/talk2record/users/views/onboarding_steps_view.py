@@ -19,7 +19,9 @@ class OnboardingStepsView(APIView):
         if organization is not None:
             has_whatsapp_connection = (
                 get_active_whatsapp_settings() is not None
-                and WhatsAppInboundRoute.objects.filter(organization=organization).exists()
+                and WhatsAppInboundRoute.objects.filter(
+                    organization=organization,
+                ).exists()
             )
             has_records = Record.objects.filter(organization=organization).exists()
 

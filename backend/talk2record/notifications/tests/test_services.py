@@ -38,7 +38,10 @@ def test_notification_service_create_sends_websocket(workspace_user, organizatio
     def fake_send(user_id, _data):
         sent.append(user_id)
 
-    with patch("talk2record.notifications.services._send_notification_to_user", fake_send):
+    with patch(
+        "talk2record.notifications.services._send_notification_to_user",
+        fake_send,
+    ):
         NotificationService.create(
             user=workspace_user,
             notification_type=Notification.Type.GENERAL,
@@ -56,7 +59,10 @@ def test_notification_service_broadcast_record_event(workspace_user, organizatio
     def fake_send(user_id, payload):
         sent_payloads.append((user_id, payload))
 
-    with patch("talk2record.notifications.services._send_notification_to_user", fake_send):
+    with patch(
+        "talk2record.notifications.services._send_notification_to_user",
+        fake_send,
+    ):
         NotificationService.broadcast_record_event(
             organization=organization,
             record_id=42,
@@ -87,4 +93,7 @@ def test_notification_service_mark_all_read(workspace_user):
     ).update(read_at=timezone.now())
 
     assert updated == 3
-    assert Notification.objects.filter(user=workspace_user, read_at__isnull=True).count() == 0
+    assert (
+        Notification.objects.filter(user=workspace_user, read_at__isnull=True).count()
+        == 0
+    )

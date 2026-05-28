@@ -44,12 +44,12 @@ def test_full_whatsapp_to_stored_notification_flow(
                                         "id": "media-id-e2e-001",
                                         "mime_type": "audio/ogg; codecs=opus",
                                     },
-                                }
+                                },
                             ],
                         },
-                    }
+                    },
                 ],
-            }
+            },
         ],
     }
 

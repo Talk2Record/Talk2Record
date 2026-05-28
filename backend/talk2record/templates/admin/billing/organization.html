@@ -1,218 +1,266 @@
 {% extends "admin/index.html" %}
+
 {% load i18n %}
 
 {# Per-org Billing Recovery review at /admin/billing/organization/<id>/.
    Support-tooling view: shows current subscription + version, plan
    entitlements (used vs limit), recent transactions, paddle_customer_id
-   (deep-link to Paddle), recent webhook events, plus the Reset trigger. #}
-
+(deep-link to Paddle), recent webhook events, plus the Reset trigger. #}
 {% block breadcrumbs %}
-<div class="px-4">
+  <div class="px-4">
     <ul class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-        <li><a href="{% url 'admin:index' %}" class="hover:underline">{% translate "Home" %}</a></li>
-        <li class="text-font-subtle-light dark:text-font-subtle-dark">/</li>
-        <li><a href="{{ dashboard_url }}" class="hover:underline">{% translate "Billing dashboard" %}</a></li>
-        <li class="text-font-subtle-light dark:text-font-subtle-dark">/</li>
-        <li class="text-font-subtle-light dark:text-font-subtle-dark">{% translate "Organization" %}: {{ organization.name }}</li>
+      <li>
+        <a href="{% url 'admin:index' %}" class="hover:underline">{% translate "Home" %}</a>
+      </li>
+      <li class="text-font-subtle-light dark:text-font-subtle-dark">/</li>
+      <li>
+        <a href="{{ dashboard_url }}" class="hover:underline">{% translate "Billing dashboard" %}</a>
+      </li>
+      <li class="text-font-subtle-light dark:text-font-subtle-dark">/</li>
+      <li class="text-font-subtle-light dark:text-font-subtle-dark">
+        {% translate "Organization" %}: {{ organization.name }}
+      </li>
     </ul>
-</div>
-{% endblock %}
-
+  </div>
+{% endblock breadcrumbs %}
 {% block content %}
-<div class="space-y-6">
-
+  <div class="space-y-6">
     {# Header — org meta + version + reset trigger #}
     <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-                <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
-                    {{ organization.name }}
-                </h2>
-                <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-1">
-                    <code>{{ organization.slug }}</code>
-                    &middot; {% translate "billing_state_version" %}:
-                    <strong class="text-font-important-light dark:text-font-important-dark">v{{ organization.billing_state_version }}</strong>
-                    &middot; {% translate "status" %}: {{ organization.get_status_display }}
-                </p>
-                {% if paddle_customer_id %}
-                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-1">
-                        {% translate "Paddle customer:" %}
-                        <a href="https://vendors.paddle.com/customers/{{ paddle_customer_id }}" target="_blank" rel="noopener" class="font-mono text-primary-600 hover:underline dark:text-primary-300">{{ paddle_customer_id }}</a>
-                    </p>
-                {% endif %}
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" onclick="document.getElementById('t2r-reset-modal').classList.remove('hidden')" class="inline-flex items-center gap-2 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
-                    <span class="material-symbols-outlined text-base leading-none">restart_alt</span>
-                    {% translate "Reset billing" %}
-                </button>
-                <a href="{{ dashboard_url }}" class="inline-flex items-center gap-2 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 shadow-xs hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    {% translate "Back to dashboard" %}
-                </a>
-            </div>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="font-semibold text-base text-font-important-light dark:text-font-important-dark">
+            {{ organization.name }}
+          </h2>
+          <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-1">
+            <code>{{ organization.slug }}</code>
+            · {% translate "billing_state_version" %}:
+            <strong class="text-font-important-light dark:text-font-important-dark">v{{ organization.billing_state_version }}</strong>
+            · {% translate "status" %}: {{ organization.get_status_display }}
+          </p>
+          {% if paddle_customer_id %}
+            <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mt-1">
+              {% translate "Paddle customer:" %}
+              <a href="https://vendors.paddle.com/customers/{{ paddle_customer_id }}"
+                 target="_blank"
+                 rel="noopener"
+                 class="font-mono text-primary-600 hover:underline dark:text-primary-300">{{ paddle_customer_id }}</a>
+            </p>
+          {% endif %}
         </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button"
+                  onclick="document.getElementById('t2r-reset-modal').classList.remove('hidden')"
+                  class="inline-flex items-center gap-2 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
+            <span class="material-symbols-outlined text-base leading-none">restart_alt</span>
+            {% translate "Reset billing" %}
+          </button>
+          <a href="{{ dashboard_url }}"
+             class="inline-flex items-center gap-2 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 shadow-xs hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+            {% translate "Back to dashboard" %}
+          </a>
+        </div>
+      </div>
     </div>
-
     {# Subscriptions #}
     <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Subscriptions" %}</h3>
-        {% if subscriptions %}
-            <table class="w-full text-xs">
-                <thead>
-                    <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
-                        <th class="py-2 font-medium">{% translate "Plan" %}</th>
-                        <th class="py-2 font-medium">{% translate "Interval" %}</th>
-                        <th class="py-2 font-medium">{% translate "Status" %}</th>
-                        <th class="py-2 font-medium text-right">{% translate "Amount" %}</th>
-                        <th class="py-2 font-medium">{% translate "Period ends" %}</th>
-                        <th class="py-2 font-medium">{% translate "Paddle sub" %}</th>
-                        <th class="py-2 font-medium text-right">{% translate "Actions" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sub in subscriptions %}
-                        <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
-                            <td class="py-2">
-                                <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ sub.plan_name }}</span>
-                                <span class="ml-1 text-font-subtle-light dark:text-font-subtle-dark">{{ sub.plan_code }}</span>
-                            </td>
-                            <td class="py-2">
-                                <span class="rounded-default bg-base-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-base-700 dark:bg-base-800 dark:text-base-200">{{ sub.billing_interval }}</span>
-                            </td>
-                            <td class="py-2">{{ sub.status }}</td>
-                            <td class="py-2 text-right">{{ sub.currency }} {{ sub.amount|floatformat:2 }}</td>
-                            <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">{{ sub.current_period_end|date:"Y-m-d"|default:"—" }}</td>
-                            <td class="py-2 font-mono text-[11px] text-font-subtle-light dark:text-font-subtle-dark">{{ sub.provider_subscription_id|default:"—" }}</td>
-                            <td class="py-2 text-right">
-                                <a href="{{ sub.change_url }}" class="text-primary-600 hover:underline dark:text-primary-300">{% translate "Edit" %}</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">{% translate "No subscriptions for this organization." %}</p>
-        {% endif %}
+      <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+        {% translate "Subscriptions" %}
+      </h3>
+      {% if subscriptions %}
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
+              <th class="py-2 font-medium">{% translate "Plan" %}</th>
+              <th class="py-2 font-medium">{% translate "Interval" %}</th>
+              <th class="py-2 font-medium">{% translate "Status" %}</th>
+              <th class="py-2 font-medium text-right">{% translate "Amount" %}</th>
+              <th class="py-2 font-medium">{% translate "Period ends" %}</th>
+              <th class="py-2 font-medium">{% translate "Paddle sub" %}</th>
+              <th class="py-2 font-medium text-right">{% translate "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub in subscriptions %}
+              <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
+                <td class="py-2">
+                  <span class="font-medium text-font-important-light dark:text-font-important-dark">{{ sub.plan_name }}</span>
+                  <span class="ml-1 text-font-subtle-light dark:text-font-subtle-dark">{{ sub.plan_code }}</span>
+                </td>
+                <td class="py-2">
+                  <span class="rounded-default bg-base-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-base-700 dark:bg-base-800 dark:text-base-200">{{ sub.billing_interval }}</span>
+                </td>
+                <td class="py-2">{{ sub.status }}</td>
+                <td class="py-2 text-right">{{ sub.currency }} {{ sub.amount|floatformat:2 }}</td>
+                <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">
+                  {{ sub.current_period_end|date:"Y-m-d"|default:"—" }}
+                </td>
+                <td class="py-2 font-mono text-[11px] text-font-subtle-light dark:text-font-subtle-dark">
+                  {{ sub.provider_subscription_id|default:"—" }}
+                </td>
+                <td class="py-2 text-right">
+                  <a href="{{ sub.change_url }}"
+                     class="text-primary-600 hover:underline dark:text-primary-300">{% translate "Edit" %}</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+          {% translate "No subscriptions for this organization." %}
+        </p>
+      {% endif %}
     </div>
-
     {# Entitlements #}
     <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Plan entitlements (active subscription)" %}</h3>
-        {% if entitlements %}
-            <table class="w-full text-xs">
-                <thead>
-                    <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
-                        <th class="py-2 font-medium">{% translate "Feature key" %}</th>
-                        <th class="py-2 font-medium">{% translate "Enabled" %}</th>
-                        <th class="py-2 font-medium text-right">{% translate "Limit" %}</th>
-                        <th class="py-2 font-medium">{% translate "Period" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ent in entitlements %}
-                        <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
-                            <td class="py-2 font-mono text-[11px] text-font-important-light dark:text-font-important-dark">{{ ent.feature_key }}</td>
-                            <td class="py-2">{% if ent.enabled %}<span class="text-emerald-700 dark:text-emerald-300">{% translate "yes" %}</span>{% else %}<span class="text-rose-700 dark:text-rose-300">{% translate "no" %}</span>{% endif %}</td>
-                            <td class="py-2 text-right">{% if ent.limit %}{{ ent.limit }}{% else %}&infin;{% endif %}</td>
-                            <td class="py-2">{{ ent.period }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">{% translate "No active subscription, so no entitlements granted." %}</p>
-        {% endif %}
+      <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+        {% translate "Plan entitlements (active subscription)" %}
+      </h3>
+      {% if entitlements %}
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
+              <th class="py-2 font-medium">{% translate "Feature key" %}</th>
+              <th class="py-2 font-medium">{% translate "Enabled" %}</th>
+              <th class="py-2 font-medium text-right">{% translate "Limit" %}</th>
+              <th class="py-2 font-medium">{% translate "Period" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ent in entitlements %}
+              <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
+                <td class="py-2 font-mono text-[11px] text-font-important-light dark:text-font-important-dark">
+                  {{ ent.feature_key }}
+                </td>
+                <td class="py-2">
+                  {% if ent.enabled %}
+                    <span class="text-emerald-700 dark:text-emerald-300">{% translate "yes" %}</span>
+                  {% else %}
+                    <span class="text-rose-700 dark:text-rose-300">{% translate "no" %}</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 text-right">
+                  {% if ent.limit %}
+                    {{ ent.limit }}
+                  {% else %}
+                    ∞
+                  {% endif %}
+                </td>
+                <td class="py-2">{{ ent.period }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+          {% translate "No active subscription, so no entitlements granted." %}
+        </p>
+      {% endif %}
     </div>
-
     {# Recent transactions + Recent webhook events (side-by-side) #}
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Recent transactions" %}</h3>
-            {% if recent_transactions %}
-                <table class="w-full text-xs">
-                    <thead>
-                        <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
-                            <th class="py-2 font-medium">{% translate "Invoice" %}</th>
-                            <th class="py-2 font-medium text-right">{% translate "Amount" %}</th>
-                            <th class="py-2 font-medium">{% translate "Status" %}</th>
-                            <th class="py-2 font-medium">{% translate "Issued" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for tx in recent_transactions %}
-                            <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
-                                <td class="py-2 font-mono text-[11px] text-font-subtle-light dark:text-font-subtle-dark">{{ tx.invoice_number|default:tx.provider_transaction_id|default:tx.pk }}</td>
-                                <td class="py-2 text-right">{{ tx.currency }} {{ tx.amount|floatformat:2 }}</td>
-                                <td class="py-2">{{ tx.get_status_display }}</td>
-                                <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">{{ tx.issued_at|date:"Y-m-d" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">{% translate "No transactions recorded." %}</p>
-            {% endif %}
-        </div>
-
-        <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
-            <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">{% translate "Recent Paddle webhook events" %}</h3>
-            {% if webhook_events %}
-                <table class="w-full text-xs">
-                    <thead>
-                        <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
-                            <th class="py-2 font-medium">{% translate "Event" %}</th>
-                            <th class="py-2 font-medium">{% translate "Status" %}</th>
-                            <th class="py-2 font-medium">{% translate "Received" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for evt in webhook_events %}
-                            <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
-                                <td class="py-2">
-                                    <div class="font-mono text-[11px] text-font-important-light dark:text-font-important-dark">{{ evt.event_type }}</div>
-                                    <div class="font-mono text-[10px] text-font-subtle-light dark:text-font-subtle-dark">{{ evt.paddle_event_id }}</div>
-                                </td>
-                                <td class="py-2">{{ evt.get_status_display }}</td>
-                                <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">{{ evt.received_at|date:"Y-m-d H:i" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">{% translate "No webhook events recorded for this organization." %}</p>
-            {% endif %}
-        </div>
+      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+          {% translate "Recent transactions" %}
+        </h3>
+        {% if recent_transactions %}
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
+                <th class="py-2 font-medium">{% translate "Invoice" %}</th>
+                <th class="py-2 font-medium text-right">{% translate "Amount" %}</th>
+                <th class="py-2 font-medium">{% translate "Status" %}</th>
+                <th class="py-2 font-medium">{% translate "Issued" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tx in recent_transactions %}
+                <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
+                  <td class="py-2 font-mono text-[11px] text-font-subtle-light dark:text-font-subtle-dark">
+                    {{ tx.invoice_number|default:tx.provider_transaction_id|default:tx.pk }}
+                  </td>
+                  <td class="py-2 text-right">{{ tx.currency }} {{ tx.amount|floatformat:2 }}</td>
+                  <td class="py-2">{{ tx.get_status_display }}</td>
+                  <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">{{ tx.issued_at|date:"Y-m-d" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">{% translate "No transactions recorded." %}</p>
+        {% endif %}
+      </div>
+      <div class="bg-white rounded-default border border-base-200 p-4 shadow-xs dark:border-base-800 dark:bg-base-900">
+        <h3 class="text-sm font-semibold mb-3 text-font-important-light dark:text-font-important-dark">
+          {% translate "Recent Paddle webhook events" %}
+        </h3>
+        {% if webhook_events %}
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-left border-b border-base-200 dark:border-base-800 text-font-subtle-light dark:text-font-subtle-dark">
+                <th class="py-2 font-medium">{% translate "Event" %}</th>
+                <th class="py-2 font-medium">{% translate "Status" %}</th>
+                <th class="py-2 font-medium">{% translate "Received" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for evt in webhook_events %}
+                <tr class="border-b border-base-100 last:border-0 dark:border-base-800">
+                  <td class="py-2">
+                    <div class="font-mono text-[11px] text-font-important-light dark:text-font-important-dark">{{ evt.event_type }}</div>
+                    <div class="font-mono text-[10px] text-font-subtle-light dark:text-font-subtle-dark">{{ evt.paddle_event_id }}</div>
+                  </td>
+                  <td class="py-2">{{ evt.get_status_display }}</td>
+                  <td class="py-2 text-font-subtle-light dark:text-font-subtle-dark">{{ evt.received_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+            {% translate "No webhook events recorded for this organization." %}
+          </p>
+        {% endif %}
+      </div>
     </div>
-</div>
-
-{# Reset modal — hidden by default; toggled by the header button. #}
-<div id="t2r-reset-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  </div>
+  {# Reset modal — hidden by default; toggled by the header button. #}
+  <div id="t2r-reset-modal"
+       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="bg-white dark:bg-base-900 rounded-default border border-base-200 dark:border-base-800 shadow-lg max-w-lg w-full p-5">
-        <form method="post" action="{{ reset_url }}">
-            {% csrf_token %}
-            <h3 class="text-base font-semibold text-font-important-light dark:text-font-important-dark mb-2">
-                {% translate "Reset billing for" %} {{ organization.name }}
-            </h3>
-            <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mb-4">
-                {% blocktranslate %}This will: cancel active Paddle subscriptions (operational, not destructive), void pending transactions, mark local subscriptions canceled, clear the current billing-cycle usage counters, and bump billing_state_version. Paid invoices, audit logs, profile, and uploaded files are preserved.{% endblocktranslate %}
-            </p>
-            <label class="block mb-3">
-                <span class="text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Reason (required)" %}</span>
-                <textarea name="reason" rows="3" required class="mt-1 w-full rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900 dark:text-base-100" placeholder="{% translate 'e.g. Customer dispute case T-1234, duplicate-charge refund issued in Paddle' %}"></textarea>
-            </label>
-            <label class="inline-flex items-center gap-2 mb-4 text-xs text-font-subtle-light dark:text-font-subtle-dark">
-                <input type="checkbox" name="also_reset_onboarding" />
-                <span>{% translate "Also reset organisation onboarding (profile_setup_completed)" %}</span>
-            </label>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="document.getElementById('t2r-reset-modal').classList.add('hidden')" class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
-                    {% translate "Cancel" %}
-                </button>
-                <button type="submit" class="inline-flex items-center gap-1 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
-                    {% translate "Confirm reset" %}
-                </button>
-            </div>
-        </form>
+      <form method="post" action="{{ reset_url }}">
+        {% csrf_token %}
+        <h3 class="text-base font-semibold text-font-important-light dark:text-font-important-dark mb-2">
+          {% translate "Reset billing for" %} {{ organization.name }}
+        </h3>
+        <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark mb-4">
+          {% blocktranslate %}This will: cancel active Paddle subscriptions (operational, not destructive), void pending transactions, mark local subscriptions canceled, clear the current billing-cycle usage counters, and bump billing_state_version. Paid invoices, audit logs, profile, and uploaded files are preserved.{% endblocktranslate %}
+        </p>
+        <label class="block mb-3">
+          <span class="text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark">{% translate "Reason (required)" %}</span>
+          <textarea name="reason"
+                    rows="3"
+                    required
+                    class="mt-1 w-full rounded-default border border-base-200 bg-white px-3 py-2 text-sm dark:border-base-700 dark:bg-base-900 dark:text-base-100"
+                    placeholder="{% translate 'e.g. Customer dispute case T-1234, duplicate-charge refund issued in Paddle' %}"></textarea>
+        </label>
+        <label class="inline-flex items-center gap-2 mb-4 text-xs text-font-subtle-light dark:text-font-subtle-dark">
+          <input type="checkbox" name="also_reset_onboarding" />
+          <span>{% translate "Also reset organisation onboarding (profile_setup_completed)" %}</span>
+        </label>
+        <div class="flex justify-end gap-2">
+          <button type="button"
+                  onclick="document.getElementById('t2r-reset-modal').classList.add('hidden')"
+                  class="inline-flex items-center gap-1 rounded-default border border-base-200 bg-white px-3 py-2 text-xs font-medium text-base-700 hover:bg-base-50 dark:border-base-700 dark:bg-base-900 dark:text-base-200 dark:hover:bg-base-800">
+            {% translate "Cancel" %}
+          </button>
+          <button type="submit"
+                  class="inline-flex items-center gap-1 rounded-default bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-rose-700">
+            {% translate "Confirm reset" %}
+          </button>
+        </div>
+      </form>
     </div>
-</div>
-{% endblock %}
+  </div>
+{% endblock content %}

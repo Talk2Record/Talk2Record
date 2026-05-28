@@ -8,11 +8,11 @@ from rest_framework.test import APIClient
 from talk2record.billing.models import PaddleSettings
 from talk2record.billing.models import Subscription
 from talk2record.billing.tasks import handle_domain_event_for_billing
-from talk2record.organizations.models import Organization
 from talk2record.core.vault import SecretVault
 from talk2record.events.names import BILLING_PAYMENT_FAILED
 from talk2record.events.names import BILLING_SUBSCRIPTION_CREATED
 from talk2record.notifications.models import Notification
+from talk2record.organizations.models import Organization
 
 
 @pytest.mark.django_db
@@ -20,7 +20,10 @@ def test_plan_subscription_and_transaction_str(plan, subscription):
     transaction = subscription.transactions.get()
 
     assert str(plan) == "Growth (USD)"
-    assert str(subscription) == f"{subscription.organization.name}: {subscription.plan.name}"
+    assert (
+        str(subscription)
+        == f"{subscription.organization.name}: {subscription.plan.name}"
+    )
     assert str(transaction) == "inv_1"
 
 
@@ -76,7 +79,8 @@ def test_paddle_settings_environment_toggle_changes_base_url():
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_billing_payment_failed_creates_notifications(
-    workspace_user, organization,
+    workspace_user,
+    organization,
 ):
     event_payload = {
         "event_id": "billing-test-uuid-001",
@@ -98,7 +102,8 @@ def test_handle_domain_event_for_billing_payment_failed_creates_notifications(
 
 @pytest.mark.django_db
 def test_handle_domain_event_for_billing_subscription_created_creates_notifications(
-    workspace_user, organization,
+    workspace_user,
+    organization,
 ):
     event_payload = {
         "event_id": "billing-test-uuid-002",
@@ -133,11 +138,14 @@ def test_handle_domain_event_for_billing_is_idempotent(workspace_user, organizat
     handle_domain_event_for_billing(event_payload)
     handle_domain_event_for_billing(event_payload)
 
-    assert Notification.objects.filter(
-        organization=organization,
-        type=Notification.Type.BILLING_PAYMENT,
-        metadata__event_id="billing-test-uuid-003",
-    ).count() == 1
+    assert (
+        Notification.objects.filter(
+            organization=organization,
+            type=Notification.Type.BILLING_PAYMENT,
+            metadata__event_id="billing-test-uuid-003",
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -249,13 +257,21 @@ def test_change_plan_updates_subscription(workspace_user, subscription, plan):
         plan=starter,
         interval="month",
         currency="USD",
-        defaults={"amount": Decimal("19.00"), "active": True, "paddle_price_id": "pri_starter"},
+        defaults={
+            "amount": Decimal("19.00"),
+            "active": True,
+            "paddle_price_id": "pri_starter",
+        },
     )
     PlanPrice.objects.update_or_create(
         plan=plan,
         interval="month",
         currency="USD",
-        defaults={"amount": Decimal("49.00"), "active": True, "paddle_price_id": "pri_growth"},
+        defaults={
+            "amount": Decimal("49.00"),
+            "active": True,
+            "paddle_price_id": "pri_growth",
+        },
     )
 
     client = APIClient()
@@ -300,14 +316,22 @@ def test_change_plan_same_plan_returns_400(workspace_user, subscription):
 
 
 @pytest.mark.django_db
-def test_change_plan_without_subscription_returns_checkout(workspace_user, organization, plan):
+def test_change_plan_without_subscription_returns_checkout(
+    workspace_user,
+    organization,
+    plan,
+):
     from talk2record.billing.models import PlanPrice
 
     PlanPrice.objects.update_or_create(
         plan=plan,
         interval="month",
         currency="USD",
-        defaults={"amount": plan.base_price, "active": True, "paddle_price_id": "pri_growth"},
+        defaults={
+            "amount": plan.base_price,
+            "active": True,
+            "paddle_price_id": "pri_growth",
+        },
     )
 
     client = APIClient()
@@ -348,7 +372,11 @@ def test_create_checkout_does_not_send_success_url_as_checkout_url(organization,
         plan=plan,
         interval="month",
         currency="USD",
-        defaults={"amount": plan.base_price, "active": True, "paddle_price_id": "pri_growth"},
+        defaults={
+            "amount": plan.base_price,
+            "active": True,
+            "paddle_price_id": "pri_growth",
+        },
     )
 
     service = PaddleBillingService()
@@ -381,7 +409,10 @@ def test_create_checkout_does_not_send_success_url_as_checkout_url(organization,
 
     payload = captured["payload"]
     assert payload["checkout"]["url"] == "http://localhost:3000/checkout"
-    assert payload["custom_data"]["success_url"] == "http://localhost:3000/onboarding?checkout=success"
+    assert (
+        payload["custom_data"]["success_url"]
+        == "http://localhost:3000/onboarding?checkout=success"
+    )
     assert session.transaction_id == "txn_abc"
     assert session.checkout_url.endswith("?_ptxn=txn_abc")
 
@@ -453,13 +484,16 @@ def test_plans_catalog_includes_trial_period(client):
     monthly = next(price for price in starter["prices"] if price["interval"] == "month")
     assert monthly["trialPeriod"] == {"interval": "day", "frequency": 14}
     scale = next(row for row in response.json() if row["code"] == "scale")
-    scale_monthly = next(price for price in scale["prices"] if price["interval"] == "month")
+    scale_monthly = next(
+        price for price in scale["prices"] if price["interval"] == "month"
+    )
     assert scale_monthly["trialPeriod"] is None
 
 
 @pytest.mark.django_db
 def test_trial_checkout_sets_automatic_collection_and_trial_custom_data(
-    organization, plan,
+    organization,
+    plan,
 ):
     """A checkout against a price that carries a trial_period should:
 
@@ -489,7 +523,12 @@ def test_trial_checkout_sets_automatic_collection_and_trial_custom_data(
 
     def fake_create_transaction(payload):
         captured["payload"] = payload
-        return {"data": {"id": "txn_trial", "checkout": {"url": "http://x/?_ptxn=txn_trial"}}}
+        return {
+            "data": {
+                "id": "txn_trial",
+                "checkout": {"url": "http://x/?_ptxn=txn_trial"},
+            },
+        }
 
     service.client.create_transaction = fake_create_transaction  # type: ignore[method-assign]
     service.client._settings = lambda: type(  # type: ignore[method-assign]  # noqa: SLF001
@@ -532,7 +571,9 @@ def test_non_trial_checkout_omits_trial_custom_data(organization, plan):
 
     def fake_create_transaction(payload):
         captured["payload"] = payload
-        return {"data": {"id": "txn_paid", "checkout": {"url": "http://x/?_ptxn=txn_paid"}}}
+        return {
+            "data": {"id": "txn_paid", "checkout": {"url": "http://x/?_ptxn=txn_paid"}},
+        }
 
     service.client.create_transaction = fake_create_transaction  # type: ignore[method-assign]
     service.client._settings = lambda: type(  # type: ignore[method-assign]  # noqa: SLF001
@@ -553,7 +594,8 @@ def test_non_trial_checkout_omits_trial_custom_data(organization, plan):
 
 @pytest.mark.django_db(transaction=True)
 def test_subscription_created_webhook_stamps_period_end_for_trialing(
-    settings, subscription,
+    settings,
+    subscription,
 ):
     """``subscription.created`` with ``status=trialing`` must persist
     ``current_period_end`` so the serializer can expose ``trial_ends_at``.
@@ -617,7 +659,9 @@ def test_admin_billing_dashboard_renders_with_kpis(admin_client, subscription):
 
 @pytest.mark.django_db
 def test_admin_billing_dashboard_computes_mrr_from_intervals(
-    admin_client, organization, plan,
+    admin_client,
+    organization,
+    plan,
 ):
     """A monthly + annual sub on the same org should produce MRR = month + year/12."""
     from decimal import Decimal
@@ -701,7 +745,8 @@ def test_sync_paddle_state_task_short_circuits_when_unconfigured():
 
 @pytest.mark.django_db(transaction=True)
 def test_webhook_duplicate_event_id_is_processed_exactly_once(
-    settings, subscription,
+    settings,
+    subscription,
 ):
     """Replaying the same Paddle event must not duplicate mutations.
 
@@ -743,7 +788,8 @@ def test_webhook_duplicate_event_id_is_processed_exactly_once(
 
 @pytest.mark.django_db(transaction=True)
 def test_webhook_skipped_when_billing_state_version_changes_during_dispatch(
-    settings, subscription,
+    settings,
+    subscription,
 ):
     """Reset-race guard: a webhook that arrives concurrently with a billing
     reset must be discarded if ``billing_state_version`` bumped during
@@ -774,7 +820,7 @@ def test_webhook_skipped_when_billing_state_version_changes_during_dispatch(
 
     original_status = subscription.status
 
-    def _race(event_type, event_data, org_id):  # noqa: ARG001
+    def _race(event_type, event_data, org_id):
         # Apply the mutation first (will get rolled back), then bump the
         # version to simulate a reset finishing between snapshot and commit.
         Subscription.objects.filter(
@@ -789,7 +835,9 @@ def test_webhook_skipped_when_billing_state_version_changes_during_dispatch(
         side_effect=_race,
     ):
         response = client.post(
-            reverse("api-billing-webhook"), data=payload, format="json",
+            reverse("api-billing-webhook"),
+            data=payload,
+            format="json",
         )
 
     assert response.status_code == 202
@@ -807,7 +855,8 @@ def test_webhook_skipped_when_billing_state_version_changes_during_dispatch(
 
 @pytest.mark.django_db(transaction=True)
 def test_webhook_out_of_order_updated_after_canceled_does_not_reactivate(
-    settings, subscription,
+    settings,
+    subscription,
 ):
     """If ``subscription.updated`` arrives *after* ``subscription.canceled``
     (out-of-order delivery from Paddle), the local CANCELED state must NOT
@@ -886,7 +935,9 @@ def test_webhook_resumed_can_reactivate_canceled_sub(settings, subscription):
         },
     }
     response = client.post(
-        reverse("api-billing-webhook"), data=resume_payload, format="json",
+        reverse("api-billing-webhook"),
+        data=resume_payload,
+        format="json",
     )
     assert response.status_code == 202
     subscription.refresh_from_db()
@@ -942,7 +993,11 @@ def test_webhook_stale_organization_id_returns_202_not_500(settings, plan):
     }
 
     with patch("talk2record.billing.webhook_pipeline.EventBus.publish") as mock_publish:
-        response = client.post(reverse("api-billing-webhook"), data=payload, format="json")
+        response = client.post(
+            reverse("api-billing-webhook"),
+            data=payload,
+            format="json",
+        )
 
     assert response.status_code == 202
     assert response.json()["status"] in {"accepted", "failed"}
@@ -976,7 +1031,9 @@ def test_webhook_async_path_enqueues_celery_task(settings, subscription):
 
     with patch("talk2record.billing.tasks.process_paddle_webhook.delay") as mock_delay:
         response = client.post(
-            reverse("api-billing-webhook"), data=payload, format="json",
+            reverse("api-billing-webhook"),
+            data=payload,
+            format="json",
         )
 
     assert response.status_code == 202
