@@ -184,7 +184,7 @@ compose up -d postgres redis django frontend celeryworker celerybeat flower
 
 echo "==> Waiting for django to report healthy"
 django_ready=false
-for i in $(seq 1 60); do
+for i in $(seq 1 100); do
   status=$(docker inspect --format='{{.State.Health.Status}}' "$HEALTH_HOST" 2>/dev/null || echo "missing")
   if [[ "$status" == "healthy" ]]; then
     django_ready=true

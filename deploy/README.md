@@ -136,14 +136,18 @@ Workflow during local edits:
 
 Key differences between envs:
 
-| Variable                         | production                                            | staging                            |
-| -------------------------------- | ----------------------------------------------------- | ---------------------------------- |
-| `DJANGO_ALLOWED_HOSTS`           | `.talk2record.com`                                    | `staging.talk2record.com`          |
-| `DJANGO_CORS_ALLOWED_ORIGINS`    | `https://talk2record.com,https://www.talk2record.com` | `https://staging.talk2record.com`  |
-| `DJANGO_CSRF_TRUSTED_ORIGINS`    | same as CORS                                          | `https://staging.talk2record.com`  |
-| `SENTRY_ENVIRONMENT`             | `production`                                          | `staging`                          |
-| Paddle keys                      | live keys                                             | sandbox keys                       |
-| `DJANGO_AWS_STORAGE_BUCKET_NAME` | prod bucket                                           | staging bucket (or prefix)         |
+- `DJANGO_ALLOWED_HOSTS`
+  - production: `.talk2record.com`
+  - staging: `.staging.talk2record.com`
+- `DJANGO_CORS_ALLOWED_ORIGINS`
+  - production: `https://talk2record.com,https://www.talk2record.com`
+  - staging: `https://staging.talk2record.com`
+- `DJANGO_CSRF_TRUSTED_ORIGINS`
+  - production: CORS origins + `https://admin.talk2record.com` + `https://docs.talk2record.com`
+  - staging: `https://staging.talk2record.com` + `https://admin.staging.talk2record.com` + `https://docs.staging.talk2record.com`
+- `SENTRY_ENVIRONMENT`: `production` vs `staging`
+- Paddle keys: live (production) vs sandbox (staging)
+- `DJANGO_AWS_STORAGE_BUCKET_NAME`: prod bucket vs staging bucket/prefix
 
 **Rotating `POSTGRES_PASSWORD`?** The volume keeps the original password. After
 updating the secret, run `ENV=<env> deploy/scripts/reset-stack.sh` on the VPS to
@@ -157,7 +161,21 @@ docker compose -p talk2record-edge up -d
 docker compose -p talk2record-edge logs -f
 ```
 
-Watch the logs until Let's Encrypt finishes issuing certs for all three hosts.
+Watch the logs until Let's Encrypt finishes issuing certs for your configured hosts.
+At minimum this should include:
+
+- `talk2record.com`
+- `www.talk2record.com`
+- `staging.talk2record.com`
+
+If you also created optional DNS records, expect certs for:
+
+- `admin.talk2record.com`
+- `admin.staging.talk2record.com`
+- `docs.talk2record.com`
+- `docs.staging.talk2record.com`
+- `flower.talk2record.com`
+- `flower.staging.talk2record.com`
 
 ## 6. GitHub setup
 
@@ -246,6 +264,39 @@ so deploys to prod will wait for an approver.
    `production` GitHub Environment.
 6. Approve, watch the deploy step succeed, verify `https://talk2record.com`.
 
+### 7.1 Optional hardening and operator steps
+
+These are optional but recommended after the first successful staging deploy.
+
+1. **Create an initial superuser** (if one does not exist yet):
+
+   ```bash
+   cd /opt/talk2record/repo/backend
+   ENVS_DIR=/opt/talk2record/envs/staging \
+     docker compose -f docker-compose.staging.yml -p talk2record-staging \
+     exec -it django /entrypoint python manage.py createsuperuser
+   ```
+
+2. **Re-seed reference data on demand** (safe, idempotent):
+
+   ```bash
+   cd /opt/talk2record/repo/backend
+   ENVS_DIR=/opt/talk2record/envs/staging \
+     docker compose -f docker-compose.staging.yml -p talk2record-staging \
+     exec django /entrypoint python manage.py seed_data
+   ```
+
+3. **Expose optional subdomains** by adding DNS A records:
+   - `admin[.staging].talk2record.com`
+   - `docs[.staging].talk2record.com`
+   - `flower[.staging].talk2record.com`
+
+4. **Restrict admin surface** (recommended): add a Traefik IP allowlist middleware
+   to `admin.*` routers so only office/VPN addresses can access admin.
+
+5. **Enable production approvals** in GitHub Environment (`production`): require
+   at least one reviewer before deploy to `main`.
+
 ## 8. External integrations to update post-go-live
 
 | Service              | Production URL                                                 | Staging URL                                                          |
@@ -285,12 +336,12 @@ ENVS_DIR=/opt/talk2record/envs/prod \
 # Django shell
 ENVS_DIR=/opt/talk2record/envs/prod \
   docker compose -f docker-compose.production.yml -p talk2record-prod \
-  exec django python manage.py shell
+  exec django /entrypoint python manage.py shell
 
 # Manual migration (already done by deploy.sh)
 ENVS_DIR=/opt/talk2record/envs/prod \
   docker compose -f docker-compose.production.yml -p talk2record-prod \
-  run --rm django python manage.py migrate
+  exec django /entrypoint python manage.py migrate --noinput
 ```
 
 ## 11. Admin, docs, and monitoring
@@ -314,7 +365,7 @@ Create the first superuser (one-time, per environment):
 cd /opt/talk2record/repo/backend
 ENVS_DIR=/opt/talk2record/envs/staging \
   docker compose -f docker-compose.staging.yml -p talk2record-staging \
-  exec django python manage.py createsuperuser
+  exec -it django /entrypoint python manage.py createsuperuser
 ```
 
 ### 11.2 API docs (Swagger UI / OpenAPI)
@@ -373,7 +424,7 @@ safe to run on every deploy. Re-seed manually:
 cd /opt/talk2record/repo/backend
 ENVS_DIR=/opt/talk2record/envs/staging \
   docker compose -f docker-compose.staging.yml -p talk2record-staging \
-  run --rm django python manage.py seed_data
+  exec django /entrypoint python manage.py seed_data
 ```
 
 ## 12. Backups (already scaffolded)
@@ -409,23 +460,19 @@ you're resetting from a backup.
 
 ### Django container never reports healthy
 
-The container healthcheck makes an HTTP request to itself using **Python's
-`urllib`** (the production image is `python:3.13-slim-bookworm`, which has
-neither `wget` nor `curl` — only Python). It sends `Host: <env-host>` to match
-`DJANGO_ALLOWED_HOSTS`.
+The container healthcheck performs a **TCP readiness probe** to
+`127.0.0.1:5000` using Python's `socket` module. This checks that gunicorn is
+accepting connections without depending on app-level routes like `/api/schema/`.
 
 If healthchecks fail, check in order:
 
-1. **`DJANGO_ALLOWED_HOSTS` mismatch.** The healthcheck sends
-   `Host: staging.talk2record.com` (or `talk2record.com`). If you change the
-   public hostname, update both `ENV_DJANGO` *and* the `Host:` header literal
-   in `backend/docker-compose.<env>.yml`.
-2. **Gunicorn slow boot.** Workers take ~30–60s under cold cache. The compose
+1. **Gunicorn slow boot.** Workers take ~30–60s under cold cache. The compose
    file gives Django `start_period: 30s` and 60 deploy-script retries × 5s =
    300s of grace before failing.
-3. **Schema endpoint errors.** Visit `https://<host>/api/schema/` manually — a
-   misconfigured DRF spectacular component (e.g. missing serializer) can make
-   it 500.
+2. **Port bind issues inside container.** Confirm gunicorn bound on `0.0.0.0:5000`
+   and no startup crash happened before workers boot.
+3. **Entrypoint/env failures.** Missing runtime env (for example malformed
+   `.django` / `.postgres`) can crash startup before the listener comes up.
 
 Inspect probe history on the VPS:
 

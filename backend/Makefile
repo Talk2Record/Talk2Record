@@ -63,7 +63,11 @@ help:
 	@printf "\nProduction (Docker Compose):\n"
 	@printf "  make prod-build       Build production images\n"
 	@printf "  make prod-up          Start production stack (detached)\n"
-	@printf "  make prod-down        Stop production stack\n\n"
+	@printf "  make prod-down        Stop production stack\n"
+	@printf "\nDeploy/GitHub env sync:\n"
+	@printf "  make sync-gha-env GHA_ENV=staging     Push deploy/env/<env> files to GitHub Environment secrets\n"
+	@printf "  make sync-gha-env-staging             Shortcut for staging\n"
+	@printf "  make sync-gha-env-production          Shortcut for production\n\n"
 
 # -----------------------------
 # Docker Compose (local)
@@ -249,3 +253,27 @@ prod-up:
 .PHONY: prod-down
 prod-down:
 	$(COMPOSE_PROD) down
+
+# -----------------------------
+# Deploy / GitHub Environment secrets
+# -----------------------------
+
+.PHONY: sync-gha-env
+sync-gha-env:
+	@if [ -z "$(GHA_ENV)" ]; then \
+		printf "Usage: make sync-gha-env GHA_ENV=staging|production\n" >&2; \
+		exit 2; \
+	fi
+	@if [ "$(GHA_ENV)" != "staging" ] && [ "$(GHA_ENV)" != "production" ]; then \
+		printf "GHA_ENV must be 'staging' or 'production' (got: %s)\n" "$(GHA_ENV)" >&2; \
+		exit 2; \
+	fi
+	../deploy/scripts/sync-gha-secrets-from-local.sh "$(GHA_ENV)"
+
+.PHONY: sync-gha-env-staging
+sync-gha-env-staging:
+	$(MAKE) sync-gha-env GHA_ENV=staging
+
+.PHONY: sync-gha-env-production
+sync-gha-env-production:
+	$(MAKE) sync-gha-env GHA_ENV=production
